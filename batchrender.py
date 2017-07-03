@@ -38,7 +38,7 @@ class Config(dict):
                 'CONTINUE': 2, 
                 'PID': None,
              }
-    path = os.path.join(os.getenv('UserProfile'), '.BatchRender.json')
+    path = os.path.expanduser('~/.BatchRender.json')
 
     def __init__(self):
         self.update(dict(self.default))
@@ -335,6 +335,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.edits_key = {  
             self.dirEdit: 'DIR',
+            self.proxyCheck: 'PROXY',
+            self.priorityCheck: 'LOW_PRIORITY',
+            self.continueCheck: 'CONTINUE',
+            self.hiberCheck: 'HIBER',
         }
         self.change_dir(self._config['DIR'])
         self.update()
@@ -424,8 +428,7 @@ if __name__ == '__main__':
     except SystemExit as e:
         exit(e)
     except SingleInstanceException as e:
-        print(str(e).encode(SYS_CODEC))
-        pause()
+        Popen('"{}" "{}"'.format(os.path.join(__file__, '../active_pid.exe'), format(Config()['PID'])))
     except:
         import traceback
         traceback.print_exc()

@@ -424,7 +424,7 @@ if __name__ == '__main__':
     except SystemExit as e:
         exit(e)
     except SingleInstanceException as e:
-        print(e)
+        print(str(e).encode(SYS_CODEC))
         pause()
     except:
         import traceback

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'MainWindow.ui'
 #
-# Created: Mon Jul 03 16:59:02 2017
+# Created: Mon Jul 03 18:19:02 2017
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -57,18 +57,18 @@ class Ui_MainWindow(object):
         self.gridLayout = QtGui.QGridLayout()
         self.gridLayout.setSizeConstraint(QtGui.QLayout.SetDefaultConstraint)
         self.gridLayout.setObjectName("gridLayout")
-        self.checkBox_8 = QtGui.QCheckBox(self.centralwidget)
-        self.checkBox_8.setObjectName("checkBox_8")
-        self.gridLayout.addWidget(self.checkBox_8, 0, 0, 1, 1)
-        self.checkBox_7 = QtGui.QCheckBox(self.centralwidget)
-        self.checkBox_7.setObjectName("checkBox_7")
-        self.gridLayout.addWidget(self.checkBox_7, 0, 1, 1, 1)
-        self.checkBox_6 = QtGui.QCheckBox(self.centralwidget)
-        self.checkBox_6.setObjectName("checkBox_6")
-        self.gridLayout.addWidget(self.checkBox_6, 1, 0, 1, 1)
-        self.checkBox_5 = QtGui.QCheckBox(self.centralwidget)
-        self.checkBox_5.setObjectName("checkBox_5")
-        self.gridLayout.addWidget(self.checkBox_5, 1, 1, 1, 1)
+        self.proxyCheck = QtGui.QCheckBox(self.centralwidget)
+        self.proxyCheck.setObjectName("proxyCheck")
+        self.gridLayout.addWidget(self.proxyCheck, 0, 0, 1, 1)
+        self.continueCheck = QtGui.QCheckBox(self.centralwidget)
+        self.continueCheck.setObjectName("continueCheck")
+        self.gridLayout.addWidget(self.continueCheck, 0, 1, 1, 1)
+        self.priorityCheck = QtGui.QCheckBox(self.centralwidget)
+        self.priorityCheck.setObjectName("priorityCheck")
+        self.gridLayout.addWidget(self.priorityCheck, 1, 0, 1, 1)
+        self.hiberCheck = QtGui.QCheckBox(self.centralwidget)
+        self.hiberCheck.setObjectName("hiberCheck")
+        self.gridLayout.addWidget(self.hiberCheck, 1, 1, 1, 1)
         self.verticalLayout_2.addLayout(self.gridLayout)
         self.renderButton = QtGui.QPushButton(self.centralwidget)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Fixed)
@@ -101,14 +101,14 @@ class Ui_MainWindow(object):
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(QtGui.QApplication.translate("MainWindow", "MainWindow", None, QtGui.QApplication.UnicodeUTF8))
+        MainWindow.setWindowTitle(QtGui.QApplication.translate("MainWindow", "Nuke批渲染", None, QtGui.QApplication.UnicodeUTF8))
         self.label.setText(QtGui.QApplication.translate("MainWindow", "工作目录", None, QtGui.QApplication.UnicodeUTF8))
         self.dirButton.setText(QtGui.QApplication.translate("MainWindow", "浏览", None, QtGui.QApplication.UnicodeUTF8))
         self.versionLabel.setText(QtGui.QApplication.translate("MainWindow", "version", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkBox_8.setText(QtGui.QApplication.translate("MainWindow", "CheckBox", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkBox_7.setText(QtGui.QApplication.translate("MainWindow", "CheckBox", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkBox_6.setText(QtGui.QApplication.translate("MainWindow", "CheckBox", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkBox_5.setText(QtGui.QApplication.translate("MainWindow", "CheckBox", None, QtGui.QApplication.UnicodeUTF8))
+        self.proxyCheck.setText(QtGui.QApplication.translate("MainWindow", "代理尺寸", None, QtGui.QApplication.UnicodeUTF8))
+        self.continueCheck.setText(QtGui.QApplication.translate("MainWindow", "出错继续渲", None, QtGui.QApplication.UnicodeUTF8))
+        self.priorityCheck.setText(QtGui.QApplication.translate("MainWindow", "低优先级", None, QtGui.QApplication.UnicodeUTF8))
+        self.hiberCheck.setText(QtGui.QApplication.translate("MainWindow", "完成后休眠", None, QtGui.QApplication.UnicodeUTF8))
         self.renderButton.setText(QtGui.QApplication.translate("MainWindow", "渲染", None, QtGui.QApplication.UnicodeUTF8))
         self.actionRender.setText(QtGui.QApplication.translate("MainWindow", "render", None, QtGui.QApplication.UnicodeUTF8))
         self.actionDir.setText(QtGui.QApplication.translate("MainWindow", "dir", None, QtGui.QApplication.UnicodeUTF8))

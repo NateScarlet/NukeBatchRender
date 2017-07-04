@@ -18,30 +18,55 @@
     <item>
      <layout class="QVBoxLayout" name="verticalLayout_3">
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_2">
-        <item>
+       <layout class="QFormLayout" name="formLayout_2">
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_3">
+          <property name="text">
+           <string>Nuke</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <layout class="QHBoxLayout" name="horizontalLayout_4">
+          <item>
+           <widget class="QLineEdit" name="nukeEdit"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="nukeButton">
+            <property name="text">
+             <string>浏览</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="1" column="0">
          <widget class="QLabel" name="label">
           <property name="text">
            <string>工作目录</string>
           </property>
          </widget>
         </item>
-        <item>
-         <widget class="QLineEdit" name="dirEdit">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="dirButton">
-          <property name="text">
-           <string>浏览</string>
-          </property>
-         </widget>
+        <item row="1" column="1">
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="QLineEdit" name="dirEdit">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="dirButton">
+            <property name="text">
+             <string>浏览</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
       </item>
@@ -142,6 +167,16 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QPushButton" name="stopButton">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="text">
+         <string>停止渲染</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </item>
    </layout>
@@ -172,6 +207,11 @@
     <string>stop</string>
    </property>
   </action>
+  <action name="actionNuke">
+   <property name="text">
+    <string>nuke</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections>
@@ -198,8 +238,40 @@
    <slot>trigger()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>336</x>
-     <y>45</y>
+     <x>335</x>
+     <y>77</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>nukeButton</sender>
+   <signal>clicked()</signal>
+   <receiver>actionNuke</receiver>
+   <slot>trigger()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>335</x>
+     <y>46</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>stopButton</sender>
+   <signal>clicked()</signal>
+   <receiver>actionStop</receiver>
+   <slot>trigger()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>482</x>
+     <y>447</y>
     </hint>
     <hint type="destinationlabel">
      <x>-1</x>

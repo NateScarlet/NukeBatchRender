@@ -25,17 +25,12 @@ EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 
 class Config(dict):
     default = {
-                'SERVER': r'\\192.168.1.7\z', 
-                'SIMAGE_FOLDER': r'Comp\image', 
-                'SVIDEO_FOLDER': r'Comp\mov', 
                 'NUKE': r'C:\Program Files\Nuke10.0v4\Nuke10.0.exe', 
                 'DIR': r'E:\test\batchRender', 
-                'PROJECT': 'SNJYW', 
-                'EP': '', 
-                'SCENE': '', 
                 'PROXY': 0, 
-                'LOW_PRIORITY': 0, 
+                'LOW_PRIORITY': 2, 
                 'CONTINUE': 2, 
+                'HIBER': 0, 
                 'PID': None,
              }
     path = os.path.expanduser('~/.BatchRender.json')
@@ -55,9 +50,7 @@ class Config(dict):
     def read(self):
         if os.path.isfile(self.path):
             with open(self.path) as f:
-                last_config = f.read()
-            if last_config:
-                self.update(json.loads(last_config))
+                self.update(dict(json.load(f)))
 
 
 class SingleInstanceException(Exception):
@@ -71,37 +64,38 @@ class SingleInstance(object):
         if isinstance(PID, int) and self.is_pid_exists(PID):
             raise SingleInstanceException
         Config()['PID'] = os.getpid()
-        print(Config()['PID'])
 
     def is_pid_exists(self, pid):
         if sys.platform == 'win32':
             _proc = Popen('TASKLIST /FI "PID eq {}" /FO CSV /NH'.format(pid), stdout=PIPE)
             _stdout = _proc.communicate()[0]
-            print(_stdout)
             return '"{}"'.format(pid) in _stdout
 
 
-class BatchRender(object):
+class BatchRender(multiprocessing.Process):
     LOG_FILENAME = u'Nuke批渲染.log'
     LOG_LEVEL = logging.DEBUG
+    lock = multiprocessing.Lock()
 
     def __init__(self):
-        self.rotate_log()
-        self.set_logger()
-        self.unlock_files()
+        multiprocessing.Process.__init__(self)
         self._queue = multiprocessing.Queue()
 
         self._config = Config()
         self._error_files = []
-        self._files = self.get_files()        
+        self._files = self.files()
+        self.daemon = True
 
     def run(self):
+        self.rotate_log()
+        self.set_logger()
+        self.unlock_files()
         self.lock.acquire()
         self.batch_render()
         self.lock.release()
 
     def continuous_render(self):
-        while self.get_files():
+        while self.files():
             self.batch_render()
 
     def set_logger(self):
@@ -129,7 +123,7 @@ class BatchRender(object):
                 os.rename(self.LOG_FILENAME, u'{}.{}.log'.format(logname, 1))
 
     @staticmethod
-    def get_files():
+    def files():
         _files = list(unicode(i, SYS_CODEC) for i in os.listdir(os.getcwd()) if i.endswith('.nk'))
         _files.sort(key=lambda file: os.path.getmtime(file), reverse=False)
 
@@ -152,6 +146,9 @@ class BatchRender(object):
             _rtcode = self.render(file)
 
         self._logger.info('<结束批渲染>')
+        if Config()['HIBER']:
+            self._logger.info('<计算机进入休眠模式>')
+            hiber()
 
     def render(self, file):
         if not os.path.isfile(file):
@@ -298,20 +295,6 @@ class BatchRender(object):
             ret = unicode(ret, SYS_CODEC)
         return ret
 
-    def hiber(self):
-        if self.isHibernate:
-            choice = call(u'CHOICE /t 15 /d y /m "即将自动休眠"'.encode(prompt_codec))
-            if choice == 2:
-                pause()
-            else:
-                self._logger.info('<计算机进入休眠模式>')
-                print('[{}]\t计算机进入休眠模式'.format(time.strftime('%H:%M:%S')))
-                call(['SHUTDOWN', '/h'])
-        else:
-            choice = call(u'CHOICE /t 15 /d y /m "此窗口将自动关闭"'.encode(prompt_codec))
-            if choice == 2:
-                pause()
-
     def format_seconds(self, seconds):
         ret = u''
         hour = int(seconds // 3600)
@@ -324,10 +307,66 @@ class BatchRender(object):
         ret += u'{}秒'.format(seconds)
         return ret
 
+    def stop(self):
+        pid = self._queue.get()
+        if pid:
+            try:
+                os.kill(pid, 9)
+            except WindowsError:
+                pass
+        self.terminate()
 
-class MainWindow(QMainWindow, Ui_MainWindow):
+def hiber():
+    call(['SHUTDOWN', '/h'])
+
+class Files(list):
+    def __init__(self):
+        self.extend(self.files())
+    
+    def files(self):
+        _files = list(unicode(i, SYS_CODEC) for i in os.listdir(os.getcwd()) if i.endswith('.nk'))
+        _files.sort(key=lambda file: os.path.getmtime(file), reverse=False)
+
+        return _files
+
+    def unlock_all(self):
+        _locked_file = list(unicode(i, SYS_CODEC) for i in self if i.endswith('.nk.lock'))
+        for f in _locked_file:
+            self.unlock(f)
+
+    @staticmethod
+    def unlock(file):
+        _unlocked_name = os.path.splitext(file)[0]
+        if os.path.isfile(_unlocked_name):
+            os.remove(file)
+            self._logger.info(u'因为有更新的文件, 移除: {}'.format(file))
+        else:
+            os.rename(file, _unlocked_name)
+            return _unlocked_name
+                
+    @staticmethod
+    def lock(file):
+        locked_file = file + '.lock'
+        file_archive_folder = os.path.join('ArchivedRenderFiles', TIME)
+        file_archive_dest = os.path.join(file_archive_folder, file)
+
+        shutil.copyfile(file, locked_file)
+        if not os.path.exists(file_archive_folder):
+            os.makedirs(file_archive_folder)
+        if os.path.exists(file_archive_dest):
+            time_text = datetime.datetime.fromtimestamp(os.path.getctime(file_archive_dest)).strftime('%M%S_%f')
+            alt_file_archive_dest = file_archive_dest + '.' + time_text
+            if os.path.exists(alt_file_archive_dest):
+                os.remove(file_archive_dest)
+            else:
+                os.rename(file_archive_dest, alt_file_archive_dest)
+        shutil.move(file, file_archive_dest)
+        return locked_file
+    
+class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
 
     def __init__(self, parent=None):
+        SingleInstance.__init__(self)
         QMainWindow.__init__(self, parent)
         self._config = Config()
         self.setupUi(self)
@@ -335,6 +374,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.edits_key = {  
             self.dirEdit: 'DIR',
+            self.nukeEdit: 'NUKE',
             self.proxyCheck: 'PROXY',
             self.priorityCheck: 'LOW_PRIORITY',
             self.continueCheck: 'CONTINUE',
@@ -345,17 +385,21 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.connect_actions()
         self.connect_edits()
+        Files().unlock_all()
 
     def change_dir(self, dir):
         _dir = unicode(os.getcwd(), SYS_CODEC)
         if os.path.isdir(dir) and dir != _dir:
             os.chdir(dir)
             print(u'工作目录改为: {}'.format(dir))
+            Files().unlock_all()
             self.update()
 
     def connect_actions(self):
         self.actionRender.triggered.connect(self.render)
         self.actionDir.triggered.connect(self.ask_dir)
+        self.actionNuke.triggered.connect(self.ask_nuke)
+        self.actionStop.triggered.connect(self.stop)
 
     def connect_edits(self):
         self.dirEdit.textChanged.connect(lambda dir: self.change_dir(dir))
@@ -390,7 +434,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def set_list_widget(self):
         list = self.listWidget
         list.clear()
-        for i in BatchRender.get_files():
+        for i in Files():
             list.addItem(u'{}'.format(i))
 
     def ask_dir(self):
@@ -400,10 +444,24 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self._config['DIR'] = _dir
             self.update()
 
+    def ask_nuke(self):
+        _fileDialog = QFileDialog()
+        _fileNames, _selectedFilter = fileDialog.getOpenFileName(dir=os.getenv('ProgramFiles'), filter='*.exe')
+        if _fileNames:
+            self._config['NUKE'] = _fileNames
+            self.update()
+
     def render(self):
-        self.hide()
-        BatchRender().batch_render()
-        self.show()
+        self.renderButton.setEnabled(False)
+        self.stopButton.setEnabled(True)
+        self._proc = BatchRender()
+        self._proc.start()
+        
+    def stop(self):
+        self._config['HIBER'] = 0 
+        self._proc.stop()
+        self.stopButton.setEnabled(False)
+        self.renderButton.setEnabled(True)
 
     def set_button_enabled(self):
         self.renderButton.setEnabled(bool(self._config['DIR']))
@@ -412,7 +470,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 def main():
     reload(sys)
     sys.setdefaultencoding('UTF-8')
-    SingleInstance()
     call(u'CHCP 936 & TITLE BatchRender{} & CLS'.format(VERSION), shell=True)
     app = QApplication(sys.argv)
     frame = MainWindow()

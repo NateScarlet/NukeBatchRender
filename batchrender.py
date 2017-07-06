@@ -480,7 +480,7 @@ if __name__ == '__main__':
     try:
         main()
     except SystemExit as e:
-        exit(e)
+        sys.exit(e)
     except SingleInstanceException as e:
         print(u'激活已经打开的实例')
         Popen('"{}" "{}"'.format(os.path.join(__file__, '../active_pid.exe'), format(Config()['PID'])))

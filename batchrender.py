@@ -8,6 +8,7 @@ import json
 import logging
 import datetime
 import shutil
+import time
 from subprocess import Popen, PIPE, call
 import multiprocessing
 import threading
@@ -17,7 +18,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 
 from ui_mainwindow import Ui_MainWindow
 
-VERSION = 0.22
+VERSION = 0.3
 SYS_CODEC = locale.getdefaultlocale()[1]
 TIME = datetime.datetime.now().strftime('%y%m%d_%H%M')
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
@@ -25,20 +26,28 @@ EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 class Config(dict):
     default = {
                 'NUKE': r'C:\Program Files\Nuke10.0v4\Nuke10.0.exe', 
-                'DIR': r'E:\test\batchRender', 
+                'DIR': r'E:\batchrender', 
                 'PROXY': 0, 
                 'LOW_PRIORITY': 2, 
                 'CONTINUE': 2, 
                 'HIBER': 0, 
                 'PID': None,
              }
-    path = os.path.expanduser('~/.BatchRender.json')
+    path = os.path.expanduser('~/.nuke/.batchrender.json')
+    instance = None
+
+    def __new__(cls):
+        if not cls.instance:
+            cls.instance = super(Config, cls).__new__(cls)
+        return cls.instance
 
     def __init__(self):
         self.update(dict(self.default))
-        self.read()            
+        self.read()
 
     def __setitem__(self, key, value):
+        if key == 'DIR' and value != self.get('DIR') and os.path.isdir(value):
+            self.change_dir(value)
         dict.__setitem__(self, key, value)
         self.write()
 
@@ -51,6 +60,9 @@ class Config(dict):
             with open(self.path) as f:
                 self.update(dict(json.load(f)))
 
+    def change_dir(self, dir):
+        os.chdir(dir)
+        print(u'工作目录改为: {}'.format(os.getcwd()))
 
 class SingleInstanceException(Exception):
     def __str__(self):
@@ -70,6 +82,13 @@ class SingleInstance(object):
             _stdout = _proc.communicate()[0]
             return '"{}"'.format(pid) in _stdout
 
+class Logger(logging.Logger):
+    instance = None
+
+    def __new__(cls):
+        if not cls.instance:
+            cls.instance = super(Logger, cls).__new__(cls)
+        return cls.instance
 
 class BatchRender(multiprocessing.Process):
     LOG_FILENAME = u'Nuke批渲染.log'
@@ -82,14 +101,14 @@ class BatchRender(multiprocessing.Process):
 
         self._config = Config()
         self._error_files = []
-        self._files = self.files()
+        self._files = Files()
         self.daemon = True
 
     def run(self):
         self.rotate_log()
         self.set_logger()
-        self.unlock_files()
         self.lock.acquire()
+        self._files.unlock_all()
         self.batch_render()
         self.lock.release()
 
@@ -121,27 +140,10 @@ class BatchRender(multiprocessing.Process):
                         os.rename(old_name, new_name)
                 os.rename(self.LOG_FILENAME, u'{}.{}.log'.format(logname, 1))
 
-    @staticmethod
-    def files():
-        _files = list(unicode(i, SYS_CODEC) for i in os.listdir(os.getcwd()) if i.endswith('.nk'))
-        _files.sort(key=lambda file: os.path.getmtime(file), reverse=False)
-
-        return _files
 
     def batch_render(self):
-        print(u'将渲染以下文件:')
-        for file in self._files:
-            print(u'\t\t\t{}'.format(file))
-            self._logger.debug (u'发现文件:\t{}'.format(file))
-        print(u'总计:\t{}\n'.format(len(self._files)))
-        self._logger.debug(u'总计:\t{}'.format(len(self._files)))
-
-        if not self._files:
-            self._logger.warning(u'没有找到可渲染文件')
-            return False
-
         self._logger.info('{:-^50s}'.format('<开始批渲染>'))
-        for file in self._files:
+        for file in Files():
             _rtcode = self.render(file)
 
         self._logger.info('<结束批渲染>')
@@ -150,20 +152,22 @@ class BatchRender(multiprocessing.Process):
             hiber()
 
     def render(self, file):
+        print(u'## [{}/{}]\t{}'.format(self._files.index(file) + 1, len(self._files), file))
+        self._logger.info(u'{}: 开始渲染'.format(file))
+
         if not os.path.isfile(file):
+            print('not isfile', file)
             return False
 
-        self._logger.info(u'{}: 开始渲染'.format(file))
-        print(u'## [{}/{}]\t{}'.format(self._files.index(file) + 1, len(self._files), file))
+        _rtcode = self.call_nuke(file)
+        print('\n')
+        print('_retcode', _rtcode)
 
-        ret = self.call_nuke(file)
-        print(u'')
-
-        return ret
+        return _rtcode
 
     def call_nuke(self, file):
         _time = datetime.datetime.now()
-        _file = self.lock_file(file)
+        _file = Files.lock(file)
 
         _proxy = '-p ' if self._config['PROXY'] else '-f '
         _priority = '-c 8G --priority low ' if self._config['LOW_PRIORITY'] else ''
@@ -218,47 +222,6 @@ class BatchRender(multiprocessing.Process):
 
         return _rtcode
 
-    def lock_file(self, file):
-        locked_file = file + '.lock'
-        file_archive_folder = os.path.join('ArchivedRenderFiles', TIME)
-        file_archive_dest = os.path.join(file_archive_folder, file)
-
-        shutil.copyfile(file, locked_file)
-        print(locked_file)
-        if not os.path.exists(file_archive_folder):
-            os.makedirs(file_archive_folder)
-        if os.path.exists(file_archive_dest):
-            time_text = datetime.datetime.fromtimestamp(os.path.getctime(file_archive_dest)).strftime('%M%S_%f')
-            alt_file_archive_dest = file_archive_dest + '.' + time_text
-            if os.path.exists(alt_file_archive_dest):
-                os.remove(file_archive_dest)
-            else:
-                os.rename(file_archive_dest, alt_file_archive_dest)
-        shutil.move(file, file_archive_dest)
-        return locked_file
-
-    def unlock_files(self):
-        _locked_file = list(unicode(i, SYS_CODEC) for i in os.listdir(os.getcwd()) if i.endswith('.nk.lock'))
-        for f in _locked_file:
-            self.unlock_file(f)
-
-    def unlock_file(self, file):
-        _unlocked_name = os.path.splitext(file)[0]
-        if os.path.isfile(_unlocked_name):
-            os.remove(file)
-            self._logger.info(u'因为有更新的文件, 移除: {}'.format(file))
-        else:
-            try:
-                os.rename(file, _unlocked_name)
-                print(u'解锁: {}'.format(file)) 
-                self._logger.info(u'解锁: {}'.format(file))
-                return _unlocked_name
-            except WindowsError:
-                print(u'**错误** 其他程序占用文件: {}'.format(file))
-                self._logger.error(u'其他程序占用文件: {}'.format(file))
-                self._logger.info(u'<退出>')
-                exit()
-
     def convert_error_value(self, str):
         ret = str.strip('\r\n')
         ret = re.sub(r'\[.*?\] ERROR: (.+)', r'\1', ret)
@@ -308,44 +271,59 @@ class BatchRender(multiprocessing.Process):
         return ret
 
     def stop(self):
-        pid = self._queue.get()
-        if pid:
+        while not self._queue.empty():
+            _pid = self._queue.get()
+        if _pid:
             try:
-                os.kill(pid, 9)
-            except WindowsError:
-                pass
+                os.kill(_pid, 9)
+            except WindowsError as e:
+                print(e)
         self.terminate()
 
 def hiber():
     call(['SHUTDOWN', '/h'])
 
 class Files(list):
+    instance = None
+
+    def __new__(cls):
+        if not cls.instance:
+            cls.instance = super(Files, cls).__new__(cls)
+        return cls.instance
+
     def __init__(self):
+        del self[:]
         self.extend(self.files())
     
     def files(self):
-        _files = list(unicode(i, SYS_CODEC) for i in os.listdir(os.getcwd()) if i.endswith('.nk'))
+        _files = os.listdir(os.getcwd())
+        _files = filter(lambda x: x.endswith(('.nk', '.nk.lock')), _files)
+        _files = map(lambda x: unicode(x, SYS_CODEC), _files)
         _files.sort(key=lambda file: os.path.getmtime(file), reverse=False)
 
         return _files
 
     def unlock_all(self):
-        _locked_file = list(unicode(i, SYS_CODEC) for i in self if i.endswith('.nk.lock'))
-        for f in _locked_file:
+        _files = filter(lambda x: x.endswith('.nk.lock'), self)
+        for f in _files:
             self.unlock(f)
 
     @staticmethod
     def unlock(file):
+        if isinstance(file, unicode):
+            file = file.encode(SYS_CODEC)
         _unlocked_name = os.path.splitext(file)[0]
         if os.path.isfile(_unlocked_name):
             os.remove(file)
             self._logger.info(u'因为有更新的文件, 移除: {}'.format(file))
         else:
             os.rename(file, _unlocked_name)
-            return _unlocked_name
+        return unicode(_unlocked_name, SYS_CODEC)
                 
     @staticmethod
     def lock(file):
+        if isinstance(file, unicode):
+            file = file.encode(SYS_CODEC)
         locked_file = file + '.lock'
         file_archive_folder = os.path.join('ArchivedRenderFiles', TIME)
         file_archive_dest = os.path.join(file_archive_folder, file)
@@ -361,11 +339,30 @@ class Files(list):
             else:
                 os.rename(file_archive_dest, alt_file_archive_dest)
         shutil.move(file, file_archive_dest)
-        return locked_file
+        return unicode(locked_file, SYS_CODEC)
     
 class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
 
     def __init__(self, parent=None):
+        def _actions():
+            self.actionRender.triggered.connect(self.render)
+            self.actionDir.triggered.connect(self.ask_dir)
+            self.actionNuke.triggered.connect(self.ask_nuke)
+            self.actionStop.triggered.connect(self.stop)
+
+        def _edits():
+            self.dirEdit.textChanged.connect(lambda dir: self.change_dir(dir))
+
+            for edit, key in self.edits_key.iteritems():
+                if isinstance(edit, QtGui.QLineEdit):
+                    edit.textChanged.connect(lambda text, k=key: self._config.__setitem__(k, text))
+                elif isinstance(edit, QtGui.QCheckBox):
+                    edit.stateChanged.connect(lambda state, k=key: self._config.__setitem__(k, state))
+                elif isinstance(edit, QtGui.QComboBox):
+                    edit.currentIndexChanged.connect(lambda index, e=edit, k=key: self._config.__setitem__(k, e.itemText(index)))
+                else:
+                    print(u'待处理的控件: {} {}'.format(type(edit), edit))
+
         SingleInstance.__init__(self)
         QMainWindow.__init__(self, parent)
         self.setupUi(self)
@@ -381,47 +378,23 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
             self.continueCheck: 'CONTINUE',
             self.hiberCheck: 'HIBER',
         }
-        self.change_dir(self._config['DIR'])
+        os.chdir(self._config['DIR'])
         self.update()
+        self.update_threading()
         self.versionLabel.setText('v{}'.format(VERSION))
-        self.connect_actions()
-        self.connect_edits()
+
+        _actions()
+        _edits()
         Files().unlock_all()
 
-    def change_dir(self, dir):
-        _dir = unicode(os.getcwd(), SYS_CODEC)
-        if os.path.isdir(dir) and dir != _dir:
-            os.chdir(dir)
-            print(u'工作目录改为: {}'.format(dir))
-            Files().unlock_all()
-            self.update()
-
-    def connect_actions(self):
-        self.actionRender.triggered.connect(self.render)
-        self.actionDir.triggered.connect(self.ask_dir)
-        self.actionNuke.triggered.connect(self.ask_nuke)
-        self.actionStop.triggered.connect(self.stop)
-        self.actionUpdateUI.triggered.connect(self.update)
-
-    def connect_edits(self):
-        self.dirEdit.textChanged.connect(lambda dir: self.change_dir(dir))
-
-        for edit, key in self.edits_key.iteritems():
-            if isinstance(edit, QtGui.QLineEdit):
-                edit.textChanged.connect(lambda text, k=key: self._config.__setitem__(k, text))
-                edit.textChanged.connect(self.update)
-            elif isinstance(edit, QtGui.QCheckBox):
-                edit.stateChanged.connect(lambda state, k=key: self._config.__setitem__(k, state))
-                edit.stateChanged.connect(self.update)
-            elif isinstance(edit, QtGui.QComboBox):
-                edit.currentIndexChanged.connect(lambda index, e=edit, k=key: self._config.__setitem__(k, e.itemText(index)))
-            else:
-                print(u'待处理的控件: {} {}'.format(type(edit), edit))
+    def update_threading(self):
+        _timer = QtCore.QTimer(self)
+        _timer.timeout.connect(self.update)
+        _timer.start(1000)
 
     def update(self):
         def _button_enabled():
-            print('_proc', self._proc)
-            if self._proc:
+            if self._proc and self._proc.is_alive():
                 self.renderButton.setEnabled(False)
                 self.stopButton.setEnabled(True)
             else:
@@ -429,25 +402,25 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
                     self.renderButton.setEnabled(True)
                 self.stopButton.setEnabled(False)
 
-        self.set_edits()
-        self.set_list_widget()
+        def _edits():
+            for q, k in self.edits_key.iteritems():
+                try:
+                    if isinstance(q, QtGui.QLineEdit):
+                        q.setText(self._config[k])
+                    if isinstance(q, QtGui.QCheckBox):
+                        q.setCheckState(QtCore.Qt.CheckState(self._config[k]))
+                except KeyError as e:
+                    print(e)
+
+        def _list_widget():
+            list = self.listWidget
+            list.clear()
+            for i in Files():
+                list.addItem(u'{}'.format(i))
+
+        _edits()
+        _list_widget()
         _button_enabled()
-
-    def set_edits(self):
-        for q, k in self.edits_key.iteritems():
-            try:
-                if isinstance(q, QtGui.QLineEdit):
-                    q.setText(self._config[k])
-                if isinstance(q, QtGui.QCheckBox):
-                    q.setCheckState(QtCore.Qt.CheckState(self._config[k]))
-            except KeyError as e:
-                print(e)
-
-    def set_list_widget(self):
-        list = self.listWidget
-        list.clear()
-        for i in Files():
-            list.addItem(u'{}'.format(i))
 
     def ask_dir(self):
         _fileDialog = QFileDialog()
@@ -473,7 +446,7 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
         print(u'# 停止渲染')
     
     def closeEvent(self, event):
-        if self._proc:
+        if self._proc and self._proc.is_alive():
             _ok = QtGui.QMessageBox.question(
                 self,
                 u'正在渲染中',
@@ -509,6 +482,7 @@ if __name__ == '__main__':
     except SystemExit as e:
         exit(e)
     except SingleInstanceException as e:
+        print(u'激活已经打开的实例')
         Popen('"{}" "{}"'.format(os.path.join(__file__, '../active_pid.exe'), format(Config()['PID'])))
     except:
         import traceback

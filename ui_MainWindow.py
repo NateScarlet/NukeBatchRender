@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'MainWindow.ui'
+# Form implementation generated from reading ui file 'mainwindow.ui'
 #
-# Created: Tue Jul 04 16:05:49 2017
+# Created: Thu Jul 06 16:26:58 2017
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -115,12 +115,16 @@ class Ui_MainWindow(object):
         self.actionStop.setObjectName("actionStop")
         self.actionNuke = QtGui.QAction(MainWindow)
         self.actionNuke.setObjectName("actionNuke")
+        self.actionUpdateUI = QtGui.QAction(MainWindow)
+        self.actionUpdateUI.setObjectName("actionUpdateUI")
 
         self.retranslateUi(MainWindow)
         QtCore.QObject.connect(self.renderButton, QtCore.SIGNAL("clicked()"), self.actionRender.trigger)
         QtCore.QObject.connect(self.dirButton, QtCore.SIGNAL("clicked()"), self.actionDir.trigger)
         QtCore.QObject.connect(self.nukeButton, QtCore.SIGNAL("clicked()"), self.actionNuke.trigger)
         QtCore.QObject.connect(self.stopButton, QtCore.SIGNAL("clicked()"), self.actionStop.trigger)
+        QtCore.QObject.connect(self.renderButton, QtCore.SIGNAL("clicked()"), self.actionUpdateUI.trigger)
+        QtCore.QObject.connect(self.stopButton, QtCore.SIGNAL("clicked()"), self.actionUpdateUI.trigger)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -140,4 +144,5 @@ class Ui_MainWindow(object):
         self.actionDir.setText(QtGui.QApplication.translate("MainWindow", "dir", None, QtGui.QApplication.UnicodeUTF8))
         self.actionStop.setText(QtGui.QApplication.translate("MainWindow", "stop", None, QtGui.QApplication.UnicodeUTF8))
         self.actionNuke.setText(QtGui.QApplication.translate("MainWindow", "nuke", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionUpdateUI.setText(QtGui.QApplication.translate("MainWindow", "updateUI", None, QtGui.QApplication.UnicodeUTF8))
 

@@ -10,13 +10,12 @@ import datetime
 import shutil
 from subprocess import Popen, PIPE, call
 import multiprocessing
+import threading
 
-import PySide
-import PySide.QtCore
-import PySide.QtGui
+from PySide import QtGui, QtCore
 from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 
-from ui_MainWindow import Ui_MainWindow
+from ui_mainwindow import Ui_MainWindow
 
 VERSION = 0.22
 SYS_CODEC = locale.getdefaultlocale()[1]
@@ -177,6 +176,7 @@ class BatchRender(multiprocessing.Process):
             file=_file,
         )
         self._logger.debug(u'命令: {}'.format(cmd))
+        print(cmd)
         _proc = Popen(cmd.encode('UTF-8'), stderr=PIPE)
         self._queue.put(_proc.pid)
         _stderr = _proc.communicate()[1]
@@ -368,9 +368,10 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
     def __init__(self, parent=None):
         SingleInstance.__init__(self)
         QMainWindow.__init__(self, parent)
-        self._config = Config()
         self.setupUi(self)
-        self.versionLabel.setText('v{}'.format(VERSION))
+
+        self._config = Config()
+        self._proc = None
 
         self.edits_key = {  
             self.dirEdit: 'DIR',
@@ -382,7 +383,7 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
         }
         self.change_dir(self._config['DIR'])
         self.update()
-
+        self.versionLabel.setText('v{}'.format(VERSION))
         self.connect_actions()
         self.connect_edits()
         Files().unlock_all()
@@ -400,34 +401,45 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
         self.actionDir.triggered.connect(self.ask_dir)
         self.actionNuke.triggered.connect(self.ask_nuke)
         self.actionStop.triggered.connect(self.stop)
+        self.actionUpdateUI.triggered.connect(self.update)
 
     def connect_edits(self):
         self.dirEdit.textChanged.connect(lambda dir: self.change_dir(dir))
 
         for edit, key in self.edits_key.iteritems():
-            if isinstance(edit, PySide.QtGui.QLineEdit):
+            if isinstance(edit, QtGui.QLineEdit):
                 edit.textChanged.connect(lambda text, k=key: self._config.__setitem__(k, text))
                 edit.textChanged.connect(self.update)
-            elif isinstance(edit, PySide.QtGui.QCheckBox):
+            elif isinstance(edit, QtGui.QCheckBox):
                 edit.stateChanged.connect(lambda state, k=key: self._config.__setitem__(k, state))
                 edit.stateChanged.connect(self.update)
-            elif isinstance(edit, PySide.QtGui.QComboBox):
+            elif isinstance(edit, QtGui.QComboBox):
                 edit.currentIndexChanged.connect(lambda index, e=edit, k=key: self._config.__setitem__(k, e.itemText(index)))
             else:
                 print(u'待处理的控件: {} {}'.format(type(edit), edit))
 
     def update(self):
+        def _button_enabled():
+            print('_proc', self._proc)
+            if self._proc:
+                self.renderButton.setEnabled(False)
+                self.stopButton.setEnabled(True)
+            else:
+                if os.path.isdir(self._config['DIR']):
+                    self.renderButton.setEnabled(True)
+                self.stopButton.setEnabled(False)
+
         self.set_edits()
         self.set_list_widget()
-        self.set_button_enabled()
+        _button_enabled()
 
     def set_edits(self):
         for q, k in self.edits_key.iteritems():
             try:
-                if isinstance(q, PySide.QtGui.QLineEdit):
+                if isinstance(q, QtGui.QLineEdit):
                     q.setText(self._config[k])
-                if isinstance(q, PySide.QtGui.QCheckBox):
-                    q.setCheckState(PySide.QtCore.Qt.CheckState(self._config[k]))
+                if isinstance(q, QtGui.QCheckBox):
+                    q.setCheckState(QtCore.Qt.CheckState(self._config[k]))
             except KeyError as e:
                 print(e)
 
@@ -452,19 +464,31 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
             self.update()
 
     def render(self):
-        self.renderButton.setEnabled(False)
-        self.stopButton.setEnabled(True)
         self._proc = BatchRender()
         self._proc.start()
         
     def stop(self):
         self._config['HIBER'] = 0 
         self._proc.stop()
-        self.stopButton.setEnabled(False)
-        self.renderButton.setEnabled(True)
-
-    def set_button_enabled(self):
-        self.renderButton.setEnabled(bool(self._config['DIR']))
+        print(u'# 停止渲染')
+    
+    def closeEvent(self, event):
+        if self._proc:
+            _ok = QtGui.QMessageBox.question(
+                self,
+                u'正在渲染中',
+                u"停止渲染并退出?",
+                QtGui.QMessageBox.Yes |
+                QtGui.QMessageBox.No,
+                QtGui.QMessageBox.No
+            )
+            if _ok == QtGui.QMessageBox.Yes:
+                self._proc.stop()
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            event.accept()
 
 
 def main():

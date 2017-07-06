@@ -11,14 +11,13 @@ import shutil
 import time
 from subprocess import Popen, PIPE, call
 import multiprocessing
-import threading
 
 from PySide import QtGui, QtCore
 from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 
 from ui_mainwindow import Ui_MainWindow
 
-VERSION = 0.3
+VERSION = 0.31
 SYS_CODEC = locale.getdefaultlocale()[1]
 TIME = datetime.datetime.now().strftime('%y%m%d_%H%M')
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
@@ -46,6 +45,7 @@ class Config(dict):
         self.read()
 
     def __setitem__(self, key, value):
+        print(key, value)
         if key == 'DIR' and value != self.get('DIR') and os.path.isdir(value):
             self.change_dir(value)
         dict.__setitem__(self, key, value)
@@ -138,7 +138,8 @@ class BatchRender(multiprocessing.Process):
                     new_name = u'{}.{}.log'.format(logname, i+1)
                     if os.path.exists(old_name):
                         os.rename(old_name, new_name)
-                os.rename(self.LOG_FILENAME, u'{}.{}.log'.format(logname, 1))
+                if os.path.exists(self.LOG_FILENAME):
+                    os.rename(self.LOG_FILENAME, u'{}.{}.log'.format(logname, 1))
 
 
     def batch_render(self):
@@ -322,6 +323,8 @@ class Files(list):
                 
     @staticmethod
     def lock(file):
+        if file.endswith('.lock'):  
+            return file
         if isinstance(file, unicode):
             file = file.encode(SYS_CODEC)
         locked_file = file + '.lock'
@@ -351,8 +354,6 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
             self.actionStop.triggered.connect(self.stop)
 
         def _edits():
-            self.dirEdit.textChanged.connect(lambda dir: self.change_dir(dir))
-
             for edit, key in self.edits_key.iteritems():
                 if isinstance(edit, QtGui.QLineEdit):
                     edit.textChanged.connect(lambda text, k=key: self._config.__setitem__(k, text))
@@ -397,10 +398,12 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
             if self._proc and self._proc.is_alive():
                 self.renderButton.setEnabled(False)
                 self.stopButton.setEnabled(True)
+                self.listWidget.setStyleSheet('color:white;background-color:rgb(12%, 16%, 18%);')
             else:
                 if os.path.isdir(self._config['DIR']):
                     self.renderButton.setEnabled(True)
                 self.stopButton.setEnabled(False)
+                self.listWidget.setStyleSheet('')
 
         def _edits():
             for q, k in self.edits_key.iteritems():
@@ -421,6 +424,8 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
         _edits()
         _list_widget()
         _button_enabled()
+        
+        
 
     def ask_dir(self):
         _fileDialog = QFileDialog()
@@ -465,6 +470,8 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
 
 
 def main():
+    BatchRender()
+    multiprocessing.freeze_support()
     reload(sys)
     sys.setdefaultencoding('UTF-8')
     call(u'CHCP 936 & TITLE BatchRender{} & CLS'.format(VERSION), shell=True)

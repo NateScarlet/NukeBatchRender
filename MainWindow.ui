@@ -212,6 +212,11 @@
     <string>nuke</string>
    </property>
   </action>
+  <action name="actionUpdateUI">
+   <property name="text">
+    <string>updateUI</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections>
@@ -267,6 +272,38 @@
    <sender>stopButton</sender>
    <signal>clicked()</signal>
    <receiver>actionStop</receiver>
+   <slot>trigger()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>482</x>
+     <y>447</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>renderButton</sender>
+   <signal>clicked()</signal>
+   <receiver>actionUpdateUI</receiver>
+   <slot>trigger()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>482</x>
+     <y>379</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>stopButton</sender>
+   <signal>clicked()</signal>
+   <receiver>actionUpdateUI</receiver>
    <slot>trigger()</slot>
    <hints>
     <hint type="sourcelabel">

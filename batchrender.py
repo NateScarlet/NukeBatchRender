@@ -17,21 +17,21 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 
 from ui_mainwindow import Ui_MainWindow
 
-VERSION = 0.31
+VERSION = '0.3.2-beta'
 SYS_CODEC = locale.getdefaultlocale()[1]
 TIME = datetime.datetime.now().strftime('%y%m%d_%H%M')
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 
 class Config(dict):
     default = {
-                'NUKE': r'C:\Program Files\Nuke10.0v4\Nuke10.0.exe', 
-                'DIR': r'E:\batchrender', 
-                'PROXY': 0, 
-                'LOW_PRIORITY': 2, 
-                'CONTINUE': 2, 
-                'HIBER': 0, 
-                'PID': None,
-             }
+        'NUKE': r'C:\Program Files\Nuke10.0v4\Nuke10.0.exe', 
+        'DIR': r'E:\batchrender', 
+        'PROXY': 0, 
+        'LOW_PRIORITY': 2, 
+        'CONTINUE': 2, 
+        'HIBER': 0, 
+        'PID': None,
+    }
     path = os.path.expanduser('~/.nuke/.batchrender.json')
     instance = None
 
@@ -470,8 +470,7 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
 
 
 def main():
-    BatchRender()
-    multiprocessing.freeze_support()
+    import fix_pyinstaller
     reload(sys)
     sys.setdefaultencoding('UTF-8')
     call(u'CHCP 936 & TITLE BatchRender{} & CLS'.format(VERSION), shell=True)
@@ -486,8 +485,8 @@ def pause():
 if __name__ == '__main__':
     try:
         main()
-    except SystemExit as e:
-        sys.exit(e)
+    # except SystemExit as e:
+        # sys.exit(e)
     except SingleInstanceException as e:
         print(u'激活已经打开的实例')
         Popen('"{}" "{}"'.format(os.path.join(__file__, '../active_pid.exe'), format(Config()['PID'])))

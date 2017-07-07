@@ -17,7 +17,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 
 from ui_mainwindow import Ui_MainWindow
 
-VERSION = '0.3.3-beta'
+VERSION = '0.3.4-beta'
 SYS_CODEC = locale.getdefaultlocale()[1]
 TIME = datetime.datetime.now().strftime('%y%m%d_%H%M')
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
@@ -487,7 +487,13 @@ def main():
     sys.exit(app.exec_())
 
 def pause():
-    call('PAUSE', shell=True)
+    # call(u'PAUSE', shell=True)
+    print(u'')
+    for i in range(5)[::-1]:
+        sys.stdout.write(u'\r{:2d}'.format(i+1))
+        time.sleep(1)
+    sys.stdout.write(u'\r          ')
+    print(u'')
 
 if __name__ == '__main__':
     try:
@@ -500,3 +506,4 @@ if __name__ == '__main__':
     except:
         import traceback
         traceback.print_exc()
+        pause()

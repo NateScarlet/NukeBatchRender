@@ -17,7 +17,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 
 from ui_mainwindow import Ui_MainWindow
 
-VERSION = '0.3.2-beta'
+VERSION = '0.3.3-beta'
 SYS_CODEC = locale.getdefaultlocale()[1]
 TIME = datetime.datetime.now().strftime('%y%m%d_%H%M')
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
@@ -36,6 +36,7 @@ class Config(dict):
     instance = None
 
     def __new__(cls):
+        # Singleton
         if not cls.instance:
             cls.instance = super(Config, cls).__new__(cls)
         return cls.instance
@@ -61,7 +62,10 @@ class Config(dict):
                 self.update(dict(json.load(f)))
 
     def change_dir(self, dir):
-        os.chdir(dir)
+        try:
+            os.chdir(dir)
+        except:
+            print(sys.exc_info()[2])
         print(u'工作目录改为: {}'.format(os.getcwd()))
 
 class SingleInstanceException(Exception):
@@ -379,7 +383,6 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
             self.continueCheck: 'CONTINUE',
             self.hiberCheck: 'HIBER',
         }
-        os.chdir(self._config['DIR'])
         self.update()
         self.update_threading()
         self.versionLabel.setText('v{}'.format(VERSION))
@@ -452,7 +455,7 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
     
     def closeEvent(self, event):
         if self._proc and self._proc.is_alive():
-            _ok = QtGui.QMessageBox.question(
+            ok = QtGui.QMessageBox.question(
                 self,
                 u'正在渲染中',
                 u"停止渲染并退出?",
@@ -460,7 +463,7 @@ class MainWindow(QMainWindow, Ui_MainWindow, SingleInstance):
                 QtGui.QMessageBox.No,
                 QtGui.QMessageBox.No
             )
-            if _ok == QtGui.QMessageBox.Yes:
+            if ok == QtGui.QMessageBox.Yes:
                 self._proc.stop()
                 event.accept()
             else:
@@ -473,7 +476,11 @@ def main():
     import fix_pyinstaller
     reload(sys)
     sys.setdefaultencoding('UTF-8')
-    call(u'CHCP 936 & TITLE BatchRender{} & CLS'.format(VERSION), shell=True)
+    call(u'CHCP 936 & TITLE batchrender.console & CLS', shell=True)
+    try:
+        os.chdir(Config()['DIR'])
+    except:
+        print(sys.exc_info())
     app = QApplication(sys.argv)
     frame = MainWindow()
     frame.show()
@@ -485,8 +492,8 @@ def pause():
 if __name__ == '__main__':
     try:
         main()
-    # except SystemExit as e:
-        # sys.exit(e)
+    except SystemExit as e:
+        sys.exit(e)
     except SingleInstanceException as e:
         print(u'激活已经打开的实例')
         Popen('"{}" "{}"'.format(os.path.join(__file__, '../active_pid.exe'), format(Config()['PID'])))

@@ -19,7 +19,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 
 from ui_mainwindow import Ui_MainWindow
 
-VERSION = '0.3.7'
+__version__ = '0.3.7'
 SYS_CODEC = locale.getdefaultlocale()[1]
 TIME = datetime.datetime.now().strftime('%y%m%d_%H%M')
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
@@ -450,7 +450,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         }
         self.update()
         self._start_update()
-        self.versionLabel.setText('v{}'.format(VERSION))
+        self.versionLabel.setText('v{}'.format(__version__))
 
         _actions()
         _edits()

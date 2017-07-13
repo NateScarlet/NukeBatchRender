@@ -20,7 +20,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.4.0'
+__version__ = '0.5.0'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 
 reload(sys)
@@ -108,6 +108,7 @@ def is_pid_exists(pid):
             stdout=PIPE
         )
         _stdout = _proc.communicate()[0]
+        print(_stdout)
         return '"{}"'.format(pid) in _stdout
 
 
@@ -389,6 +390,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.actionDir.triggered.connect(self.ask_dir)
             self.actionNuke.triggered.connect(self.ask_nuke)
             self.actionStop.triggered.connect(self.stop)
+            self.actionOpenDir.triggered.connect(self.open_dir)
 
         def _edits():
             for edit, key in self.edits_key.iteritems():
@@ -404,6 +406,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         self._config.__setitem__(k, ex.itemText(index)))
                 else:
                     print(u'待处理的控件: {} {}'.format(type(edit), edit))
+
+        def _icon():
+            _stdicon = self.style().standardIcon
+
+            _icon = _stdicon(QtGui.QStyle.SP_MediaPlay)
+            self.setWindowIcon(_icon)
+
+            _icon = _stdicon(QtGui.QStyle.SP_DirOpenIcon)
+            self.toolButtonOpenDir.setIcon(_icon)
+
+            _icon = _stdicon(QtGui.QStyle.SP_DialogOpenButton)
+            self.toolButtonDir.setIcon(_icon)
+            self.toolButtonNuke.setIcon(_icon)
 
         check_single_instance()
         QMainWindow.__init__(self, parent)
@@ -426,7 +441,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         _actions()
         _edits()
+        _icon()
         Files().unlock_all()
+
+    def open_dir(self):
+        url_open('file://{}'.format(self._config['DIR']))
 
     def _start_update(self):
         """Start a thread for update."""
@@ -565,6 +584,11 @@ def copy(src, dst):
     if not os.path.exists(dst_dir):
         os.makedirs(dst_dir)
     shutil.copy2(src, dst)
+
+
+def url_open(url):
+    _cmd = "rundll32.exe url.dll,FileProtocolHandler {}".format(url)
+    Popen(_cmd)
 
 
 if __name__ == '__main__':

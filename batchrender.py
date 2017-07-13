@@ -2,6 +2,7 @@
 """
 GUI Batchrender for nuke.
 """
+
 import os
 import sys
 import re
@@ -19,7 +20,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 
 from ui_mainwindow import Ui_MainWindow
 
-__version__ = '0.3.7'
+__version__ = '0.3.8'
 SYS_CODEC = locale.getdefaultlocale()[1]
 TIME = datetime.datetime.now().strftime('%y%m%d_%H%M')
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
@@ -78,7 +79,7 @@ def change_dir(dir_):
         os.chdir(dir_)
     except WindowsError:
         print(sys.exc_info()[2])
-    print(u'工作目录改为: {}'.format(os.getcwd()))
+    print('工作目录改为: {}'.format(os.getcwd()))
 
 
 class SingleInstanceException(Exception):
@@ -137,18 +138,20 @@ class BatchRender(multiprocessing.Process):
         self.daemon = True
 
         # Set logger
-        self._logfile = open(self.LOG_FILENAME, 'a')
-        self._logger = logging.getLogger(__name__)
-        self._logger.setLevel(self.LOG_LEVEL)
-        handler = logging.FileHandler(self.LOG_FILENAME)
-        formatter = logging.Formatter(
-            '[%(asctime)s]\t%(levelname)10s:\t%(message)s')
-        handler.setFormatter(formatter)
-        self._logger.addHandler(handler)
+        # self._logfile = open(self.LOG_FILENAME, 'a')
+        # self._logger = logging.getLogger(__name__)
+        # self._logger.setLevel(self.LOG_LEVEL)
+        # handler = logging.FileHandler(self.LOG_FILENAME)
+        # formatter = logging.Formatter(
+        #     '[%(asctime)s]\t%(levelname)10s:\t%(message)s')
+        # handler.setFormatter(formatter)
+        # self._logger.addHandler(handler)
+        self.rotate_log()
 
     def run(self):
-        self.rotate_log()
         self.lock.acquire()
+        reload(sys)
+        sys.setdefaultencoding('UTF-8')
         self._files.unlock_all()
         self.batch_render()
         self.lock.release()
@@ -181,13 +184,13 @@ class BatchRender(multiprocessing.Process):
     def batch_render(self):
         """Render all renderable file in dir."""
 
-        self._logger.info('{:-^50s}'.format('<开始批渲染>'))
+        # self._logger.info('{:-^50s}'.format('<开始批渲染>'))
         for f in Files():
             _rtcode = self.render(f)
 
-        self._logger.info('<结束批渲染>')
+        # self._logger.info('<结束批渲染>')
         if Config()['HIBER']:
-            self._logger.info('<计算机进入休眠模式>')
+            # self._logger.info('<计算机进入休眠模式>')
             hiber()
 
     def render(self, f):
@@ -195,7 +198,7 @@ class BatchRender(multiprocessing.Process):
 
         print(u'## [{}/{}]\t{}'.format(self._files.index(f) +
                                        1, len(self._files), f))
-        self._logger.info(u'%s: 开始渲染', f)
+        # self._logger.info(u'%s: 开始渲染', f)
 
         if not os.path.isfile(f):
             print('not isfile', f)
@@ -223,37 +226,38 @@ class BatchRender(multiprocessing.Process):
             NUKE=self._config['NUKE'],
             f=_file,
         )
-        self._logger.debug(u'命令: %s', cmd)
+        # self._logger.debug(u'命令: %s', cmd)
         print(cmd)
-        _proc = Popen(cmd.encode('UTF-8'), stderr=PIPE)
+        _proc = Popen(cmd.encode(SYS_CODEC), stderr=PIPE)
         self._queue.put(_proc.pid)
         _stderr = _proc.communicate()[1]
         _stderr = fanyi(_stderr)
         if _stderr:
             sys.stderr.write(_stderr)
-            if re.match(r'\[.*\] Warning: (.*)', _stderr):
-                self._logger.warning(_stderr)
-            else:
-                self._logger.error(_stderr)
+            # if re.match(r'\[.*\] Warning: (.*)', _stderr):
+            # self._logger.warning(_stderr)
+            # else:
+            # self._logger.error(_stderr)
 
         _rtcode = _proc.returncode
 
         # Logging total time.
-        self._logger.info(
-            u'%s: 结束渲染 耗时 %s %s',
-            f,
-            timef((datetime.datetime.now() - _time).total_seconds()),
-            u'退出码: {}'.format(_rtcode) if _rtcode else u'正常退出',
-        )
+        # self._logger.info(
+        #     u'%s: 结束渲染 耗时 %s %s',
+        #     f,
+        #     timef((datetime.datetime.now() - _time).total_seconds()),
+        #     u'退出码: {}'.format(_rtcode) if _rtcode else u'正常退出',
+        # )
 
         if _rtcode:
             # Exited with error.
             self._error_files.append(f)
             _count = self._error_files.count(f)
-            self._logger.error(u'%s: 渲染出错 第%s次', f, _count)
+            # self._logger.error(u'%s: 渲染出错 第%s次', f, _count)
             if _count >= 3:
+                pass
                 # Not retry.
-                self._logger.error(u'%s: 连续渲染错误超过3次,不再进行重试。', f)
+                # self._logger.error(u'%s: 连续渲染错误超过3次,不再进行重试。', f)
             elif os.path.isfile(f):
                 # Retry, use new version.
                 os.remove(_file)

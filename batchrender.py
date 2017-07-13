@@ -6,7 +6,6 @@ GUI Batchrender for nuke.
 import os
 import sys
 import re
-import locale
 import json
 import logging
 import datetime
@@ -20,10 +19,12 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 
 from ui_mainwindow import Ui_MainWindow
 
-__version__ = '0.3.9'
-SYS_CODEC = locale.getdefaultlocale()[1]
-TIME = datetime.datetime.now().strftime('%y%m%d_%H%M')
+
+__version__ = '0.4.0'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
+
+reload(sys)
+sys.setdefaultencoding('UTF-8')
 
 
 class Config(dict):
@@ -131,7 +132,6 @@ class BatchRender(multiprocessing.Process):
 
         reload(sys)
         sys.setdefaultencoding('UTF-8')
-        print(sys.getdefaultencoding())
 
         self.lock.acquire()
 
@@ -181,7 +181,7 @@ class BatchRender(multiprocessing.Process):
                         os.rename(old_name, new_name)
                 if os.path.exists(self.LOG_FILENAME):
                     os.rename(self.LOG_FILENAME,
-                              u'{}.{}.log'.format(logname, 1))
+                              '{}.{}.log'.format(logname, 1))
 
     def batch_render(self):
         """Render all renderable file in dir."""
@@ -227,7 +227,7 @@ class BatchRender(multiprocessing.Process):
         )
         self._logger.debug(u'命令: %s', cmd)
         print(cmd)
-        _proc = Popen(cmd.encode(SYS_CODEC), stderr=PIPE)
+        _proc = Popen(cmd, stderr=PIPE)
         self._queue.put(_proc.pid)
         _stderr = _proc.communicate()[1]
         _stderr = fanyi(_stderr)
@@ -284,40 +284,11 @@ class BatchRender(multiprocessing.Process):
 
 def fanyi(text):
     """Translate error info to chinese."""
-
     ret = text.strip('\r\n')
-    ret = re.sub(r'\[.*?\] ERROR: (.+)', r'\1', ret)
-    ret = ret.replace(
-        'Read error: No such file or directory',
-        '读取错误: 找不到文件或路径'
-    )
-    ret = ret.replace(
-        'Missing input channel',
-        '输入通道丢失'
-    )
-    ret = ret.replace(
-        'There are no active Write operators in this script',
-        '此脚本中没有启用任何Write节点'
-    )
-    ret = re.sub(
-        r'(.+?: )Error reading LUT file\. (.+?: )unable to open file\.',
-        r'\1读取LUT文件出错。 \2 无法打开文件',
-        ret
-    )
-    ret = re.sub(
-        r'(.+?: )Error reading pixel data from image file (".*")\. Scan line (.+?) is missing\.',
-        r'\1自文件 \2 读取像素数据错误。扫描线 \3 丢失。',
-        ret
-    )
-    ret = re.sub(
-        r'(.+?: )Error reading pixel data from image file (".*")\. Early end of file: read (.+?) out of (.+?) requested bytes.',
-        r'\1自文件 \2 读取像素数据错误。过早的文件结束符: 读取了 \4 数据中的 \3 。',
-        ret
-    )
-    try:
-        ret = unicode(ret, 'UTF-8')
-    except UnicodeDecodeError:
-        ret = unicode(ret, SYS_CODEC)
+    with open(os.path.join(__file__, '../batchrender.zh_CN.json')) as f:
+        translate_dict = json.load(f)
+    for k, v in translate_dict.iteritems():
+        ret = re.sub(k, v, ret)
     return ret
 
 
@@ -358,8 +329,8 @@ class Files(list):
         """Update self from renderable files in dir."""
 
         del self[:]
-        _files = [unicode(i, SYS_CODEC) for i in os.listdir(
-            os.getcwd()) if unicode(i, SYS_CODEC).endswith(('.nk', '.nk.lock'))]
+        _files = [i for i in os.listdir(
+            os.getcwd()) if i.endswith(('.nk', '.nk.lock'))]
         _files.sort(key=os.path.getmtime, reverse=False)
         self.extend(_files)
 
@@ -374,15 +345,13 @@ class Files(list):
     def unlock(f):
         """Rename a (raw_name).(ext) file back or delete it."""
 
-        if isinstance(f, unicode):
-            f = f.encode(SYS_CODEC)
         _unlocked_name = os.path.splitext(f)[0]
         if os.path.isfile(_unlocked_name):
             os.remove(f)
-            # self._logger.info(u'因为有更新的文件, 移除: {}'.format(file))
+            print(u'因为有更新的文件, 移除: {}'.format(file))
         else:
             os.rename(f, _unlocked_name)
-        return unicode(_unlocked_name, SYS_CODEC)
+        return _unlocked_name
 
     @staticmethod
     def lock(f):
@@ -390,25 +359,24 @@ class Files(list):
 
         if f.endswith('.lock'):
             return f
-        if isinstance(f, unicode):
-            f = f.encode(SYS_CODEC)
-        locked_file = f + '.lock'
-        file_archive_folder = os.path.join('ArchivedRenderFiles', TIME)
-        file_archive_dest = os.path.join(file_archive_folder, f)
 
-        shutil.copyfile(f, locked_file)
-        if not os.path.exists(file_archive_folder):
-            os.makedirs(file_archive_folder)
-        if os.path.exists(file_archive_dest):
-            time_text = datetime.datetime.fromtimestamp(
-                os.path.getctime(file_archive_dest)).strftime('%M%S_%f')
-            alt_file_archive_dest = file_archive_dest + '.' + time_text
-            if os.path.exists(alt_file_archive_dest):
-                os.remove(file_archive_dest)
-            else:
-                os.rename(file_archive_dest, alt_file_archive_dest)
-        shutil.move(f, file_archive_dest)
-        return unicode(locked_file, SYS_CODEC)
+        Files.archive(f)
+        locked_file = f + '.lock'
+        os.rename(f, locked_file)
+        return locked_file
+
+    @staticmethod
+    def archive(f, dest='old_files'):
+        """Archive file in a folder with time struture."""
+        now = datetime.datetime.now()
+        weekday = ('周日', '周一', '周而', '周三', '周四', '周五', '周六')
+        dest = os.path.join(
+            dest,
+            now.strftime(u'%Y_%m'),
+            unicode(now.strftime(u'%d日_{}#%H时%M分/'))
+        )
+        dest = dest.format(weekday[int(now.strftime('%w'))])
+        copy(f, dest)
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -431,7 +399,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         lambda state, k=key: self._config.__setitem__(k, state))
                 elif isinstance(edit, QtGui.QComboBox):
                     edit.currentIndexChanged.connect(
-                        lambda index, ex=edit, k=key: self._config.__setitem__(k, ex.itemText(index)))
+                        lambda index, ex=edit, k=key:
+                        self._config.__setitem__(k, ex.itemText(index)))
                 else:
                     print(u'待处理的控件: {} {}'.format(type(edit), edit))
 
@@ -563,8 +532,6 @@ def main():
 
     import fix_pyinstaller
     fix_pyinstaller.main()
-    reload(sys)
-    sys.setdefaultencoding('UTF-8')
     call(u'@TITLE batchrender.console', shell=True)
     try:
         os.chdir(Config()['DIR'])
@@ -585,6 +552,18 @@ def pause():
         time.sleep(1)
     sys.stdout.write(u'\r          ')
     print(u'')
+
+
+def copy(src, dst):
+    """Copy src to dst."""
+    message = u'{} -> {}'.format(src, dst)
+    print(message)
+    if not os.path.exists(src):
+        return
+    dst_dir = os.path.dirname(dst)
+    if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir)
+    shutil.copy2(src, dst)
 
 
 if __name__ == '__main__':

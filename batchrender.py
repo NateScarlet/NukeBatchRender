@@ -114,7 +114,7 @@ def is_pid_exists(pid):
 class BatchRender(multiprocessing.Process):
     """Main render process."""
     LOG_FILENAME = u'Nuke批渲染.log'
-    LOG_LEVEL = logging.DEBUG
+    LOG_LEVEL = logging.INFO
     lock = multiprocessing.Lock()
 
     def __init__(self):
@@ -285,6 +285,7 @@ class BatchRender(multiprocessing.Process):
 def fanyi(text):
     """Translate error info to chinese."""
     ret = text.strip('\r\n')
+
     with open(os.path.join(__file__, '../batchrender.zh_CN.json')) as f:
         translate_dict = json.load(f)
     for k, v in translate_dict.iteritems():
@@ -529,7 +530,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
 def main():
     """Run this script standalone."""
-
+    __file__ = sys.argv[0]
     import fix_pyinstaller
     fix_pyinstaller.main()
     call(u'@TITLE batchrender.console', shell=True)

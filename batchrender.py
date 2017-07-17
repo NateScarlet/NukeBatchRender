@@ -21,7 +21,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.6.2'
+__version__ = '0.6.4'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = locale.getdefaultlocale()[1]
 
@@ -456,6 +456,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self._config = Config()
         self._proc = None
+        self.rendering = False
 
         self.edits_key = {
             self.dirEdit: 'DIR',
@@ -488,16 +489,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def update(self):
         """Update UI content."""
+        rendering = bool(self._proc and self._proc.is_alive())
+        if not rendering and self.rendering:
+            QApplication.alert(self)
+            self.statusbar.showMessage(u'渲染已完成')
+        self.rendering = rendering
 
         def _button_enabled():
-            if self._proc and self._proc.is_alive():
-                # Rendering.
+            if rendering:
                 self.renderButton.setEnabled(False)
                 self.stopButton.setEnabled(True)
                 self.listWidget.setStyleSheet(
                     'color:white;background-color:rgb(12%, 16%, 18%);')
             else:
-                # Not rendering.
                 if os.path.isdir(self._config['DIR']) and Files():
                     self.renderButton.setEnabled(True)
                 else:
@@ -547,6 +551,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             dir=os.getenv('ProgramFiles'), filter='*.exe')[0]
         if filenames:
             self._config['NUKE'] = filenames
+            print('test')
             self.update()
 
     def render(self):

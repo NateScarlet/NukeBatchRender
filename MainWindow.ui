@@ -172,6 +172,13 @@
        </layout>
       </item>
       <item>
+       <widget class="QPushButton" name="pushButtonRemoveOldVersion">
+        <property name="text">
+         <string>移除低版本号文件</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="renderButton">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -246,6 +253,11 @@
    </property>
    <property name="toolTip">
     <string>openDir</string>
+   </property>
+  </action>
+  <action name="actionRemoveOldVersion">
+   <property name="text">
+    <string>removeOldVersion</string>
    </property>
   </action>
  </widget>
@@ -356,6 +368,22 @@
     <hint type="sourcelabel">
      <x>354</x>
      <y>44</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButtonRemoveOldVersion</sender>
+   <signal>clicked()</signal>
+   <receiver>actionRemoveOldVersion</receiver>
+   <slot>trigger()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>482</x>
+     <y>312</y>
     </hint>
     <hint type="destinationlabel">
      <x>-1</x>

@@ -21,7 +21,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.5.6'
+__version__ = '0.6.2'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = locale.getdefaultlocale()[1]
 
@@ -211,8 +211,8 @@ class BatchRender(multiprocessing.Process):
     def call_nuke(self, f):
         """Open a nuke subprocess for rendering file."""
 
-        _time = datetime.datetime.now()
-        _file = Files.lock(f)
+        current_time = datetime.datetime.now()
+        nk_file = Files.lock(f)
 
         _proxy = '-p ' if self._config['PROXY'] else '-f '
         _priority = '-c 8G --priority low ' if self._config['LOW_PRIORITY'] else ''
@@ -222,7 +222,7 @@ class BatchRender(multiprocessing.Process):
             _priority,
             _cont,
             NUKE=self._config['NUKE'],
-            f=os.path.abspath(get_unicode(_file))
+            f=nk_file
         )
         self._logger.debug(u'命令: %s', cmd)
         print(cmd)
@@ -243,7 +243,7 @@ class BatchRender(multiprocessing.Process):
         self._logger.info(
             u'%s: 结束渲染 耗时 %s %s',
             f,
-            timef((datetime.datetime.now() - _time).total_seconds()),
+            timef((datetime.datetime.now() - current_time).total_seconds()),
             u'退出码: {}'.format(_rtcode) if _rtcode else u'正常退出',
         )
 
@@ -257,14 +257,14 @@ class BatchRender(multiprocessing.Process):
                 self._logger.error(u'%s: 连续渲染错误超过3次,不再进行重试。', f)
             elif os.path.isfile(f):
                 # Retry, use new version.
-                os.remove(_file)
+                os.remove(nk_file)
             else:
                 # Retry, use this version.
-                os.rename(_file, f)
+                os.rename(nk_file, f)
         else:
             # Normal exit.
             if not self._config['PROXY']:
-                os.remove(_file)
+                os.remove(nk_file)
 
         return _rtcode
 
@@ -329,9 +329,8 @@ class Files(list):
         """Update self from renderable files in dir."""
 
         del self[:]
-        _files = [i for i in os.listdir(
-            os.getcwd()) if i.endswith(('.nk', '.nk.lock'))]
-        _files.sort(key=os.path.getmtime, reverse=False)
+        _files = sorted([get_unicode(i) for i in os.listdir(
+            os.getcwd()) if i.endswith(('.nk', '.nk.lock'))], key=os.path.getmtime, reverse=False)
         self.extend(_files)
 
     def unlock_all(self):
@@ -366,18 +365,48 @@ class Files(list):
         return locked_file
 
     @staticmethod
-    def archive(f, dest='old_files'):
+    def archive(f, dest=u'文件备份'):
         """Archive file in a folder with time struture."""
 
         now = datetime.datetime.now()
         weekday = ('周日', '周一', '周而', '周三', '周四', '周五', '周六')
         dest = os.path.join(
             dest,
-            now.strftime(u'%Y_%m'),
-            unicode(now.strftime(u'%d日_{}#%H时%M分/'))
-        )
-        dest = dest.format(weekday[int(now.strftime('%w'))])
+            get_unicode(now.strftime(u'%Y年%m月')),
+            get_unicode(now.strftime(u'%d日%H时%M分_{}/'))
+        ).format(weekday[int(now.strftime('%w'))])
         copy(f, dest)
+
+    def remove_old_version(self):
+        """Remove all old version nk files.  """
+
+        all_version = {}
+        while True:
+            for i in self:
+                if not os.path.exists(i):
+                    continue
+                shot, version = self.split_version(i)
+                prev_version = all_version.get(shot, -2)
+                if version > prev_version:
+                    all_version[shot] = version
+                    break
+                elif version < prev_version:
+                    self.archive(i)
+                    os.remove(i)
+            else:
+                break
+
+    @staticmethod
+    def split_version(f):
+        """Return nuke style _v# (shot, version number) pair.  """
+
+        match = re.match(r'(.+)_v(\d+)', f)
+        if not match:
+            return (f, -1)
+        shot, version = match.groups()
+        if version < 0:
+            raise ValueError('Negative version number not supported.')
+        return (shot, version)
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -390,6 +419,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.actionNuke.triggered.connect(self.ask_nuke)
             self.actionStop.triggered.connect(self.stop)
             self.actionOpenDir.triggered.connect(self.open_dir)
+            self.actionRemoveOldVersion.triggered.connect(
+                self.remove_old_version)
 
         def _edits():
             for edit, key in self.edits_key.iteritems():
@@ -523,6 +554,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self._proc = BatchRender()
         self._proc.start()
+
+    def remove_old_version(self):
+        """Remove old version nk files from UI.  """
+        Files().remove_old_version()
 
     def stop(self):
         """Stop rendering from UI."""

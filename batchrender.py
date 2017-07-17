@@ -11,6 +11,7 @@ import logging
 import datetime
 import shutil
 import time
+import locale
 from subprocess import Popen, PIPE, call
 import multiprocessing
 
@@ -20,15 +21,16 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.5.0'
+__version__ = '0.5.6'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
+OS_ENCODING = locale.getdefaultlocale()[1]
 
 reload(sys)
 sys.setdefaultencoding('UTF-8')
 
 
 class Config(dict):
-    """Config file as dict that automatic write and read json file."""
+    """A config file can be manipulated that automatic write and read json file on disk."""
 
     default = {
         'NUKE': r'C:\Program Files\Nuke10.0v4\Nuke10.0.exe',
@@ -76,11 +78,12 @@ class Config(dict):
 
 def change_dir(dir_):
     """Try change currunt working directory."""
+
     try:
-        os.chdir(dir_)
+        os.chdir(get_unicode(dir_))
     except WindowsError:
         print(sys.exc_info()[2])
-    print(u'工作目录改为: {}'.format(os.getcwd()).encode('UTF-8'))
+    print(u'工作目录改为: {}'.format(get_unicode(os.getcwd())))
 
 
 class SingleInstanceException(Exception):
@@ -150,6 +153,7 @@ class BatchRender(multiprocessing.Process):
     def set_logger(self):
         """Set logger for this process."""
 
+        self.rotate_log()
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(self.LOG_LEVEL)
         handler = logging.FileHandler(self.LOG_FILENAME)
@@ -157,7 +161,6 @@ class BatchRender(multiprocessing.Process):
             '[%(asctime)s]\t%(levelname)10s:\t%(message)s')
         handler.setFormatter(formatter)
         self._logger.addHandler(handler)
-        self.rotate_log()
 
     def continuous_render(self):
         """Loop batch rendering as files exists."""
@@ -168,21 +171,16 @@ class BatchRender(multiprocessing.Process):
     def rotate_log(self):
         """Rotate existed logfile if needed."""
 
-        if os.path.isfile(self.LOG_FILENAME):
-            if os.stat(self.LOG_FILENAME).st_size > 10000:
-                logname = os.path.splitext(self.LOG_FILENAME)[0]
-                # Remove oldest logfile.
-                if os.path.exists(u'{}.{}.log'.format(logname, 5)):
-                    os.remove(u'{}.{}.log'.format(logname, 5))
-                # Rename else.
-                for i in range(5)[:0:-1]:
-                    old_name = u'{}.{}.log'.format(logname, i)
-                    new_name = u'{}.{}.log'.format(logname, i + 1)
-                    if os.path.exists(old_name):
-                        os.rename(old_name, new_name)
-                if os.path.exists(self.LOG_FILENAME):
-                    os.rename(self.LOG_FILENAME,
-                              '{}.{}.log'.format(logname, 1))
+        prefix = os.path.splitext(self.LOG_FILENAME)[0]
+        if os.path.isfile(self.LOG_FILENAME) and os.stat(self.LOG_FILENAME).st_size > 10000:
+            for i in range(4, 0, -1):
+                old_name = u'{}.{}.log'.format(prefix, i)
+                new_name = u'{}.{}.log'.format(prefix, i + 1)
+                if os.path.exists(old_name):
+                    if os.path.exists(new_name):
+                        os.remove(new_name)
+                    os.rename(old_name, new_name)
+            os.rename(self.LOG_FILENAME, old_name)
 
     def batch_render(self):
         """Render all renderable file in dir."""
@@ -224,11 +222,11 @@ class BatchRender(multiprocessing.Process):
             _priority,
             _cont,
             NUKE=self._config['NUKE'],
-            f=_file,
+            f=os.path.abspath(get_unicode(_file))
         )
         self._logger.debug(u'命令: %s', cmd)
         print(cmd)
-        _proc = Popen(cmd, stderr=PIPE)
+        _proc = unicode_popen(cmd, stderr=PIPE)
         self._queue.put(_proc.pid)
         _stderr = _proc.communicate()[1]
         _stderr = fanyi(_stderr)
@@ -370,6 +368,7 @@ class Files(list):
     @staticmethod
     def archive(f, dest='old_files'):
         """Archive file in a folder with time struture."""
+
         now = datetime.datetime.now()
         weekday = ('周日', '周一', '周而', '周三', '周四', '周五', '周六')
         dest = os.path.join(
@@ -445,7 +444,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         Files().unlock_all()
 
     def open_dir(self):
-        url_open('file://{}'.format(self._config['DIR']))
+        """Open dir in explorer."""
+
+        url_open(u'file://{}'.format(self._config['DIR']))
 
     def _start_update(self):
         """Start a thread for update."""
@@ -474,7 +475,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.listWidget.setStyleSheet('')
 
         def _edits():
-            for qt_edit, k in self.edits_key.iteritems():
+            for qt_edit, k in self.edits_key.items():
                 try:
                     if isinstance(qt_edit, QtGui.QLineEdit):
                         qt_edit.setText(self._config[k])
@@ -500,8 +501,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         dir_ = dialog.getExistingDirectory(
             dir=os.path.dirname(self._config['DIR']))
         if dir_:
-            self._config['DIR'] = dir_
-            self.update()
+            try:
+                dir_.encode('ascii')
+            except UnicodeEncodeError:
+                self.statusbar.showMessage(u'Nuke只支持英文路径', 10000)
+            else:
+                self._config['DIR'] = dir_
 
     def ask_nuke(self):
         """Show a dialog ask config['NUKE']"""
@@ -549,7 +554,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
 def main():
     """Run this script standalone."""
-    __file__ = sys.argv[0]
     import fix_pyinstaller
     fix_pyinstaller.main()
     call(u'@TITLE batchrender.console', shell=True)
@@ -587,11 +591,35 @@ def copy(src, dst):
 
 
 def url_open(url):
-    _cmd = "rundll32.exe url.dll,FileProtocolHandler {}".format(url)
-    Popen(_cmd)
+    """Open url in explorer. """
+
+    _cmd = u'rundll32.exe url.dll,FileProtocolHandler "{}"'.format(url)
+    unicode_popen(_cmd)
+
+
+def get_unicode(string, codecs=('UTF-8', OS_ENCODING)):
+    """Return unicode by try decode @string with @codecs.  """
+
+    if isinstance(string, unicode):
+        return string
+
+    for i in codecs:
+        try:
+            return unicode(string, i)
+        except UnicodeDecodeError:
+            continue
+
+
+def unicode_popen(args, **kwargs):
+    """Return Popen object use encoded args.  """
+
+    if isinstance(args, unicode):
+        args = args.encode(OS_ENCODING)
+    return Popen(args, **kwargs)
 
 
 if __name__ == '__main__':
+    __file__ = sys.argv[0]
     try:
         main()
     except SystemExit as ex:

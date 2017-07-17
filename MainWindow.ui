@@ -75,7 +75,7 @@
           <item>
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>工作目录</string>
+             <string>渲染文件夹</string>
             </property>
            </widget>
           </item>

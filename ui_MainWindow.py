@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainwindow.ui'
 #
-# Created: Thu Jul 13 18:57:30 2017
+# Created: Mon Jul 17 13:43:39 2017
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -95,6 +95,9 @@ class Ui_MainWindow(object):
         self.hiberCheck.setObjectName("hiberCheck")
         self.gridLayout.addWidget(self.hiberCheck, 1, 1, 1, 1)
         self.verticalLayout_2.addLayout(self.gridLayout)
+        self.pushButtonRemoveOldVersion = QtGui.QPushButton(self.centralwidget)
+        self.pushButtonRemoveOldVersion.setObjectName("pushButtonRemoveOldVersion")
+        self.verticalLayout_2.addWidget(self.pushButtonRemoveOldVersion)
         self.renderButton = QtGui.QPushButton(self.centralwidget)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -129,6 +132,8 @@ class Ui_MainWindow(object):
         self.actionUpdateUI.setObjectName("actionUpdateUI")
         self.actionOpenDir = QtGui.QAction(MainWindow)
         self.actionOpenDir.setObjectName("actionOpenDir")
+        self.actionRemoveOldVersion = QtGui.QAction(MainWindow)
+        self.actionRemoveOldVersion.setObjectName("actionRemoveOldVersion")
 
         self.retranslateUi(MainWindow)
         QtCore.QObject.connect(self.renderButton, QtCore.SIGNAL("clicked()"), self.actionRender.trigger)
@@ -138,6 +143,7 @@ class Ui_MainWindow(object):
         QtCore.QObject.connect(self.toolButtonOpenDir, QtCore.SIGNAL("clicked()"), self.actionOpenDir.trigger)
         QtCore.QObject.connect(self.toolButtonDir, QtCore.SIGNAL("clicked()"), self.actionDir.trigger)
         QtCore.QObject.connect(self.toolButtonNuke, QtCore.SIGNAL("clicked()"), self.actionNuke.trigger)
+        QtCore.QObject.connect(self.pushButtonRemoveOldVersion, QtCore.SIGNAL("clicked()"), self.actionRemoveOldVersion.trigger)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -152,6 +158,7 @@ class Ui_MainWindow(object):
         self.continueCheck.setText(QtGui.QApplication.translate("MainWindow", "出错继续渲", None, QtGui.QApplication.UnicodeUTF8))
         self.priorityCheck.setText(QtGui.QApplication.translate("MainWindow", "低优先级", None, QtGui.QApplication.UnicodeUTF8))
         self.hiberCheck.setText(QtGui.QApplication.translate("MainWindow", "完成后休眠", None, QtGui.QApplication.UnicodeUTF8))
+        self.pushButtonRemoveOldVersion.setText(QtGui.QApplication.translate("MainWindow", "移除低版本号文件", None, QtGui.QApplication.UnicodeUTF8))
         self.renderButton.setText(QtGui.QApplication.translate("MainWindow", "渲染", None, QtGui.QApplication.UnicodeUTF8))
         self.stopButton.setText(QtGui.QApplication.translate("MainWindow", "停止渲染", None, QtGui.QApplication.UnicodeUTF8))
         self.actionRender.setText(QtGui.QApplication.translate("MainWindow", "render", None, QtGui.QApplication.UnicodeUTF8))
@@ -161,4 +168,5 @@ class Ui_MainWindow(object):
         self.actionUpdateUI.setText(QtGui.QApplication.translate("MainWindow", "updateUI", None, QtGui.QApplication.UnicodeUTF8))
         self.actionOpenDir.setText(QtGui.QApplication.translate("MainWindow", "openDir", None, QtGui.QApplication.UnicodeUTF8))
         self.actionOpenDir.setToolTip(QtGui.QApplication.translate("MainWindow", "openDir", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionRemoveOldVersion.setText(QtGui.QApplication.translate("MainWindow", "removeOldVersion", None, QtGui.QApplication.UnicodeUTF8))
 

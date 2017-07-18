@@ -21,7 +21,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.6.4'
+__version__ = '0.6.5'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = locale.getdefaultlocale()[1]
 
@@ -369,7 +369,7 @@ class Files(list):
         """Archive file in a folder with time struture."""
 
         now = datetime.datetime.now()
-        weekday = ('周日', '周一', '周而', '周三', '周四', '周五', '周六')
+        weekday = ('周日', '周一', '周二', '周三', '周四', '周五', '周六')
         dest = os.path.join(
             dest,
             get_unicode(now.strftime(u'%Y年%m月')),

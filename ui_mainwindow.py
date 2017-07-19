@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainwindow.ui'
 #
-# Created: Mon Jul 17 18:46:36 2017
+# Created: Wed Jul 19 15:01:56 2017
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -107,6 +107,9 @@ class Ui_MainWindow(object):
         self.renderButton.setMinimumSize(QtCore.QSize(200, 100))
         self.renderButton.setObjectName("renderButton")
         self.verticalLayout_2.addWidget(self.renderButton)
+        self.checkBoxAutoStart = QtGui.QCheckBox(self.centralwidget)
+        self.checkBoxAutoStart.setObjectName("checkBoxAutoStart")
+        self.verticalLayout_2.addWidget(self.checkBoxAutoStart)
         self.stopButton = QtGui.QPushButton(self.centralwidget)
         self.stopButton.setEnabled(False)
         self.stopButton.setObjectName("stopButton")
@@ -160,6 +163,7 @@ class Ui_MainWindow(object):
         self.hiberCheck.setText(QtGui.QApplication.translate("MainWindow", "完成后休眠", None, QtGui.QApplication.UnicodeUTF8))
         self.pushButtonRemoveOldVersion.setText(QtGui.QApplication.translate("MainWindow", "移除低版本号文件", None, QtGui.QApplication.UnicodeUTF8))
         self.renderButton.setText(QtGui.QApplication.translate("MainWindow", "渲染", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkBoxAutoStart.setText(QtGui.QApplication.translate("MainWindow", "监视文件夹 自动开始渲染", None, QtGui.QApplication.UnicodeUTF8))
         self.stopButton.setText(QtGui.QApplication.translate("MainWindow", "停止渲染", None, QtGui.QApplication.UnicodeUTF8))
         self.actionRender.setText(QtGui.QApplication.translate("MainWindow", "render", None, QtGui.QApplication.UnicodeUTF8))
         self.actionDir.setText(QtGui.QApplication.translate("MainWindow", "dir", None, QtGui.QApplication.UnicodeUTF8))

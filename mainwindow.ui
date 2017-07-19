@@ -198,6 +198,13 @@
        </widget>
       </item>
       <item>
+       <widget class="QCheckBox" name="checkBoxAutoStart">
+        <property name="text">
+         <string>监视文件夹 自动开始渲染</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="stopButton">
         <property name="enabled">
          <bool>false</bool>

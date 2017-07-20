@@ -21,7 +21,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.7.0'
+__version__ = '0.7.4'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = locale.getdefaultlocale()[1]
 
@@ -137,18 +137,12 @@ class BatchRender(multiprocessing.Process):
         reload(sys)
         sys.setdefaultencoding('UTF-8')
 
-        self.lock.acquire()
+        with self.lock:
 
-        self.set_logger()
-        os.chdir(self._config['DIR'])
-        self._files.unlock_all()
-        self.continuous_render()
-
-        if Config()['HIBER']:
-            self._logger.info('<计算机进入休眠模式>')
-            hiber()
-
-        self.lock.release()
+            self.set_logger()
+            os.chdir(self._config['DIR'])
+            self._files.unlock_all()
+            self.continuous_render()
 
     def set_logger(self):
         """Set logger for this process."""
@@ -492,8 +486,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         rendering = bool(self._proc and self._proc.is_alive())
         if not rendering and self.rendering:
-            QApplication.alert(self)
-            self.statusbar.showMessage(u'渲染已完成')
+            self.on_stop_callback()
         self.rendering = rendering
 
         def _button_enabled():
@@ -502,6 +495,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.stopButton.setEnabled(True)
                 self.listWidget.setStyleSheet(
                     'color:white;background-color:rgb(12%, 16%, 18%);')
+                self.pushButtonRemoveOldVersion.setEnabled(False)
             else:
                 if os.path.isdir(self._config['DIR']) and Files():
                     self.renderButton.setEnabled(True)
@@ -509,6 +503,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     self.renderButton.setEnabled(False)
                 self.stopButton.setEnabled(False)
                 self.listWidget.setStyleSheet('')
+                self.pushButtonRemoveOldVersion.setEnabled(True)
 
         def _edits():
             for qt_edit, k in self.edits_key.items():
@@ -525,11 +520,22 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.listWidget.clear()
             for i in Files():
                 self.listWidget.addItem(u'{}'.format(i))
+
         if not rendering and self.checkBoxAutoStart.isChecked() and Files():
             self.render()
         _edits()
         _list_widget()
         _button_enabled()
+
+    def on_stop_callback(self):
+        """Do work when rendering stop.  """
+
+        QApplication.alert(self)
+        self.statusbar.showMessage(time_prefix(u'渲染已完成'))
+        if self.hiberCheck.isChecked():
+            self.statusbar.showMessage(time_prefix(u'休眠'))
+            self._config['HIBER'] = False
+            hiber()
 
     def ask_dir(self):
         """Show a dialog ask config['DIR']"""
@@ -558,11 +564,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def render(self):
         """Start rendering from UI."""
-
+        self.statusbar.clearMessage()
         self._proc = BatchRender()
         self._proc.start()
 
-    def remove_old_version(self):
+    @staticmethod
+    def remove_old_version():
         """Remove old version nk files from UI.  """
         Files().remove_old_version()
 
@@ -571,7 +578,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self._config['HIBER'] = 0
         self._proc.stop()
-        print(u'# 停止渲染')
+        self.checkBoxAutoStart.setCheckState(QtCore.Qt.CheckState.Unchecked)
 
     def closeEvent(self, event):
         """Override qt closeEvent."""
@@ -592,6 +599,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 event.ignore()
         else:
             event.accept()
+
+
+def time_prefix(text):
+    """Insert time before @text.  """
+    return u'[{}]{}'.format(time.strftime('%H:%M:%S'), text)
 
 
 def main():

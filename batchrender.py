@@ -21,7 +21,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.7.6'
+__version__ = '0.7.10'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = locale.getdefaultlocale()[1]
 
@@ -161,7 +161,7 @@ class BatchRender(multiprocessing.Process):
     def continuous_render(self):
         """Loop batch rendering as files exists."""
 
-        while Files():
+        while not Files().all_locked:
             self.batch_render()
 
     def rotate_log(self):
@@ -248,15 +248,12 @@ class BatchRender(multiprocessing.Process):
             self._error_files.append(f)
             _count = self._error_files.count(f)
             self._logger.error(u'%s: 渲染出错 第%s次', f, _count)
+            # TODO: retry limit
             if _count >= 3:
                 # Not retry.
                 self._logger.error(u'%s: 连续渲染错误超过3次,不再进行重试。', f)
-            elif os.path.isfile(f):
-                # Retry, use new version.
-                os.remove(nk_file)
             else:
-                # Retry, use this version.
-                os.rename(nk_file, f)
+                Files.unlock(nk_file)
         else:
             # Normal exit.
             if not self._config['PROXY']:
@@ -328,6 +325,7 @@ class Files(list):
         _files = sorted([get_unicode(i) for i in os.listdir(
             os.getcwd()) if i.endswith(('.nk', '.nk.lock'))], key=os.path.getmtime, reverse=False)
         self.extend(_files)
+        self.all_locked = self and all(bool(i.endswith('.lock')) for i in self)
 
     def unlock_all(self):
         """Unlock all .nk.lock files."""
@@ -476,6 +474,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         url_open(u'file://{}'.format(self._config['DIR']))
 
+    def open_log(self):
+        """Open log in explorer."""
+        # TODO: open log
+        pass
+
     def _start_update(self):
         """Start a thread for update."""
 
@@ -523,7 +526,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             for i in Files():
                 self.listWidget.addItem(u'{}'.format(i))
 
-        if not rendering and self.checkBoxAutoStart.isChecked() and Files():
+        if not rendering and self.checkBoxAutoStart.isChecked() \
+                and not Files().all_locked:
             self.render()
         _edits()
         _list_widget()
@@ -567,9 +571,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def render(self):
         """Start rendering from UI."""
-        self.statusbar.clearMessage()
         self._proc = BatchRender()
         self._proc.start()
+        self.statusbar.showMessage(u'渲染中')
 
     @staticmethod
     def remove_old_version():

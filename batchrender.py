@@ -21,7 +21,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.7.4'
+__version__ = '0.7.6'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = locale.getdefaultlocale()[1]
 
@@ -111,8 +111,10 @@ def is_pid_exists(pid):
             stdout=PIPE
         )
         _stdout = _proc.communicate()[0]
-        print(_stdout)
-        return '"{}"'.format(pid) in _stdout
+        ret = '"{}"'.format(pid) in _stdout
+        if ret:
+            print(_stdout)
+        return ret
 
 
 class BatchRender(multiprocessing.Process):
@@ -531,7 +533,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """Do work when rendering stop.  """
 
         QApplication.alert(self)
-        self.statusbar.showMessage(time_prefix(u'渲染已完成'))
+        if not self.statusbar.currentMessage():
+            self.statusbar.showMessage(time_prefix(u'渲染已完成'))
         if self.hiberCheck.isChecked():
             self.statusbar.showMessage(time_prefix(u'休眠'))
             self._config['HIBER'] = False
@@ -579,6 +582,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._config['HIBER'] = 0
         self._proc.stop()
         self.checkBoxAutoStart.setCheckState(QtCore.Qt.CheckState.Unchecked)
+        self.statusbar.showMessage(time_prefix(u'停止渲染'))
 
     def closeEvent(self, event):
         """Override qt closeEvent."""

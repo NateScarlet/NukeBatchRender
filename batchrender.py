@@ -21,7 +21,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.7.10'
+__version__ = '0.7.11'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = locale.getdefaultlocale()[1]
 
@@ -264,6 +264,7 @@ class BatchRender(multiprocessing.Process):
     def stop(self):
         """Stop rendering."""
 
+        _pid = None
         while not self._queue.empty():
             _pid = self._queue.get()
         if _pid:

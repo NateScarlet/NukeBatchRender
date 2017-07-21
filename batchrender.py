@@ -21,7 +21,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.7.11'
+__version__ = '0.7.16'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = locale.getdefaultlocale()[1]
 
@@ -473,7 +473,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def open_dir(self):
         """Open dir in explorer."""
 
-        url_open(u'file://{}'.format(self._config['DIR']))
+        url_open(file_url(self._config['DIR']))
 
     def open_log(self):
         """Open log in explorer."""
@@ -494,6 +494,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if not rendering and self.rendering:
             self.on_stop_callback()
         self.rendering = rendering
+        _files = Files()
 
         def _button_enabled():
             if rendering:
@@ -503,7 +504,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     'color:white;background-color:rgb(12%, 16%, 18%);')
                 self.pushButtonRemoveOldVersion.setEnabled(False)
             else:
-                if os.path.isdir(self._config['DIR']) and Files():
+                if os.path.isdir(self._config['DIR']) and _files:
                     self.renderButton.setEnabled(True)
                 else:
                     self.renderButton.setEnabled(False)
@@ -524,11 +525,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         def _list_widget():
             self.listWidget.clear()
-            for i in Files():
+            for i in _files:
                 self.listWidget.addItem(u'{}'.format(i))
 
         if not rendering and self.checkBoxAutoStart.isChecked() \
-                and not Files().all_locked:
+                and _files and not _files.all_locked:
             self.render()
         _edits()
         _list_widget()
@@ -572,6 +573,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def render(self):
         """Start rendering from UI."""
+        _file = os.path.abspath(os.path.join(__file__, '../error_handler.exe'))
+        url_open(file_url(_file))
         self._proc = BatchRender()
         self._proc.start()
         self.statusbar.showMessage(u'渲染中')
@@ -681,8 +684,14 @@ def unicode_popen(args, **kwargs):
     return Popen(args, **kwargs)
 
 
+def file_url(text):
+    """Left append 'file://' to @text.  """
+
+    return 'file://{}'.format(text)
+
+
 if __name__ == '__main__':
-    __file__ = sys.argv[0]
+    __file__ = os.path.abspath(sys.argv[0])
     try:
         main()
     except SystemExit as ex:

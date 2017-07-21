@@ -21,7 +21,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.7.16'
+__version__ = '0.7.17'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = locale.getdefaultlocale()[1]
 
@@ -161,7 +161,7 @@ class BatchRender(multiprocessing.Process):
     def continuous_render(self):
         """Loop batch rendering as files exists."""
 
-        while not Files().all_locked:
+        while Files() and not Files().all_locked:
             self.batch_render()
 
     def rotate_log(self):

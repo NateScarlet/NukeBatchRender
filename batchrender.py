@@ -21,7 +21,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.7.17'
+__version__ = '0.7.19'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = locale.getdefaultlocale()[1]
 
@@ -301,13 +301,13 @@ def timef(seconds):
 
 
 def hiber():
-    """Hibernate this computer."""
+    """Hibernate this computer.  """
 
     call(['SHUTDOWN', '/h'])
 
 
 class Files(list):
-    """(Single instance)Files that need to be render."""
+    """(Single instance)Files that need to be render.  """
     instance = None
 
     def __new__(cls):
@@ -320,7 +320,7 @@ class Files(list):
         self.update()
 
     def update(self):
-        """Update self from renderable files in dir."""
+        """Update self from renderable files in dir.  """
 
         del self[:]
         _files = sorted([get_unicode(i) for i in os.listdir(
@@ -337,19 +337,19 @@ class Files(list):
 
     @staticmethod
     def unlock(f):
-        """Rename a (raw_name).(ext) file back or delete it."""
+        """Rename a (raw_name).(ext) file back or delete it.  """
 
         _unlocked_name = os.path.splitext(f)[0]
         if os.path.isfile(_unlocked_name):
             os.remove(f)
-            print(u'因为有更新的文件, 移除: {}'.format(file))
+            print(u'因为有更新的文件, 移除: {}'.format(f))
         else:
             os.rename(f, _unlocked_name)
         return _unlocked_name
 
     @staticmethod
     def lock(f):
-        """Duplicate given file with .lock append on name then archive it."""
+        """Duplicate given file with .lock append on name then archive it.  """
 
         if f.endswith('.lock'):
             return f
@@ -361,7 +361,7 @@ class Files(list):
 
     @staticmethod
     def archive(f, dest=u'文件备份'):
-        """Archive file in a folder with time struture."""
+        """Archive file in a folder with time struture.  """
 
         now = datetime.datetime.now()
         weekday = ('周日', '周一', '周二', '周三', '周四', '周五', '周六')
@@ -405,7 +405,7 @@ class Files(list):
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
-    """Main GUI window."""
+    """Main GUI window.  """
 
     def __init__(self, parent=None):
         def _actions():
@@ -471,24 +471,24 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         Files().unlock_all()
 
     def open_dir(self):
-        """Open dir in explorer."""
+        """Open dir in explorer.  """
 
         url_open(file_url(self._config['DIR']))
 
     def open_log(self):
-        """Open log in explorer."""
+        """Open log in explorer.  """
         # TODO: open log
         pass
 
     def _start_update(self):
-        """Start a thread for update."""
+        """Start a thread for update.  """
 
         _timer = QtCore.QTimer(self)
         _timer.timeout.connect(self.update)
         _timer.start(1000)
 
     def update(self):
-        """Update UI content."""
+        """Update UI content.  """
 
         rendering = bool(self._proc and self._proc.is_alive())
         if not rendering and self.rendering:
@@ -539,15 +539,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """Do work when rendering stop.  """
 
         QApplication.alert(self)
-        if not self.statusbar.currentMessage():
-            self.statusbar.showMessage(time_prefix(u'渲染已完成'))
+        self.statusbar.showMessage(time_prefix(u'渲染已完成'))
         if self.hiberCheck.isChecked():
             self.statusbar.showMessage(time_prefix(u'休眠'))
             self._config['HIBER'] = False
             hiber()
 
     def ask_dir(self):
-        """Show a dialog ask config['DIR']"""
+        """Show a dialog ask config['DIR'].  """
 
         dialog = QFileDialog()
         dir_ = dialog.getExistingDirectory(
@@ -561,7 +560,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self._config['DIR'] = dir_
 
     def ask_nuke(self):
-        """Show a dialog ask config['NUKE']"""
+        """Show a dialog ask config['NUKE'].  """
 
         dialog = QFileDialog()
         filenames = dialog.getOpenFileName(
@@ -572,7 +571,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.update()
 
     def render(self):
-        """Start rendering from UI."""
+        """Start rendering from UI.  """
+
         _file = os.path.abspath(os.path.join(__file__, '../error_handler.exe'))
         url_open(file_url(_file))
         self._proc = BatchRender()
@@ -582,6 +582,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     @staticmethod
     def remove_old_version():
         """Remove old version nk files from UI.  """
+
         Files().remove_old_version()
 
     def stop(self):

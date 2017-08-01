@@ -2,7 +2,8 @@
 """
 GUI Batchrender for nuke.
 """
-
+# TODO: title change when rendering
+# TODO: file can change order manually
 import os
 import sys
 import re
@@ -21,7 +22,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.7.19'
+__version__ = '0.7.21'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = locale.getdefaultlocale()[1]
 
@@ -303,7 +304,12 @@ def timef(seconds):
 def hiber():
     """Hibernate this computer.  """
 
-    call(['SHUTDOWN', '/h'])
+    proc = Popen('SHUTDOWN /H', stderr=PIPE)
+    stderr = get_unicode(proc.communicate()[1])
+    print(stderr)
+    if u'没有启用休眠' in stderr:
+        print(u'转为使用关机')
+        call('SHUTDOWN /S')
 
 
 class Files(list):
@@ -542,7 +548,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.statusbar.showMessage(time_prefix(u'渲染已完成'))
         if self.hiberCheck.isChecked():
             self.statusbar.showMessage(time_prefix(u'休眠'))
-            self._config['HIBER'] = False
+            self.hiberCheck.setCheckState(QtCore.Qt.CheckState.Unchecked)
             hiber()
 
     def ask_dir(self):
@@ -588,9 +594,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def stop(self):
         """Stop rendering from UI."""
 
-        self._config['HIBER'] = 0
-        self._proc.stop()
+        self.hiberCheck.setCheckState(QtCore.Qt.CheckState.Unchecked)
         self.checkBoxAutoStart.setCheckState(QtCore.Qt.CheckState.Unchecked)
+        self._proc.stop()
         self.statusbar.showMessage(time_prefix(u'停止渲染'))
 
     def closeEvent(self, event):
@@ -623,7 +629,7 @@ def main():
     """Run this script standalone."""
     import fix_pyinstaller
     fix_pyinstaller.main()
-    call(u'@TITLE batchrender.console', shell=True)
+    call(u'@CHCP 936 && CLS && @TITLE batchrender.console', shell=True)
     try:
         os.chdir(Config()['DIR'])
     except WindowsError:

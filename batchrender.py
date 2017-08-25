@@ -22,7 +22,7 @@ from PySide.QtGui import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.7.21'
+__version__ = '0.7.22'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = locale.getdefaultlocale()[1]
 
@@ -106,16 +106,17 @@ def check_single_instance():
 def is_pid_exists(pid):
     """Check if pid existed.(Windows only)"""
 
-    if sys.platform == 'win32':
-        _proc = Popen(
-            'TASKLIST /FI "PID eq {}" /FO CSV /NH'.format(pid),
-            stdout=PIPE
-        )
-        _stdout = _proc.communicate()[0]
-        ret = '"{}"'.format(pid) in _stdout
-        if ret:
-            print(_stdout)
-        return ret
+    if sys.platform != 'win32':
+        raise RuntimeError('Only support windows platfom.')
+    _proc = Popen(
+        'TASKLIST /FI "PID eq {}" /FO CSV /NH'.format(pid),
+        stdout=PIPE
+    )
+    _stdout = _proc.communicate()[0]
+    ret = '"python.exe"' in _stdout \
+        or '"batchrender.exe"' in _stdout \
+        and '"{}"'.format(pid) in _stdout
+    return ret
 
 
 class BatchRender(multiprocessing.Process):

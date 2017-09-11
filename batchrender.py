@@ -1,3 +1,4 @@
+#! /usr/bin/env python
 # -*- coding=UTF-8 -*-
 """
 GUI Batchrender for nuke.
@@ -22,7 +23,7 @@ from Qt.QtWidgets import QMainWindow, QApplication, QFileDialog
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.7.24'
+__version__ = '0.7.25'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = locale.getdefaultlocale()[1]
 
@@ -115,7 +116,12 @@ def is_pid_exists(pid):
         ret = '"python.exe"' in _stdout \
             or '"batchrender.exe"' in _stdout \
             and '"{}"'.format(pid) in _stdout
-        return ret
+    else:
+        _proc = Popen(['ps', '-{}'.format(pid)], stdout=PIPE)
+        _stdout = _proc.communicate()[0]
+        ret = 'python' in _stdout\
+            and os.path.basename(__file__) in _stdout
+    return ret
 
 
 class BatchRender(multiprocessing.Process):
@@ -451,7 +457,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.toolButtonDir.setIcon(_icon)
             self.toolButtonNuke.setIcon(_icon)
 
-        check_single_instance()
         QMainWindow.__init__(self, parent)
         self.setupUi(self)
 
@@ -627,9 +632,11 @@ def time_prefix(text):
 
 def main():
     """Run this script standalone."""
+    check_single_instance()
     import fix_pyinstaller
     fix_pyinstaller.main()
-    call(u'@CHCP 936 && CLS && @TITLE batchrender.console', shell=True)
+    if sys.platform == 'win32':
+        call(u'@CHCP 936 && CLS && @TITLE batchrender.console', shell=True)
     try:
         os.chdir(Config()['DIR'])
     except OSError:
@@ -704,7 +711,13 @@ if __name__ == '__main__':
     except SystemExit as ex:
         sys.exit(ex)
     except SingleInstanceException as ex:
-        print(u'激活已经打开的实例 pid:{}'.format(Config()['PID']))
-        Popen('"{}" "{}"'.format(os.path.join(
-            __file__, '../active_pid.exe'), format(Config()['PID'])))
-        pause()
+        if sys.platform == 'win32':
+            print(u'激活已经打开的实例 pid:{}'.format(Config()['PID']))
+            Popen('"{}" "{}"'.format(os.path.join(
+                __file__, '../active_pid.exe'), format(Config()['PID'])))
+            pause()
+        else:
+            print(u'激活已经打开的实例 pid:{}'.format(Config()['PID']))
+            Popen(
+                'xdotool windowactivate $(xdotool search --pid {} -name| tail -n1)'.format(Config()['PID']), shell=True)
+            pause()

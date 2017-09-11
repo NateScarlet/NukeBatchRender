@@ -16,13 +16,13 @@ import locale
 from subprocess import Popen, PIPE, call
 import multiprocessing
 
-from PySide import QtGui, QtCore
-from PySide.QtGui import QMainWindow, QApplication, QFileDialog
+from Qt import QtWidgets, QtCore
+from Qt.QtWidgets import QMainWindow, QApplication, QFileDialog
 
 from ui_mainwindow import Ui_MainWindow
 
 
-__version__ = '0.7.22'
+__version__ = '0.7.24'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = locale.getdefaultlocale()[1]
 
@@ -82,7 +82,7 @@ def change_dir(dir_):
 
     try:
         os.chdir(get_unicode(dir_))
-    except WindowsError:
+    except OSError:
         print(sys.exc_info()[2])
     print(u'工作目录改为: {}'.format(get_unicode(os.getcwd())))
 
@@ -106,17 +106,16 @@ def check_single_instance():
 def is_pid_exists(pid):
     """Check if pid existed.(Windows only)"""
 
-    if sys.platform != 'win32':
-        raise RuntimeError('Only support windows platfom.')
-    _proc = Popen(
-        'TASKLIST /FI "PID eq {}" /FO CSV /NH'.format(pid),
-        stdout=PIPE
-    )
-    _stdout = _proc.communicate()[0]
-    ret = '"python.exe"' in _stdout \
-        or '"batchrender.exe"' in _stdout \
-        and '"{}"'.format(pid) in _stdout
-    return ret
+    if sys.platform == 'win32':
+        _proc = Popen(
+            'TASKLIST /FI "PID eq {}" /FO CSV /NH'.format(pid),
+            stdout=PIPE
+        )
+        _stdout = _proc.communicate()[0]
+        ret = '"python.exe"' in _stdout \
+            or '"batchrender.exe"' in _stdout \
+            and '"{}"'.format(pid) in _stdout
+        return ret
 
 
 class BatchRender(multiprocessing.Process):
@@ -272,7 +271,7 @@ class BatchRender(multiprocessing.Process):
         if _pid:
             try:
                 os.kill(_pid, 9)
-            except WindowsError as ex:
+            except OSError as ex:
                 print(ex)
         self.terminate()
 
@@ -426,13 +425,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         def _edits():
             for edit, key in self.edits_key.iteritems():
-                if isinstance(edit, QtGui.QLineEdit):
+                if isinstance(edit, QtWidgets.QLineEdit):
                     edit.textChanged.connect(
                         lambda text, k=key: self._config.__setitem__(k, text))
-                elif isinstance(edit, QtGui.QCheckBox):
+                elif isinstance(edit, QtWidgets.QCheckBox):
                     edit.stateChanged.connect(
                         lambda state, k=key: self._config.__setitem__(k, state))
-                elif isinstance(edit, QtGui.QComboBox):
+                elif isinstance(edit, QtWidgets.QComboBox):
                     edit.currentIndexChanged.connect(
                         lambda index, ex=edit, k=key:
                         self._config.__setitem__(k, ex.itemText(index)))
@@ -442,13 +441,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         def _icon():
             _stdicon = self.style().standardIcon
 
-            _icon = _stdicon(QtGui.QStyle.SP_MediaPlay)
+            _icon = _stdicon(QtWidgets.QStyle.SP_MediaPlay)
             self.setWindowIcon(_icon)
 
-            _icon = _stdicon(QtGui.QStyle.SP_DirOpenIcon)
+            _icon = _stdicon(QtWidgets.QStyle.SP_DirOpenIcon)
             self.toolButtonOpenDir.setIcon(_icon)
 
-            _icon = _stdicon(QtGui.QStyle.SP_DialogOpenButton)
+            _icon = _stdicon(QtWidgets.QStyle.SP_DialogOpenButton)
             self.toolButtonDir.setIcon(_icon)
             self.toolButtonNuke.setIcon(_icon)
 
@@ -522,9 +521,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         def _edits():
             for qt_edit, k in self.edits_key.items():
                 try:
-                    if isinstance(qt_edit, QtGui.QLineEdit):
+                    if isinstance(qt_edit, QtWidgets.QLineEdit):
                         qt_edit.setText(self._config[k])
-                    if isinstance(qt_edit, QtGui.QCheckBox):
+                    if isinstance(qt_edit, QtWidgets.QCheckBox):
                         qt_edit.setCheckState(
                             QtCore.Qt.CheckState(self._config[k]))
                 except KeyError as ex:
@@ -604,15 +603,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """Override qt closeEvent."""
 
         if self._proc and self._proc.is_alive():
-            confirm = QtGui.QMessageBox.question(
+            confirm = QtWidgets.QMessageBox.question(
                 self,
                 u'正在渲染中',
                 u"停止渲染并退出?",
-                QtGui.QMessageBox.Yes |
-                QtGui.QMessageBox.No,
-                QtGui.QMessageBox.No
+                QtWidgets.QMessageBox.Yes |
+                QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.No
             )
-            if confirm == QtGui.QMessageBox.Yes:
+            if confirm == QtWidgets.QMessageBox.Yes:
                 self._proc.stop()
                 event.accept()
             else:
@@ -633,7 +632,7 @@ def main():
     call(u'@CHCP 936 && CLS && @TITLE batchrender.console', shell=True)
     try:
         os.chdir(Config()['DIR'])
-    except WindowsError:
+    except OSError:
         print(sys.exc_info())
     app = QApplication(sys.argv)
     frame = MainWindow()

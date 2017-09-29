@@ -13,9 +13,9 @@ import re
 import json
 import logging
 import logging.handlers
+import time
 import datetime
 import shutil
-import time
 from subprocess import Popen, PIPE, call
 import multiprocessing
 import webbrowser
@@ -27,7 +27,7 @@ from Qt.QtWidgets import QMainWindow, QApplication, QFileDialog
 import singleton
 
 
-__version__ = '0.8.0'
+__version__ = '0.8.1'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = __import__('locale').getdefaultlocale()[1]
 if sys.getdefaultencoding() != 'UTF-8':
@@ -81,7 +81,11 @@ class Config(dict):
                 self.update(dict(json.load(f)))
 
 
-def _logger():
+def _log_file():
+    return os.path.join(Config()['DIR'], 'Nuke批渲染.log')
+
+
+def _set_logger(rollover=False):
     logger = logging.getLogger('batchrender')
     logger.propagate = False
     # Stream handler
@@ -91,14 +95,16 @@ def _logger():
     _handler.setFormatter(_formatter)
     logger.addHandler(_handler)
     # File handler
-    _path = os.path.join(Config()['DIR'], 'Nuke批渲染.log')
+    _path = _log_file()
     _handler = logging.handlers.RotatingFileHandler(
-        _path, maxBytes=10000, backupCount=5)
+        _path, backupCount=5)
+    if rollover and os.stat(_path).st_size > 10000:
+        _handler.doRollover()
     _formatter = logging.Formatter(
         '%(levelname)-6s[%(asctime)s]: %(name)s: %(message)s', '%x %X')
     _handler.setFormatter(_formatter)
     logger.addHandler(_handler)
-
+    # Loglevel
     loglevel = os.getenv('LOGLEVEL', logging.INFO)
     try:
         logger.setLevel(int(loglevel))
@@ -109,7 +115,7 @@ def _logger():
     return logger
 
 
-LOGGER = _logger()
+LOGGER = logging.getLogger('batchrender')
 
 
 def change_dir(dir_):
@@ -139,6 +145,7 @@ class BatchRender(multiprocessing.Process):
 
     def run(self):
         """(override)This function run in new process."""
+        _set_logger()
         with self.lock:
 
             os.chdir(self._config['DIR'])
@@ -166,7 +173,6 @@ class BatchRender(multiprocessing.Process):
         LOGGER.info('## [%s/%s]\t%s',
                     self._files.index(f) + 1,
                     len(self._files), f)
-        LOGGER.info('%s: 开始渲染', f)
 
         if not os.path.isfile(f):
             LOGGER.error('not isfile: %s', f)
@@ -181,7 +187,7 @@ class BatchRender(multiprocessing.Process):
     def call_nuke(self, f):
         """Open a nuke subprocess for rendering file."""
 
-        current_time = datetime.datetime.now()
+        time.clock()
         nk_file = Files.lock(f)
 
         _proxy = '-p ' if self._config['PROXY'] else '-f '
@@ -195,24 +201,25 @@ class BatchRender(multiprocessing.Process):
             f=nk_file
         )
         LOGGER.debug('命令: %s', cmd)
-        _proc = unicode_popen(cmd, stderr=PIPE)
+        _proc = Popen(cmd, stderr=PIPE)
         self._queue.put(_proc.pid)
-        _stderr = _proc.communicate()[1]
-        _stderr = fanyi(_stderr)
-        if _stderr:
-            sys.stderr.write(_stderr)
-            if re.match(r'\[.*\] Warning: (.*)', _stderr):
-                LOGGER.warning(_stderr)
-            else:
-                LOGGER.error(_stderr)
-
+        while True:
+            line = _proc.stderr.readline()
+            if not line:
+                break
+            line = l10n(line)
+            sys.stderr.write('{}\n'.format(line))
+            with open(_log_file(), 'a') as log:
+                log.write('STDERR: {}\n'.format(line))
+            _proc.stderr.flush()
+        _proc.wait()
         _rtcode = _proc.returncode
 
         # Logging total time.
         LOGGER.info(
             '%s: 结束渲染 耗时 %s %s',
             f,
-            timef((datetime.datetime.now() - current_time).total_seconds()),
+            timef(time.clock()),
             '退出码: {}'.format(_rtcode) if _rtcode else '正常退出',
         )
 
@@ -248,7 +255,7 @@ class BatchRender(multiprocessing.Process):
         self.terminate()
 
 
-def fanyi(text):
+def l10n(text):
     """Translate error info to chinese."""
     ret = text.strip('\r\n')
 
@@ -260,15 +267,27 @@ def fanyi(text):
 
 
 def timef(seconds):
-    """Return a nice representation fo given seconds."""
+    """Return a nice representation fo given seconds.
+
+    >>> print(timef(10.123))
+    10.123秒
+    >>> print(timef(100))
+    1分40秒
+    >>> print(timef(100000))
+    27小时46分40秒
+    >>> print(timef(1.23456789))
+    1.235秒
+    """
     ret = ''
-    hour = int(seconds // 3600)
-    minute = int(seconds % 3600 // 60)
-    seconds = seconds % 60
+    hour = seconds // 3600
+    minute = seconds % 3600 // 60
+    seconds = round((seconds % 60 * 1000)) / 1000
+    if int(seconds) == seconds:
+        seconds = int(seconds)
     if hour:
         ret += '{}小时'.format(hour)
     if minute:
-        ret += '{}分钟'.format(minute)
+        ret += '{}分'.format(minute)
     ret += '{}秒'.format(seconds)
     return ret
 
@@ -521,9 +540,10 @@ class MainWindow(QMainWindow):
         """Do work when rendering stop.  """
 
         QApplication.alert(self)
-        self.statusbar.showMessage(time_prefix('渲染已完成'))
+        LOGGER.info('渲染结束')
+        self.statusbar.showMessage('')
         if self.hiberCheck.isChecked():
-            self.statusbar.showMessage(time_prefix('休眠'))
+            LOGGER.info('休眠')
             self.hiberCheck.setCheckState(QtCore.Qt.CheckState.Unchecked)
             hiber()
 
@@ -562,7 +582,6 @@ class MainWindow(QMainWindow):
         self.hiberCheck.setCheckState(QtCore.Qt.CheckState.Unchecked)
         self.checkBoxAutoStart.setCheckState(QtCore.Qt.CheckState.Unchecked)
         self._proc.stop()
-        self.statusbar.showMessage(time_prefix('停止渲染'))
 
     def closeEvent(self, event):
         """Override qt closeEvent."""
@@ -571,7 +590,7 @@ class MainWindow(QMainWindow):
             confirm = QtWidgets.QMessageBox.question(
                 self,
                 '正在渲染中',
-                u"停止渲染并退出?",
+                "停止渲染并退出?",
                 QtWidgets.QMessageBox.Yes |
                 QtWidgets.QMessageBox.No,
                 QtWidgets.QMessageBox.No
@@ -585,34 +604,28 @@ class MainWindow(QMainWindow):
             event.accept()
 
 
-def time_prefix(text):
-    """Insert time before @text.  """
-    return '[{}]{}'.format(time.strftime('%H:%M:%S'), text)
-
-
-def main():
-    """Run this script standalone."""
-    _singleton = singleton.SingleInstance()
-    try:
-        os.chdir(Config()['DIR'])
-    except OSError as ex:
-        LOGGER.warning(str(ex))
-    app = QApplication(sys.argv)
-    frame = MainWindow()
-    frame.show()
-    sys.exit(app.exec_())
-
-
 def copy(src, dst):
     """Copy src to dst."""
-    message = '{} -> {}'.format(src, dst)
-    LOGGER.info(message)
+
+    LOGGER.info('\n复制:\n\t%s\n->\t%s', src, dst)
     if not os.path.exists(src):
         return
     dst_dir = os.path.dirname(dst)
     if not os.path.exists(dst_dir):
+        LOGGER.debug('创建目录: %s', dst_dir)
         os.makedirs(dst_dir)
-    shutil.copy2(src, dst)
+    try:
+        shutil.copy2(src, dst)
+    except OSError:
+        if sys.platform == 'win32':
+            call('XCOPY /V /Y "{}" "{}"'.format(src, dst))
+        else:
+            raise
+    if os.path.isdir(dst):
+        ret = os.path.join(dst, os.path.basename(src))
+    else:
+        ret = dst
+    return ret
 
 
 def get_unicode(string, codecs=('GBK', 'UTF-8', OS_ENCODING)):
@@ -628,12 +641,31 @@ def get_unicode(string, codecs=('GBK', 'UTF-8', OS_ENCODING)):
             continue
 
 
-def unicode_popen(args, **kwargs):
-    """Return Popen object use encoded args.  """
+def call_from_nuke():
+    """For nuke menu call.  """
 
-    if isinstance(args, unicode):
-        args = args.encode(OS_ENCODING)
-    return Popen(args, **kwargs)
+    cmd = '"{}"'.format(__file__)
+    if sys.platform == 'win32':
+        executable = os.path.abspath(
+            os.path.join(sys.executable, '../python.exe'))
+        cmd = 'START "batchrender.console" "{}" {}'.format(executable, cmd)
+
+    Config()['NUKE'] = sys.executable
+    Popen(cmd, shell=True)
+
+
+def main():
+    """Run this script standalone."""
+    _singleton = singleton.SingleInstance()
+    _set_logger(True)
+    try:
+        os.chdir(Config()['DIR'])
+    except OSError as ex:
+        LOGGER.warning(str(ex))
+    app = QApplication(sys.argv)
+    frame = MainWindow()
+    frame.show()
+    sys.exit(app.exec_())
 
 
 if __name__ == '__main__':

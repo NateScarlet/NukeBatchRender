@@ -5,30 +5,34 @@ GUI Batchrender for nuke.
 """
 # TODO: title change when rendering
 # TODO: file can change order manually
+from __future__ import unicode_literals, print_function
+
 import os
 import sys
 import re
 import json
 import logging
+import logging.handlers
 import datetime
 import shutil
 import time
-import locale
 from subprocess import Popen, PIPE, call
 import multiprocessing
+import webbrowser
 
-from Qt import QtWidgets, QtCore
+
+from Qt import QtWidgets, QtCore, QtCompat
 from Qt.QtWidgets import QMainWindow, QApplication, QFileDialog
 
-from ui_mainwindow import Ui_MainWindow
+import singleton
 
 
-__version__ = '0.7.25'
+__version__ = '0.8.0'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
-OS_ENCODING = locale.getdefaultlocale()[1]
-
-reload(sys)
-sys.setdefaultencoding('UTF-8')
+OS_ENCODING = __import__('locale').getdefaultlocale()[1]
+if sys.getdefaultencoding() != 'UTF-8':
+    reload(sys)
+    sys.setdefaultencoding('UTF-8')
 
 
 class Config(dict):
@@ -41,7 +45,6 @@ class Config(dict):
         'LOW_PRIORITY': 2,
         'CONTINUE': 2,
         'HIBER': 0,
-        'PID': None,
     }
     path = os.path.expanduser('~/.nuke/.batchrender.json')
     instance = None
@@ -58,7 +61,7 @@ class Config(dict):
         self.read()
 
     def __setitem__(self, key, value):
-        print(key, value)
+        LOGGER.debug(key, value)
         if key == 'DIR' and value != self.get('DIR') and os.path.isdir(value):
             change_dir(value)
         dict.__setitem__(self, key, value)
@@ -78,55 +81,50 @@ class Config(dict):
                 self.update(dict(json.load(f)))
 
 
+def _logger():
+    logger = logging.getLogger('batchrender')
+    logger.propagate = False
+    # Stream handler
+    _handler = logging.StreamHandler()
+    _formatter = logging.Formatter(
+        '%(levelname)-6s[%(asctime)s]: %(name)s: %(message)s', '%H:%M:%S')
+    _handler.setFormatter(_formatter)
+    logger.addHandler(_handler)
+    # File handler
+    _path = os.path.join(Config()['DIR'], 'Nuke批渲染.log')
+    _handler = logging.handlers.RotatingFileHandler(
+        _path, maxBytes=10000, backupCount=5)
+    _formatter = logging.Formatter(
+        '%(levelname)-6s[%(asctime)s]: %(name)s: %(message)s', '%x %X')
+    _handler.setFormatter(_formatter)
+    logger.addHandler(_handler)
+
+    loglevel = os.getenv('LOGLEVEL', logging.INFO)
+    try:
+        logger.setLevel(int(loglevel))
+    except TypeError:
+        logger.warning(
+            'Can not recognize env:LOGLEVEL %s, expect a int', loglevel)
+
+    return logger
+
+
+LOGGER = _logger()
+
+
 def change_dir(dir_):
     """Try change currunt working directory."""
 
     try:
         os.chdir(get_unicode(dir_))
     except OSError:
-        print(sys.exc_info()[2])
-    print(u'工作目录改为: {}'.format(get_unicode(os.getcwd())))
-
-
-class SingleInstanceException(Exception):
-    """Indicate not single instance."""
-
-    def __str__(self):
-        return u'已经有另一个实例在运行了'
-
-
-def check_single_instance():
-    """Raise SingleInstanceException if not run in singleinstance."""
-
-    pid = Config()['PID']
-    if isinstance(pid, int) and is_pid_exists(pid):
-        raise SingleInstanceException
-    Config()['PID'] = os.getpid()
-
-
-def is_pid_exists(pid):
-    """Check if pid existed.(Windows only)"""
-
-    if sys.platform == 'win32':
-        _proc = Popen(
-            'TASKLIST /FI "PID eq {}" /FO CSV /NH'.format(pid),
-            stdout=PIPE
-        )
-        _stdout = _proc.communicate()[0]
-        ret = '"python.exe"' in _stdout \
-            or '"batchrender.exe"' in _stdout \
-            and '"{}"'.format(pid) in _stdout
-    else:
-        _proc = Popen(['ps', '-{}'.format(pid)], stdout=PIPE)
-        _stdout = _proc.communicate()[0]
-        ret = 'python' in _stdout\
-            and os.path.basename(__file__) in _stdout
-    return ret
+        LOGGER.error(sys.exc_info()[2])
+    LOGGER.info('工作目录改为: %s', os.getcwd())
 
 
 class BatchRender(multiprocessing.Process):
     """Main render process."""
-    LOG_FILENAME = u'Nuke批渲染.log'
+    LOG_FILENAME = 'Nuke批渲染.log'
     LOG_LEVEL = logging.INFO
     lock = multiprocessing.Lock()
 
@@ -137,33 +135,15 @@ class BatchRender(multiprocessing.Process):
         self._config = Config()
         self._error_files = []
         self._files = Files()
-        self._logger = None
         self.daemon = True
 
     def run(self):
         """(override)This function run in new process."""
-
-        reload(sys)
-        sys.setdefaultencoding('UTF-8')
-
         with self.lock:
 
-            self.set_logger()
             os.chdir(self._config['DIR'])
             self._files.unlock_all()
             self.continuous_render()
-
-    def set_logger(self):
-        """Set logger for this process."""
-
-        self.rotate_log()
-        self._logger = logging.getLogger(__name__)
-        self._logger.setLevel(self.LOG_LEVEL)
-        handler = logging.FileHandler(self.LOG_FILENAME)
-        formatter = logging.Formatter(
-            '[%(asctime)s]\t%(levelname)10s:\t%(message)s')
-        handler.setFormatter(formatter)
-        self._logger.addHandler(handler)
 
     def continuous_render(self):
         """Loop batch rendering as files exists."""
@@ -171,43 +151,30 @@ class BatchRender(multiprocessing.Process):
         while Files() and not Files().all_locked:
             self.batch_render()
 
-    def rotate_log(self):
-        """Rotate existed logfile if needed."""
-
-        prefix = os.path.splitext(self.LOG_FILENAME)[0]
-        if os.path.isfile(self.LOG_FILENAME) and os.stat(self.LOG_FILENAME).st_size > 10000:
-            for i in range(4, 0, -1):
-                old_name = u'{}.{}.log'.format(prefix, i)
-                new_name = u'{}.{}.log'.format(prefix, i + 1)
-                if os.path.exists(old_name):
-                    if os.path.exists(new_name):
-                        os.remove(new_name)
-                    os.rename(old_name, new_name)
-            os.rename(self.LOG_FILENAME, old_name)
-
     def batch_render(self):
         """Render all renderable file in dir."""
 
-        self._logger.info('{:-^50s}'.format('<开始批渲染>'))
+        LOGGER.info('开始批渲染')
         for f in Files():
             _rtcode = self.render(f)
 
-        self._logger.info('<结束批渲染>')
+        LOGGER.info('结束批渲染')
 
     def render(self, f):
         """Render a file with nuke."""
 
-        print(u'## [{}/{}]\t{}'.format(self._files.index(f) +
-                                       1, len(self._files), f))
-        self._logger.info(u'%s: 开始渲染', f)
+        LOGGER.info('## [%s/%s]\t%s',
+                    self._files.index(f) + 1,
+                    len(self._files), f)
+        LOGGER.info('%s: 开始渲染', f)
 
         if not os.path.isfile(f):
-            print('not isfile', f)
+            LOGGER.error('not isfile: %s', f)
             return False
 
         _rtcode = self.call_nuke(f)
-        print('\n')
-        print('_retcode', _rtcode)
+
+        LOGGER.debug('Return code: %s', _rtcode)
 
         return _rtcode
 
@@ -220,15 +187,14 @@ class BatchRender(multiprocessing.Process):
         _proxy = '-p ' if self._config['PROXY'] else '-f '
         _priority = '-c 8G --priority low ' if self._config['LOW_PRIORITY'] else ''
         _cont = '--cont ' if self._config['CONTINUE'] else ''
-        cmd = u'"{NUKE}" -x {}{}{} "{f}"'.format(
+        cmd = '"{NUKE}" -x {}{}{} "{f}"'.format(
             _proxy,
             _priority,
             _cont,
             NUKE=self._config['NUKE'],
             f=nk_file
         )
-        self._logger.debug(u'命令: %s', cmd)
-        print(cmd)
+        LOGGER.debug('命令: %s', cmd)
         _proc = unicode_popen(cmd, stderr=PIPE)
         self._queue.put(_proc.pid)
         _stderr = _proc.communicate()[1]
@@ -236,29 +202,29 @@ class BatchRender(multiprocessing.Process):
         if _stderr:
             sys.stderr.write(_stderr)
             if re.match(r'\[.*\] Warning: (.*)', _stderr):
-                self._logger.warning(_stderr)
+                LOGGER.warning(_stderr)
             else:
-                self._logger.error(_stderr)
+                LOGGER.error(_stderr)
 
         _rtcode = _proc.returncode
 
         # Logging total time.
-        self._logger.info(
-            u'%s: 结束渲染 耗时 %s %s',
+        LOGGER.info(
+            '%s: 结束渲染 耗时 %s %s',
             f,
             timef((datetime.datetime.now() - current_time).total_seconds()),
-            u'退出码: {}'.format(_rtcode) if _rtcode else u'正常退出',
+            '退出码: {}'.format(_rtcode) if _rtcode else '正常退出',
         )
 
         if _rtcode:
             # Exited with error.
             self._error_files.append(f)
             _count = self._error_files.count(f)
-            self._logger.error(u'%s: 渲染出错 第%s次', f, _count)
+            LOGGER.error('%s: 渲染出错 第%s次', f, _count)
             # TODO: retry limit
             if _count >= 3:
                 # Not retry.
-                self._logger.error(u'%s: 连续渲染错误超过3次,不再进行重试。', f)
+                LOGGER.error('%s: 连续渲染错误超过3次,不再进行重试。', f)
             else:
                 Files.unlock(nk_file)
         else:
@@ -278,7 +244,7 @@ class BatchRender(multiprocessing.Process):
             try:
                 os.kill(_pid, 9)
             except OSError as ex:
-                print(ex)
+                LOGGER.debug(ex)
         self.terminate()
 
 
@@ -295,15 +261,15 @@ def fanyi(text):
 
 def timef(seconds):
     """Return a nice representation fo given seconds."""
-    ret = u''
+    ret = ''
     hour = int(seconds // 3600)
     minute = int(seconds % 3600 // 60)
     seconds = seconds % 60
     if hour:
-        ret += u'{}小时'.format(hour)
+        ret += '{}小时'.format(hour)
     if minute:
-        ret += u'{}分钟'.format(minute)
-    ret += u'{}秒'.format(seconds)
+        ret += '{}分钟'.format(minute)
+    ret += '{}秒'.format(seconds)
     return ret
 
 
@@ -312,9 +278,9 @@ def hiber():
 
     proc = Popen('SHUTDOWN /H', stderr=PIPE)
     stderr = get_unicode(proc.communicate()[1])
-    print(stderr)
-    if u'没有启用休眠' in stderr:
-        print(u'转为使用关机')
+    LOGGER.error(stderr)
+    if '没有启用休眠' in stderr:
+        LOGGER.info('没有启用休眠, 转为使用关机')
         call('SHUTDOWN /S')
 
 
@@ -335,8 +301,10 @@ class Files(list):
         """Update self from renderable files in dir.  """
 
         del self[:]
-        _files = sorted([get_unicode(i) for i in os.listdir(
-            os.getcwd()) if i.endswith(('.nk', '.nk.lock'))], key=os.path.getmtime, reverse=False)
+        _files = sorted([get_unicode(i) for i in os.listdir(os.getcwd())
+                         if get_unicode(i).endswith(('.nk', '.nk.lock'))],
+                        key=os.path.getmtime,
+                        reverse=False)
         self.extend(_files)
         self.all_locked = self and all(bool(i.endswith('.lock')) for i in self)
 
@@ -354,7 +322,7 @@ class Files(list):
         _unlocked_name = os.path.splitext(f)[0]
         if os.path.isfile(_unlocked_name):
             os.remove(f)
-            print(u'因为有更新的文件, 移除: {}'.format(f))
+            LOGGER.info('因为有更新的文件, 移除: %s', f)
         else:
             os.rename(f, _unlocked_name)
         return _unlocked_name
@@ -372,15 +340,15 @@ class Files(list):
         return locked_file
 
     @staticmethod
-    def archive(f, dest=u'文件备份'):
+    def archive(f, dest='文件备份'):
         """Archive file in a folder with time struture.  """
 
         now = datetime.datetime.now()
         weekday = ('周日', '周一', '周二', '周三', '周四', '周五', '周六')
         dest = os.path.join(
             dest,
-            get_unicode(now.strftime(u'%Y年%m月')),
-            get_unicode(now.strftime(u'%d日%H时%M分_{}/'))
+            now.strftime('%Y年%m月'),
+            now.strftime('%d日%H时%M分_{}/')
         ).format(weekday[int(now.strftime('%w'))])
         copy(f, dest)
 
@@ -416,14 +384,13 @@ class Files(list):
         return (shot, version)
 
 
-class MainWindow(QMainWindow, Ui_MainWindow):
+class MainWindow(QMainWindow):
     """Main GUI window.  """
 
     def __init__(self, parent=None):
         def _actions():
             self.actionRender.triggered.connect(self.render)
             self.actionDir.triggered.connect(self.ask_dir)
-            self.actionNuke.triggered.connect(self.ask_nuke)
             self.actionStop.triggered.connect(self.stop)
             self.actionOpenDir.triggered.connect(self.open_dir)
             self.actionRemoveOldVersion.triggered.connect(
@@ -442,7 +409,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         lambda index, ex=edit, k=key:
                         self._config.__setitem__(k, ex.itemText(index)))
                 else:
-                    print(u'待处理的控件: {} {}'.format(type(edit), edit))
+                    LOGGER.debug('待处理的控件: %s %s', type(edit), edit)
 
         def _icon():
             _stdicon = self.style().standardIcon
@@ -455,10 +422,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             _icon = _stdicon(QtWidgets.QStyle.SP_DialogOpenButton)
             self.toolButtonDir.setIcon(_icon)
-            self.toolButtonNuke.setIcon(_icon)
 
         QMainWindow.__init__(self, parent)
-        self.setupUi(self)
+        self._ui = QtCompat.loadUi(os.path.abspath(
+            os.path.join(__file__, '../mainwindow.ui')))
+        self.setCentralWidget(self._ui)
+        self.resize(600, 500)
+        self.setWindowTitle('Nuke批渲染')
 
         self._config = Config()
         self._proc = None
@@ -466,7 +436,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.edits_key = {
             self.dirEdit: 'DIR',
-            self.nukeEdit: 'NUKE',
             self.proxyCheck: 'PROXY',
             self.priorityCheck: 'LOW_PRIORITY',
             self.continueCheck: 'CONTINUE',
@@ -481,10 +450,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         _icon()
         Files().unlock_all()
 
+    def __getattr__(self, name):
+        return getattr(self._ui, name)
+
     def open_dir(self):
         """Open dir in explorer.  """
-
-        url_open(file_url(self._config['DIR']))
+        webbrowser.open(self._config['DIR'])
 
     def open_log(self):
         """Open log in explorer.  """
@@ -532,12 +503,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         qt_edit.setCheckState(
                             QtCore.Qt.CheckState(self._config[k]))
                 except KeyError as ex:
-                    print(ex)
+                    LOGGER.debug(ex)
 
         def _list_widget():
             self.listWidget.clear()
             for i in _files:
-                self.listWidget.addItem(u'{}'.format(i))
+                self.listWidget.addItem('{}'.format(i))
 
         if not rendering and self.checkBoxAutoStart.isChecked() \
                 and _files and not _files.all_locked:
@@ -550,9 +521,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """Do work when rendering stop.  """
 
         QApplication.alert(self)
-        self.statusbar.showMessage(time_prefix(u'渲染已完成'))
+        self.statusbar.showMessage(time_prefix('渲染已完成'))
         if self.hiberCheck.isChecked():
-            self.statusbar.showMessage(time_prefix(u'休眠'))
+            self.statusbar.showMessage(time_prefix('休眠'))
             self.hiberCheck.setCheckState(QtCore.Qt.CheckState.Unchecked)
             hiber()
 
@@ -566,29 +537,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             try:
                 dir_.encode('ascii')
             except UnicodeEncodeError:
-                self.statusbar.showMessage(u'Nuke只支持英文路径', 10000)
+                self.statusbar.showMessage('Nuke只支持英文路径', 10000)
             else:
                 self._config['DIR'] = dir_
-
-    def ask_nuke(self):
-        """Show a dialog ask config['NUKE'].  """
-
-        dialog = QFileDialog()
-        filenames = dialog.getOpenFileName(
-            dir=os.getenv('ProgramFiles'), filter='*.exe')[0]
-        if filenames:
-            self._config['NUKE'] = filenames
-            print('test')
-            self.update()
 
     def render(self):
         """Start rendering from UI.  """
 
         _file = os.path.abspath(os.path.join(__file__, '../error_handler.exe'))
-        url_open(file_url(_file))
+        webbrowser.open(_file)
         self._proc = BatchRender()
         self._proc.start()
-        self.statusbar.showMessage(u'渲染中')
+        self.statusbar.showMessage('渲染中')
 
     @staticmethod
     def remove_old_version():
@@ -602,7 +562,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.hiberCheck.setCheckState(QtCore.Qt.CheckState.Unchecked)
         self.checkBoxAutoStart.setCheckState(QtCore.Qt.CheckState.Unchecked)
         self._proc.stop()
-        self.statusbar.showMessage(time_prefix(u'停止渲染'))
+        self.statusbar.showMessage(time_prefix('停止渲染'))
 
     def closeEvent(self, event):
         """Override qt closeEvent."""
@@ -610,7 +570,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if self._proc and self._proc.is_alive():
             confirm = QtWidgets.QMessageBox.question(
                 self,
-                u'正在渲染中',
+                '正在渲染中',
                 u"停止渲染并退出?",
                 QtWidgets.QMessageBox.Yes |
                 QtWidgets.QMessageBox.No,
@@ -627,41 +587,26 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
 def time_prefix(text):
     """Insert time before @text.  """
-    return u'[{}]{}'.format(time.strftime('%H:%M:%S'), text)
+    return '[{}]{}'.format(time.strftime('%H:%M:%S'), text)
 
 
 def main():
     """Run this script standalone."""
-    check_single_instance()
-    import fix_pyinstaller
-    fix_pyinstaller.main()
-    if sys.platform == 'win32':
-        call(u'@CHCP 936 && CLS && @TITLE batchrender.console', shell=True)
+    _singleton = singleton.SingleInstance()
     try:
         os.chdir(Config()['DIR'])
-    except OSError:
-        print(sys.exc_info())
+    except OSError as ex:
+        LOGGER.warning(str(ex))
     app = QApplication(sys.argv)
     frame = MainWindow()
     frame.show()
     sys.exit(app.exec_())
 
 
-def pause():
-    """Pause prompt with a countdown."""
-
-    print(u'')
-    for i in range(5)[::-1]:
-        sys.stdout.write(u'\r{:2d}'.format(i + 1))
-        time.sleep(1)
-    sys.stdout.write(u'\r          ')
-    print(u'')
-
-
 def copy(src, dst):
     """Copy src to dst."""
-    message = u'{} -> {}'.format(src, dst)
-    print(message)
+    message = '{} -> {}'.format(src, dst)
+    LOGGER.info(message)
     if not os.path.exists(src):
         return
     dst_dir = os.path.dirname(dst)
@@ -670,14 +615,7 @@ def copy(src, dst):
     shutil.copy2(src, dst)
 
 
-def url_open(url):
-    """Open url in explorer. """
-
-    _cmd = u'rundll32.exe url.dll,FileProtocolHandler "{}"'.format(url)
-    unicode_popen(_cmd)
-
-
-def get_unicode(string, codecs=('UTF-8', OS_ENCODING)):
+def get_unicode(string, codecs=('GBK', 'UTF-8', OS_ENCODING)):
     """Return unicode by try decode @string with @codecs.  """
 
     if isinstance(string, unicode):
@@ -698,26 +636,6 @@ def unicode_popen(args, **kwargs):
     return Popen(args, **kwargs)
 
 
-def file_url(text):
-    """Left append 'file://' to @text.  """
-
-    return 'file://{}'.format(text)
-
-
 if __name__ == '__main__':
     __file__ = os.path.abspath(sys.argv[0])
-    try:
-        main()
-    except SystemExit as ex:
-        sys.exit(ex)
-    except SingleInstanceException as ex:
-        if sys.platform == 'win32':
-            print(u'激活已经打开的实例 pid:{}'.format(Config()['PID']))
-            Popen('"{}" "{}"'.format(os.path.join(
-                __file__, '../active_pid.exe'), format(Config()['PID'])))
-            pause()
-        else:
-            print(u'激活已经打开的实例 pid:{}'.format(Config()['PID']))
-            Popen(
-                'xdotool windowactivate $(xdotool search --pid {} -name| tail -n1)'.format(Config()['PID']), shell=True)
-            pause()
+    main()

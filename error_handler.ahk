@@ -20,4 +20,6 @@ OnWinChange()
         WinClose,
 	IfWinExist, ahk_exe CrashReporterNuke.exe,
 		WinClose,
+	IfWinExist, mayabatch.exe ahk_class #32770 ahk_exe , .dll
+		WinClose,
 }

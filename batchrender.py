@@ -16,7 +16,7 @@ import logging.handlers
 import time
 import datetime
 import shutil
-from subprocess import Popen, PIPE, call
+import subprocess
 import multiprocessing
 import webbrowser
 
@@ -25,11 +25,27 @@ import singleton
 
 
 __version__ = '0.8.3'
-EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = __import__('locale').getdefaultlocale()[1]
+LOGGER = logging.getLogger('batchrender')
+
 if sys.getdefaultencoding() != 'UTF-8':
     reload(sys)
     sys.setdefaultencoding('UTF-8')
+
+
+def _set_path():
+    if sys.platform == 'win32':
+        site_packages = os.path.join(os.path.dirname(
+            sys.executable), r'pythonextensions\site-packages')
+        sys.path.append(site_packages)
+
+
+_set_path()
+try:
+    from Qt import QtWidgets, QtCore, QtCompat
+    from Qt.QtWidgets import QMainWindow, QApplication, QFileDialog
+except ImportError:
+    raise
 
 
 class Config(dict):
@@ -78,18 +94,12 @@ class Config(dict):
                 self.update(dict(json.load(f)))
 
 
-sys.path.append(os.path.join(
-    os.path.dirname(Config()['NUKE']),
-    'pythonextensions\\site-packages'))
-try:
-    from Qt import QtWidgets, QtCore, QtCompat
-    from Qt.QtWidgets import QMainWindow, QApplication, QFileDialog
-except ImportError:
-    raise
-
-
 def _log_file():
-    return os.path.join(Config()['DIR'], 'Nuke批渲染.log')
+    path = os.path.join(Config()['DIR'], 'Nuke批渲染.log')
+    if os.path.exists(path):
+        return path
+
+    return os.path.join(os.getcwd(), 'Nuke批渲染.log')
 
 
 def _set_logger(rollover=False):
@@ -205,7 +215,7 @@ class BatchRender(multiprocessing.Process):
             f=nk_file
         )
         LOGGER.debug('命令: %s', cmd)
-        _proc = Popen(cmd, stderr=PIPE)
+        _proc = subprocess.Popen(cmd, stderr=subprocess.PIPE)
         self._queue.put(_proc.pid)
         while True:
             line = _proc.stderr.readline()
@@ -299,12 +309,12 @@ def timef(seconds):
 def hiber():
     """Hibernate this computer.  """
 
-    proc = Popen('SHUTDOWN /H', stderr=PIPE)
+    proc = subprocess.Popen('SHUTDOWN /H', stderr=subprocess.PIPE)
     stderr = get_unicode(proc.communicate()[1])
     LOGGER.error(stderr)
     if '没有启用休眠' in stderr:
         LOGGER.info('没有启用休眠, 转为使用关机')
-        call('SHUTDOWN /S')
+        subprocess.call('SHUTDOWN /S')
 
 
 class Files(list):
@@ -622,7 +632,7 @@ def copy(src, dst):
         shutil.copy2(src, dst)
     except OSError:
         if sys.platform == 'win32':
-            call('XCOPY /V /Y "{}" "{}"'.format(src, dst))
+            subprocess.call('XCOPY /V /Y "{}" "{}"'.format(src, dst))
         else:
             raise
     if os.path.isdir(dst):
@@ -648,14 +658,21 @@ def get_unicode(string, codecs=('GBK', 'UTF-8', OS_ENCODING)):
 def call_from_nuke():
     """For nuke menu call.  """
 
-    cmd = '"{}"'.format(__file__)
-    if sys.platform == 'win32':
-        executable = os.path.abspath(
-            os.path.join(sys.executable, '../python.exe'))
-        cmd = 'START "batchrender.console" "{}" {}'.format(executable, cmd)
-
     Config()['NUKE'] = sys.executable
-    Popen(cmd, shell=True)
+    _file = __file__.rstrip('c')
+    render_dir = Config()['DIR']
+    if not os.path.exists(render_dir):
+        render_dir = os.path.expanduser('~/batchrender')
+        if not os.path.exists(render_dir):
+            os.mkdir(render_dir)
+        Config()['DIR'] = render_dir
+    if sys.platform == 'win32':
+        subprocess.Popen((sys.executable, '--tg', _file),
+                         creationflags=subprocess.CREATE_NEW_CONSOLE,
+                         cwd=render_dir)
+    else:
+        subprocess.Popen(
+            [_file], shell=True, executable=sys.executable, cwd=render_dir)
 
 
 def main():
@@ -666,15 +683,15 @@ def main():
     try:
         os.chdir(Config()['DIR'])
     except OSError as ex:
-        LOGGER.warning(str(ex))
-    app = QApplication(sys.argv)
+        LOGGER.warning('Can not change dir')
+
+    app = QApplication.instance()
+    if not app:
+        app = QApplication(sys.argv)
     frame = MainWindow()
     frame.show()
     sys.exit(app.exec_())
 
 
-LOGGER = logging.getLogger('batchrender')
-
 if __name__ == '__main__':
-    __file__ = os.path.abspath(sys.argv[0])
     main()

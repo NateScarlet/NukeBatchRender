@@ -21,13 +21,10 @@ import multiprocessing
 import webbrowser
 
 
-from Qt import QtWidgets, QtCore, QtCompat
-from Qt.QtWidgets import QMainWindow, QApplication, QFileDialog
-
 import singleton
 
 
-__version__ = '0.8.2'
+__version__ = '0.8.3'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = __import__('locale').getdefaultlocale()[1]
 if sys.getdefaultencoding() != 'UTF-8':
@@ -79,6 +76,16 @@ class Config(dict):
         if os.path.isfile(self.path):
             with open(self.path) as f:
                 self.update(dict(json.load(f)))
+
+
+sys.path.append(os.path.join(
+    os.path.dirname(Config()['NUKE']),
+    'pythonextensions\\site-packages'))
+try:
+    from Qt import QtWidgets, QtCore, QtCompat
+    from Qt.QtWidgets import QMainWindow, QApplication, QFileDialog
+except ImportError:
+    raise
 
 
 def _log_file():
@@ -655,6 +662,7 @@ def main():
     """Run this script standalone."""
     _singleton = singleton.SingleInstance()
     _set_logger(True)
+
     try:
         os.chdir(Config()['DIR'])
     except OSError as ex:

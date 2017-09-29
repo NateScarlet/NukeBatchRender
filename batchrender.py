@@ -27,7 +27,7 @@ from Qt.QtWidgets import QMainWindow, QApplication, QFileDialog
 import singleton
 
 
-__version__ = '0.8.1'
+__version__ = '0.8.2'
 EXE_PATH = os.path.join(os.path.dirname(__file__), 'batchrender.exe')
 OS_ENCODING = __import__('locale').getdefaultlocale()[1]
 if sys.getdefaultencoding() != 'UTF-8':
@@ -61,7 +61,7 @@ class Config(dict):
         self.read()
 
     def __setitem__(self, key, value):
-        LOGGER.debug(key, value)
+        LOGGER.debug('Config: %s = %s', key, value)
         if key == 'DIR' and value != self.get('DIR') and os.path.isdir(value):
             change_dir(value)
         dict.__setitem__(self, key, value)
@@ -113,9 +113,6 @@ def _set_logger(rollover=False):
             'Can not recognize env:LOGLEVEL %s, expect a int', loglevel)
 
     return logger
-
-
-LOGGER = logging.getLogger('batchrender')
 
 
 def change_dir(dir_):
@@ -667,6 +664,8 @@ def main():
     frame.show()
     sys.exit(app.exec_())
 
+
+LOGGER = logging.getLogger('batchrender')
 
 if __name__ == '__main__':
     __file__ = os.path.abspath(sys.argv[0])

@@ -24,7 +24,7 @@ import webbrowser
 import singleton
 
 
-__version__ = '0.8.3'
+__version__ = '0.8.4'
 OS_ENCODING = __import__('locale').getdefaultlocale()[1]
 LOGGER = logging.getLogger('batchrender')
 
@@ -159,7 +159,6 @@ class BatchRender(multiprocessing.Process):
 
     def run(self):
         """(override)This function run in new process."""
-        _set_logger()
         with self.lock:
 
             os.chdir(self._config['DIR'])
@@ -175,18 +174,18 @@ class BatchRender(multiprocessing.Process):
     def batch_render(self):
         """Render all renderable file in dir."""
 
-        LOGGER.info('开始批渲染')
         for f in Files():
             _rtcode = self.render(f)
 
-        LOGGER.info('结束批渲染')
-
     def render(self, f):
         """Render a file with nuke."""
-
-        LOGGER.info('## [%s/%s]\t%s',
-                    self._files.index(f) + 1,
-                    len(self._files), f)
+        title = '## [{}/{}]\t{}'.format(
+            self._files.index(f) + 1,
+            len(self._files), f)
+        LOGGER.info(title)
+        print('-' * 50)
+        print(title)
+        print('-' * 50)
 
         if not os.path.isfile(f):
             LOGGER.error('not isfile: %s', f)
@@ -215,14 +214,15 @@ class BatchRender(multiprocessing.Process):
             f=nk_file
         )
         LOGGER.debug('命令: %s', cmd)
-        _proc = subprocess.Popen(cmd, stderr=subprocess.PIPE)
+        _proc = subprocess.Popen(
+            cmd, stderr=subprocess.PIPE, cwd=Config()['DIR'], shell=True)
         self._queue.put(_proc.pid)
         while True:
             line = _proc.stderr.readline()
             if not line:
                 break
             line = l10n(line)
-            sys.stderr.write('{}\n'.format(line))
+            sys.stderr.write('STDERR: {}\n'.format(line))
             with open(_log_file(), 'a') as log:
                 log.write('STDERR: {}\n'.format(line))
             _proc.stderr.flush()
@@ -273,7 +273,7 @@ def l10n(text):
     """Translate error info to chinese."""
     ret = text.strip('\r\n')
 
-    with open(os.path.join(__file__, '../batchrender.zh_CN.json')) as f:
+    with open(os.path.join(os.path.dirname(__file__), 'batchrender.zh_CN.json')) as f:
         translate_dict = json.load(f)
     for k, v in translate_dict.iteritems():
         ret = re.sub(k, v, ret)
@@ -666,19 +666,21 @@ def call_from_nuke():
         if not os.path.exists(render_dir):
             os.mkdir(render_dir)
         Config()['DIR'] = render_dir
+    args = (sys.executable, '--tg', _file)
     if sys.platform == 'win32':
-        subprocess.Popen((sys.executable, '--tg', _file),
-                         creationflags=subprocess.CREATE_NEW_CONSOLE,
-                         cwd=render_dir)
+        kwargs = {'creationflags': subprocess.CREATE_NEW_CONSOLE}
     else:
-        subprocess.Popen(
-            [_file], shell=True, executable=sys.executable, cwd=render_dir)
+        args = '"{0[0]}" {0[1]} "{0[2]}"'.format(args)
+        kwargs = {'shell': True, 'executable': 'bash'}
+    subprocess.Popen(args,
+                     cwd=render_dir,
+                     **kwargs)
 
 
 def main():
     """Run this script standalone."""
-    _singleton = singleton.SingleInstance()
     _set_logger(True)
+    _singleton = singleton.SingleInstance()
 
     try:
         os.chdir(Config()['DIR'])

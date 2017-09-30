@@ -2,5 +2,8 @@ build/
 *.pyc
 *.spec
 
+# PySide libarary
+PySide/
+
 # vscode
 .vscode/

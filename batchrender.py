@@ -18,34 +18,22 @@ import datetime
 import shutil
 import subprocess
 import multiprocessing
+import multiprocessing.dummy
+import multiprocessing.pool
 import webbrowser
 
-
+from Qt import QtWidgets, QtCore, QtCompat
+from Qt.QtWidgets import QMainWindow, QApplication, QFileDialog
 import singleton
 
 
-__version__ = '0.8.4'
+__version__ = '0.8.5'
 OS_ENCODING = __import__('locale').getdefaultlocale()[1]
 LOGGER = logging.getLogger('batchrender')
 
 if sys.getdefaultencoding() != 'UTF-8':
     reload(sys)
     sys.setdefaultencoding('UTF-8')
-
-
-def _set_path():
-    if sys.platform == 'win32':
-        site_packages = os.path.join(os.path.dirname(
-            sys.executable), r'pythonextensions\site-packages')
-        sys.path.append(site_packages)
-
-
-_set_path()
-try:
-    from Qt import QtWidgets, QtCore, QtCompat
-    from Qt.QtWidgets import QMainWindow, QApplication, QFileDialog
-except ImportError:
-    raise
 
 
 class Config(dict):
@@ -115,8 +103,6 @@ def _set_logger(rollover=False):
     _path = _log_file()
     _handler = logging.handlers.RotatingFileHandler(
         _path, backupCount=5)
-    if rollover and os.stat(_path).st_size > 10000:
-        _handler.doRollover()
     _formatter = logging.Formatter(
         '%(levelname)-6s[%(asctime)s]: %(name)s: %(message)s', '%x %X')
     _handler.setFormatter(_formatter)
@@ -128,7 +114,9 @@ def _set_logger(rollover=False):
     except TypeError:
         logger.warning(
             'Can not recognize env:LOGLEVEL %s, expect a int', loglevel)
-
+    setattr(sys.modules[__name__], '_singleton', singleton.SingleInstance())
+    if rollover and os.stat(_path).st_size > 10000:
+        _handler.doRollover()
     return logger
 
 
@@ -142,131 +130,413 @@ def change_dir(dir_):
     LOGGER.info('工作目录改为: %s', os.getcwd())
 
 
-class BatchRender(multiprocessing.Process):
-    """Main render process."""
-    LOG_FILENAME = 'Nuke批渲染.log'
-    LOG_LEVEL = logging.INFO
-    lock = multiprocessing.Lock()
+class TaskQueue(list):
+    """Task render quene.  """
 
-    def __init__(self):
-        multiprocessing.Process.__init__(self)
-        self._queue = multiprocessing.Queue()
+    def sort(self):
+        list.sort(self, key=lambda x: x.priority, reverse=True)
 
-        self._config = Config()
-        self._error_files = []
-        self._files = Files()
-        self.daemon = True
+    def get(self):
+        """Get first item from queue.  """
+
+        self.sort()
+        return self.pop(0)
+
+    def put(self, item):
+        """Put item to queue.  """
+
+        if not isinstance(item, Task):
+            raise TypeError('Expect Task, got %s' % item)
+        self.append(item)
+        self.sort()
+
+    def empty(self):
+        """Return if queue empty.  """
+        return not self
+
+
+class Task(multiprocessing.Process):
+    """Nuke render task.  """
+
+    def __init__(self, filename, priority=0):
+        self.file = filename
+        self.priority = priority
+        self.error_count = 0
+        self.proc = None
+        super(Task, self).__init__(name=self.file)
 
     def run(self):
-        """(override)This function run in new process."""
-        with self.lock:
-
-            os.chdir(self._config['DIR'])
-            self._files.unlock_all()
-            self.continuous_render()
-
-    def continuous_render(self):
-        """Loop batch rendering as files exists."""
-
-        while Files() and not Files().all_locked:
-            self.batch_render()
-
-    def batch_render(self):
-        """Render all renderable file in dir."""
-
-        for f in Files():
-            _rtcode = self.render(f)
-
-    def render(self, f):
-        """Render a file with nuke."""
-        title = '## [{}/{}]\t{}'.format(
-            self._files.index(f) + 1,
-            len(self._files), f)
-        LOGGER.info(title)
-        print('-' * 50)
-        print(title)
-        print('-' * 50)
-
-        if not os.path.isfile(f):
-            LOGGER.error('not isfile: %s', f)
-            return False
-
-        _rtcode = self.call_nuke(f)
-
-        LOGGER.debug('Return code: %s', _rtcode)
-
-        return _rtcode
-
-    def call_nuke(self, f):
-        """Open a nuke subprocess for rendering file."""
-
+        """Render the task.  """
         time.clock()
-        nk_file = Files.lock(f)
+        nk_file = Files.lock(self.file)
 
-        _proxy = '-p ' if self._config['PROXY'] else '-f '
-        _priority = '-c 8G --priority low ' if self._config['LOW_PRIORITY'] else ''
-        _cont = '--cont ' if self._config['CONTINUE'] else ''
+        _proxy = '-p ' if Config()['PROXY'] else '-f '
+        _priority = '-c 8G --priority low ' if Config()['LOW_PRIORITY'] else ''
+        _cont = '--cont ' if Config()['CONTINUE'] else ''
         cmd = '"{NUKE}" -x {}{}{} "{f}"'.format(
             _proxy,
             _priority,
             _cont,
-            NUKE=self._config['NUKE'],
+            NUKE=Config()['NUKE'],
             f=nk_file
         )
         LOGGER.debug('命令: %s', cmd)
-        _proc = subprocess.Popen(
+        proc = subprocess.Popen(
             cmd, stderr=subprocess.PIPE, cwd=Config()['DIR'], shell=True)
-        self._queue.put(_proc.pid)
+        self.proc = proc
+        LOGGER.debug('Start process: %s', proc.pid)
         while True:
-            line = _proc.stderr.readline()
+            line = proc.stderr.readline()
             if not line:
                 break
             line = l10n(line)
             sys.stderr.write('STDERR: {}\n'.format(line))
             with open(_log_file(), 'a') as log:
                 log.write('STDERR: {}\n'.format(line))
-            _proc.stderr.flush()
-        _proc.wait()
-        _rtcode = _proc.returncode
+            proc.stderr.flush()
+        proc.wait()
+        retcode = proc.returncode
 
         # Logging total time.
         LOGGER.info(
             '%s: 结束渲染 耗时 %s %s',
-            f,
+            self.file,
             timef(time.clock()),
-            '退出码: {}'.format(_rtcode) if _rtcode else '正常退出',
+            '退出码: {}'.format(retcode) if retcode else '正常退出',
         )
 
-        if _rtcode:
+        if retcode:
             # Exited with error.
-            self._error_files.append(f)
-            _count = self._error_files.count(f)
-            LOGGER.error('%s: 渲染出错 第%s次', f, _count)
+            self.error_count += 1
+            LOGGER.error('%s: 渲染出错 第%s次', self.file, self.error_count)
             # TODO: retry limit
-            if _count >= 3:
+            if self.error_count >= 3:
                 # Not retry.
-                LOGGER.error('%s: 连续渲染错误超过3次,不再进行重试。', f)
+                LOGGER.error('%s: 连续渲染错误超过3次,不再进行重试。', self.file)
             else:
                 Files.unlock(nk_file)
         else:
             # Normal exit.
-            if not self._config['PROXY']:
+            if not Config()['PROXY']:
                 os.remove(nk_file)
 
-        return _rtcode
+        return retcode
+
+    def __str__(self):
+        return '{0.file} 优先级{0.priority}'.format(self)
+
+
+class RenderPool(multiprocessing.dummy.Process):
+    """Single thread render pool.  """
+
+    def __init__(self, taskqueue):
+        super(RenderPool, self).__init__()
+        self.queue = taskqueue
+        self.lock = multiprocessing.dummy.Lock()
+
+    def start(self):
+        """Start pool"""
+        self.__init__(self.queue)
+        super(RenderPool, self).start()
+
+    def run(self):
+        """Overridde.  """
+        # _set_logger()
+        log = logging.getLogger('batchrender.renderpool')
+        log.debug('Render start')
+
+        while self.lock.acquire(False) and not self.queue.empty():
+            task = self.queue.get()
+            self.current_task = task
+            task.start()
+            log.debug('Current task: %s pid: %s', task, task.proc.pid)
 
     def stop(self):
-        """Stop rendering."""
-
-        _pid = None
-        while not self._queue.empty():
-            _pid = self._queue.get()
-        if _pid:
+        """Stop render.  """
+        current = self.current_task
+        if current:
+            pid = current.proc.pid
+            LOGGER.debug('Stop render pool, current: %s pid:%s',
+                         self.current_task, pid)
             try:
-                os.kill(_pid, 9)
+                os.kill(pid, 9)
             except OSError as ex:
-                LOGGER.debug(ex)
+                LOGGER.debug('Terminate task fail: %s', ex)
         self.terminate()
+
+    def terminate(self):
+        """Stop pool. """
+        self.lock.acquire()
+        self.lock.release()
+
+
+class TaskTable(object):
+    """Table widget.  """
+
+    def __init__(self, widget):
+        self.widget = widget
+        self.parent = self.widget.parent()
+        self.queue = TaskQueue()
+        self._lock = multiprocessing.Lock()
+        # self._brushes = {}
+        # if HAS_NUKE:
+        #     self._brushes['local'] = QtGui.QBrush(QtGui.QColor(200, 200, 200))
+        #     self._brushes['uploaded'] = QtGui.QBrush(
+        #         QtGui.QColor(100, 100, 100))
+        # else:
+        #     self._brushes['local'] = QtGui.QBrush(QtCore.Qt.black)
+        #     self._brushes['uploaded'] = QtGui.QBrush(QtCore.Qt.gray)
+
+        # self.widget.itemDoubleClicked.connect(self.open_file)
+        # self.parent.actionSelectAll.triggered.connect(self.select_all)
+        # self.parent.actionReverseSelection.triggered.connect(
+        #     self.reverse_selection)
+        self.widget.setColumnWidth(0, 300)
+        self.widget.showEvent = self.showEvent
+        self.widget.hideEvent = self.hideEvent
+        self._start_update()
+
+    def __del__(self):
+        self._lock.acquire()
+
+    @property
+    def directory(self):
+        """Current working dir.  """
+        return self.parent.directory
+
+    def showEvent(self, event):
+        def _run():
+            LOGGER.debug('TableWidget update start')
+            lock = self._lock
+            while lock.acquire(False):
+                try:
+                    if self.widget.isVisible():
+                        self.update()
+                except RuntimeError:
+                    pass
+                time.sleep(1)
+                lock.release()
+        self.update()
+        thread = multiprocessing.dummy.Process(
+            name='TaskTableUpdate', target=_run)
+        thread.daemon = True
+        thread.start()
+        event.accept()
+
+    def hideEvent(self, event):
+        event.accept()
+        self._lock.acquire()
+        self._lock.release()
+
+    def update(self):
+        """Update info.  """
+        widget = self.widget
+        files = Files()
+        files.update()
+
+        # Remove.
+        for item in self.items():
+            if not item:
+                continue
+            text = item.text()
+            if text not in files:
+                widget.removeRow(item.row())
+
+            elif item.checkState() \
+                    and isinstance(self.parent.get_dest(text, refresh=True), Exception):
+                item.setCheckState(QtCore.Qt.Unchecked)
+
+        # Add.
+        for i in files:
+            try:
+                item = self.widget.findItems(
+                    i, QtCore.Qt.MatchExactly)[0]
+            except IndexError:
+                LOGGER.debug('Add task: %s', i)
+                self.add_task(Task(i))
+
+        # # Count
+        # self.parent.labelCount.setText(
+        #     '{}/{}/{}'.format(len(list(self.checked_files)), len(local_files), len(all_files)))
+
+    def add_task(self, task):
+        """Add task to the task table and queue.  """
+        row = self.widget.rowCount()
+        self.widget.insertRow(row)
+        LOGGER.debug('Insert row: %s', row)
+        _item = QtWidgets.QTableWidgetItem(task.file)
+        _item.setCheckState(QtCore.Qt.Unchecked)
+        self.widget.setItem(row, 0, _item)
+        _item = QtWidgets.QTableWidgetItem('0')
+        self.widget.setItem(row, 1, _item)
+        self.queue.put(task)
+
+    def _start_update(self):
+        def _run():
+            LOGGER.debug('TableWidget update start')
+            lock = self._lock
+            while lock.acquire(False):
+                try:
+                    if self.widget.isVisible():
+                        self.update()
+                except RuntimeError:
+                    pass
+                time.sleep(1)
+                lock.release()
+        thread = multiprocessing.dummy.Process(
+            name='TaskTableUpdate', target=_run)
+        thread.daemon = True
+        thread.start()
+
+    @property
+    def checked_files(self):
+        """Return files checked in listwidget.  """
+        return (i.text() for i in self.items() if i.checkState())
+
+    def items(self):
+        """Item in list widget -> list."""
+
+        widget = self.widget
+        return list(widget.item(i, 0) for i in xrange(widget.rowCount()))
+
+    # def select_all(self):
+    #     """Select all item in list widget.  """
+    #     for item in self.items():
+    #         if item.text() not in self.uploaded_files:
+    #             item.setCheckState(QtCore.Qt.Checked)
+
+    # def reverse_selection(self):
+    #     """Select all item in list widget.  """
+    #     for item in self.items():
+    #         if item.text() not in self.uploaded_files:
+    #             if item.checkState():
+    #                 item.setCheckState(QtCore.Qt.Unchecked)
+    #             else:
+    #                 item.setCheckState(QtCore.Qt.Checked)
+
+
+# class BatchRender(multiprocessing.Process):
+#     """Main render process."""
+#     lock = multiprocessing.Lock()
+
+#     def __init__(self):
+#         multiprocessing.Process.__init__(self)
+#         self._queue = multiprocessing.Queue()
+
+#         self._config = Config()
+#         self._error_files = []
+#         self._files = Files()
+#         self.daemon = True
+
+#     def run(self):
+#         """(override)This function run in new process."""
+#         with self.lock:
+#             os.chdir(self._config['DIR'])
+#             self._files.unlock_all()
+#             self.continuous_render()
+
+#     def continuous_render(self):
+#         """Loop batch rendering as files exists."""
+
+#         while Files() and not Files().all_locked:
+#             self.batch_render()
+
+#     def batch_render(self):
+#         """Render all renderable file in dir."""
+
+#         for f in Files():
+#             _rtcode = self.render(f)
+
+#     def render(self, f):
+#         """Render a file with nuke."""
+#         title = '## [{}/{}]\t{}'.format(
+#             self._files.index(f) + 1,
+#             len(self._files), f)
+#         LOGGER.info(title)
+#         print('-' * 50)
+#         print(title)
+#         print('-' * 50)
+
+#         if not os.path.isfile(f):
+#             LOGGER.error('not isfile: %s', f)
+#             return False
+
+#         _rtcode = self.call_nuke(f)
+
+#         LOGGER.debug('Return code: %s', _rtcode)
+
+#         return _rtcode
+
+#     def call_nuke(self, f):
+#         """Open a nuke subprocess for rendering file."""
+
+#         time.clock()
+#         nk_file = Files.lock(f)
+
+#         _proxy = '-p ' if self._config['PROXY'] else '-f '
+#         _priority = '-c 8G --priority low ' if self._config['LOW_PRIORITY'] else ''
+#         _cont = '--cont ' if self._config['CONTINUE'] else ''
+#         cmd = '"{NUKE}" -x {}{}{} "{f}"'.format(
+#             _proxy,
+#             _priority,
+#             _cont,
+#             NUKE=self._config['NUKE'],
+#             f=nk_file
+#         )
+#         LOGGER.debug('命令: %s', cmd)
+#         _proc = subprocess.Popen(
+#             cmd, stderr=subprocess.PIPE, cwd=Config()['DIR'], shell=True)
+#         self._queue.put(_proc.pid)
+#         while True:
+#             line = _proc.stderr.readline()
+#             if not line:
+#                 break
+#             line = l10n(line)
+#             sys.stderr.write('STDERR: {}\n'.format(line))
+#             with open(_log_file(), 'a') as log:
+#                 log.write('STDERR: {}\n'.format(line))
+#             _proc.stderr.flush()
+#         _proc.wait()
+#         _rtcode = _proc.returncode
+
+#         # Logging total time.
+#         LOGGER.info(
+#             '%s: 结束渲染 耗时 %s %s',
+#             f,
+#             timef(time.clock()),
+#             '退出码: {}'.format(_rtcode) if _rtcode else '正常退出',
+#         )
+
+#         if _rtcode:
+#             # Exited with error.
+#             self._error_files.append(f)
+#             _count = self._error_files.count(f)
+#             LOGGER.error('%s: 渲染出错 第%s次', f, _count)
+#             # TODO: retry limit
+#             if _count >= 3:
+#                 # Not retry.
+#                 LOGGER.error('%s: 连续渲染错误超过3次,不再进行重试。', f)
+#             else:
+#                 Files.unlock(nk_file)
+#         else:
+#             # Normal exit.
+#             if not self._config['PROXY']:
+#                 os.remove(nk_file)
+
+#         return _rtcode
+
+#     def stop(self):
+#         """Stop rendering."""
+
+#         _pid = None
+#         while not self._queue.empty():
+#             _pid = self._queue.get()
+#         if _pid:
+#             try:
+#                 os.kill(_pid, 9)
+#             except OSError as ex:
+#                 LOGGER.debug(ex)
+#         self.terminate()
 
 
 def l10n(text):
@@ -351,6 +621,9 @@ class Files(list):
     @staticmethod
     def unlock(f):
         """Rename a (raw_name).(ext) file back or delete it.  """
+        if not os.path.exists(f):
+            LOGGER.warning('尝试解锁不存在的文件: %s', f)
+            return
 
         _unlocked_name = os.path.splitext(f)[0]
         if os.path.isfile(_unlocked_name):
@@ -458,8 +731,10 @@ class MainWindow(QMainWindow):
 
         QMainWindow.__init__(self, parent)
         self._ui = QtCompat.loadUi(os.path.abspath(
-            os.path.join(__file__, '../mainwindow.ui')))
+            os.path.join(__file__, '../batchrender.ui')))
         self.setCentralWidget(self._ui)
+        self.task_table = TaskTable(self.tableWidget)
+        self.render_pool = RenderPool(self.task_table.queue)
         self.resize(600, 500)
         self.setWindowTitle('Nuke批渲染')
 
@@ -505,7 +780,7 @@ class MainWindow(QMainWindow):
     def update(self):
         """Update UI content.  """
 
-        rendering = bool(self._proc and self._proc.is_alive())
+        rendering = self.render_pool.is_alive()
         if not rendering and self.rendering:
             self.on_stop_callback()
         self.rendering = rendering
@@ -515,7 +790,7 @@ class MainWindow(QMainWindow):
             if rendering:
                 self.renderButton.setEnabled(False)
                 self.stopButton.setEnabled(True)
-                self.listWidget.setStyleSheet(
+                self.tableWidget.setStyleSheet(
                     'color:white;background-color:rgb(12%, 16%, 18%);')
                 self.pushButtonRemoveOldVersion.setEnabled(False)
             else:
@@ -524,7 +799,7 @@ class MainWindow(QMainWindow):
                 else:
                     self.renderButton.setEnabled(False)
                 self.stopButton.setEnabled(False)
-                self.listWidget.setStyleSheet('')
+                self.tableWidget.setStyleSheet('')
                 self.pushButtonRemoveOldVersion.setEnabled(True)
 
         def _edits():
@@ -538,16 +813,10 @@ class MainWindow(QMainWindow):
                 except KeyError as ex:
                     LOGGER.debug(ex)
 
-        def _list_widget():
-            self.listWidget.clear()
-            for i in _files:
-                self.listWidget.addItem('{}'.format(i))
-
         if not rendering and self.checkBoxAutoStart.isChecked() \
                 and _files and not _files.all_locked:
             self.render()
         _edits()
-        _list_widget()
         _button_enabled()
 
     def on_stop_callback(self):
@@ -577,11 +846,9 @@ class MainWindow(QMainWindow):
 
     def render(self):
         """Start rendering from UI.  """
-
         _file = os.path.abspath(os.path.join(__file__, '../error_handler.exe'))
         webbrowser.open(_file)
-        self._proc = BatchRender()
-        self._proc.start()
+        self.render_pool.start()
         self.statusbar.showMessage('渲染中')
 
     @staticmethod
@@ -595,7 +862,7 @@ class MainWindow(QMainWindow):
 
         self.hiberCheck.setCheckState(QtCore.Qt.CheckState.Unchecked)
         self.checkBoxAutoStart.setCheckState(QtCore.Qt.CheckState.Unchecked)
-        self._proc.stop()
+        self.render_pool.stop()
 
     def closeEvent(self, event):
         """Override qt closeEvent."""
@@ -616,6 +883,7 @@ class MainWindow(QMainWindow):
                 event.ignore()
         else:
             event.accept()
+        getattr(sys.modules[__name__], '_singleton').__del__()
 
 
 def copy(src, dst):
@@ -666,8 +934,10 @@ def call_from_nuke():
         if not os.path.exists(render_dir):
             os.mkdir(render_dir)
         Config()['DIR'] = render_dir
-    args = (sys.executable, '--tg', _file)
+    args = [sys.executable, '--tg', _file]
     if sys.platform == 'win32':
+        args = [os.path.join(os.path.dirname(
+            sys.executable), 'python.exe'), _file]
         kwargs = {'creationflags': subprocess.CREATE_NEW_CONSOLE}
     else:
         args = '"{0[0]}" {0[1]} "{0[2]}"'.format(args)
@@ -679,12 +949,11 @@ def call_from_nuke():
 
 def main():
     """Run this script standalone."""
-    _singleton = singleton.SingleInstance()
     _set_logger(True)
 
     try:
         os.chdir(Config()['DIR'])
-    except OSError as ex:
+    except OSError:
         LOGGER.warning('Can not change dir')
 
     app = QApplication.instance()

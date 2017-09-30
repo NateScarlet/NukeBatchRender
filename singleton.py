@@ -18,7 +18,7 @@ try:
 except ImportError:
     raise
 
-LOGGER = logging.getLogger("batchrender.singleton")
+LOGGER = logging.getLogger("singleton")
 
 __version__ = '0.2.0'
 

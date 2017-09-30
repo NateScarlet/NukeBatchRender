@@ -11,7 +11,6 @@ import logging
 import logging.handlers
 import multiprocessing
 import multiprocessing.dummy
-import multiprocessing.pool
 import os
 import subprocess
 import sys
@@ -22,10 +21,18 @@ import render
 import singleton
 from config import Config
 from path import get_unicode
-from Qt import QtCompat, QtCore, QtWidgets
-from Qt.QtWidgets import QApplication, QFileDialog, QMainWindow
+from log import MultiProcessingHandler
 
-__version__ = '0.8.6'
+if __name__ == '__main__':
+    __SINGLETON = singleton.SingleInstance()
+
+try:
+    from Qt import QtCompat, QtCore, QtWidgets
+    from Qt.QtWidgets import QApplication, QFileDialog, QMainWindow
+except:
+    raise
+
+__version__ = '0.8.9'
 
 LOGGER = logging.getLogger()
 
@@ -35,16 +42,18 @@ def _set_logger():
     logger.propagate = False
 
     # Stream handler
-    _handler = logging.StreamHandler()
+    _handler = MultiProcessingHandler(logging.StreamHandler)
     _formatter = logging.Formatter(
         '%(levelname)-6s[%(asctime)s]: %(name)s: %(message)s', '%H:%M:%S')
     _handler.setFormatter(_formatter)
     logger.addHandler(_handler)
+    logger.debug('Added stream handler.  ')
 
     # File handler
-    _path = Config().log_path
-    _handler = logging.handlers.RotatingFileHandler(
-        _path, backupCount=5)
+    path = Config().log_path
+    _handler = MultiProcessingHandler(
+        logging.handlers.RotatingFileHandler,
+        args=(path,), kwargs={'backupCount': 5})
     _formatter = logging.Formatter(
         '%(levelname)-6s[%(asctime)s]: %(name)s: %(message)s', '%x %X')
     _handler.setFormatter(_formatter)
@@ -58,8 +67,11 @@ def _set_logger():
         logger.warning(
             'Can not recognize env:LOGLEVEL %s, expect a int', loglevel)
 
-    if os.stat(_path).st_size > 10000:
-        _handler.doRollover()
+    if os.stat(path).st_size > 10000:
+        try:
+            _handler.doRollover()
+        except OSError:
+            LOGGER.debug('Rollover log file failed.')
 
 
 _set_logger()
@@ -266,11 +278,11 @@ class MainWindow(QMainWindow):
                 QtWidgets.QMessageBox.No
             )
             if confirm == QtWidgets.QMessageBox.Yes:
-                event.accept()
+                sys.exit()
             else:
                 event.ignore()
         else:
-            event.accept()
+            sys.exit()
 
 
 class TaskTable(object):
@@ -418,130 +430,6 @@ class TaskTable(object):
     #                 item.setCheckState(QtCore.Qt.Checked)
 
 
-# class BatchRender(multiprocessing.Process):
-#     """Main render process."""
-#     lock = multiprocessing.Lock()
-
-#     def __init__(self):
-#         multiprocessing.Process.__init__(self)
-#         self._queue = multiprocessing.Queue()
-
-#         self._config = Config()
-#         self._error_files = []
-#         self._files = Files()
-#         self.daemon = True
-
-#     def run(self):
-#         """(override)This function run in new process."""
-#         with self.lock:
-#             os.chdir(self._config['DIR'])
-#             self._files.unlock_all()
-#             self.continuous_render()
-
-#     def continuous_render(self):
-#         """Loop batch rendering as files exists."""
-
-#         while Files() and not Files().all_locked:
-#             self.batch_render()
-
-#     def batch_render(self):
-#         """Render all renderable file in dir."""
-
-#         for f in Files():
-#             _rtcode = self.render(f)
-
-#     def render(self, f):
-#         """Render a file with nuke."""
-#         title = '## [{}/{}]\t{}'.format(
-#             self._files.index(f) + 1,
-#             len(self._files), f)
-#         LOGGER.info(title)
-#         print('-' * 50)
-#         print(title)
-#         print('-' * 50)
-
-#         if not os.path.isfile(f):
-#             LOGGER.error('not isfile: %s', f)
-#             return False
-
-#         _rtcode = self.call_nuke(f)
-
-#         LOGGER.debug('Return code: %s', _rtcode)
-
-#         return _rtcode
-
-#     def call_nuke(self, f):
-#         """Open a nuke subprocess for rendering file."""
-
-#         time.clock()
-#         nk_file = Files.lock(f)
-
-#         _proxy = '-p ' if self._config['PROXY'] else '-f '
-#         _priority = '-c 8G --priority low ' if self._config['LOW_PRIORITY'] else ''
-#         _cont = '--cont ' if self._config['CONTINUE'] else ''
-#         cmd = '"{NUKE}" -x {}{}{} "{f}"'.format(
-#             _proxy,
-#             _priority,
-#             _cont,
-#             NUKE=self._config['NUKE'],
-#             f=nk_file
-#         )
-#         LOGGER.debug('命令: %s', cmd)
-#         _proc = subprocess.Popen(
-#             cmd, stderr=subprocess.PIPE, cwd=Config()['DIR'], shell=True)
-#         self._queue.put(_proc.pid)
-#         while True:
-#             line = _proc.stderr.readline()
-#             if not line:
-#                 break
-#             line = l10n(line)
-#             sys.stderr.write('STDERR: {}\n'.format(line))
-#             with open(_log_file(), 'a') as log:
-#                 log.write('STDERR: {}\n'.format(line))
-#             _proc.stderr.flush()
-#         _proc.wait()
-#         _rtcode = _proc.returncode
-
-#         # Logging total time.
-#         LOGGER.info(
-#             '%s: 结束渲染 耗时 %s %s',
-#             f,
-#             timef(time.clock()),
-#             '退出码: {}'.format(_rtcode) if _rtcode else '正常退出',
-#         )
-
-#         if _rtcode:
-#             # Exited with error.
-#             self._error_files.append(f)
-#             _count = self._error_files.count(f)
-#             LOGGER.error('%s: 渲染出错 第%s次', f, _count)
-#             # TODO: retry limit
-#             if _count >= 3:
-#                 # Not retry.
-#                 LOGGER.error('%s: 连续渲染错误超过3次,不再进行重试。', f)
-#             else:
-#                 Files.unlock(nk_file)
-#         else:
-#             # Normal exit.
-#             if not self._config['PROXY']:
-#                 os.remove(nk_file)
-
-#         return _rtcode
-
-#     def stop(self):
-#         """Stop rendering."""
-
-#         _pid = None
-#         while not self._queue.empty():
-#             _pid = self._queue.get()
-#         if _pid:
-#             try:
-#                 os.kill(_pid, 9)
-#             except OSError as ex:
-#                 LOGGER.debug(ex)
-#         self.terminate()
-
-
 def hiber():
     """Hibernate this computer.  """
 
@@ -580,9 +468,6 @@ def call_from_nuke():
 def main():
     """Run this script standalone."""
 
-    dummy = singleton.SingleInstance()
-    _set_logger()
-
     try:
         working_dir = Config()['DIR']
         os.chdir(working_dir)
@@ -594,6 +479,7 @@ def main():
     frame = MainWindow()
     frame.show()
     sys.exit(app.exec_())
+    LOGGER.debug('Exit')
 
 
 if __name__ == '__main__':

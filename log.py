@@ -13,9 +13,9 @@ import logging
 class MultiProcessingHandler(logging.Handler):
     """Multiprocessing rotate file log handler.  """
 
-    def __init__(self, handler, args=(), kwargs=()):
+    def __init__(self, handler, args=(), kwargs=None):
         logging.Handler.__init__(self)
-
+        kwargs = kwargs or {}
         self._handler = handler(*args, **kwargs)
         self.queue = multiprocessing.Queue(-1)
 

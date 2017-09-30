@@ -10,6 +10,10 @@ import sys
 
 LOGGER = logging.getLogger('config')
 
+if sys.platform == 'win32':
+    import locale
+    locale.setlocale(locale.LC_ALL, 'chinese')
+
 
 class Config(dict):
     """A config file can be manipulated that automatic write and read json file on disk."""

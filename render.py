@@ -14,43 +14,9 @@ import sys
 import time
 
 from config import Config, l10n
-from path import get_unicode
-from log import MultiProcessingHandler
+from path import get_unicode, get_encoded
 
 LOGGER = logging.getLogger('render')
-
-
-def _set_logger():
-    logger = logging.getLogger('render')
-    logger.propagate = False
-
-    # Stream handler
-    _handler = logging.StreamHandler()
-    _formatter = logging.Formatter(
-        '%(levelname)-6s[%(asctime)s]: %(name)s: %(message)s', '%H:%M:%S')
-    _handler.setFormatter(_formatter)
-    logger.addHandler(_handler)
-
-    # File handler
-    _path = Config().log_path
-    _handler = MultiProcessingHandler(
-        logging.handlers.RotatingFileHandler,
-        args=(_path,), kwargs={'backupCount': 5})
-    _formatter = logging.Formatter(
-        '%(levelname)-6s[%(asctime)s]: %(name)s: %(message)s', '%x %X')
-    _handler.setFormatter(_formatter)
-    logger.addHandler(_handler)
-
-    # Loglevel
-    loglevel = os.getenv('LOGLEVEL', logging.INFO)
-    try:
-        logger.setLevel(int(loglevel))
-    except TypeError:
-        logger.warning(
-            'Can not recognize env:LOGLEVEL %s, expect a int', loglevel)
-
-
-_set_logger()
 
 
 class TaskQueue(list):
@@ -98,7 +64,12 @@ class Pool(multiprocessing.Process):
         super(Pool, self).__init__()
         self.queue = taskqueue
         self.lock = multiprocessing.Lock()
-        self.child_pid = multiprocessing.Value('i')
+        self._child_pid = multiprocessing.Value('i')
+
+    @property
+    def child_pid(self):
+        """Child pid value.  """
+        return self._child_pid.value
 
     def run(self):
         """Overridde.  """
@@ -111,7 +82,8 @@ class Pool(multiprocessing.Process):
 
     def stop(self):
         """Stop rendering.  """
-        pid = self.child_pid.value
+        pid = self.child_pid
+        LOGGER.debug('Stoping child: %s', pid)
         if pid:
             os.kill(pid, 9)
         self.terminate()
@@ -127,28 +99,58 @@ class Pool(multiprocessing.Process):
              '--cont' if Config()['CONTINUE'] else '',
              '--priority low' if Config()['LOW_PRIORITY'] else '',
              '-c 8G' if Config()['LOW_PRIORITY'] else '',
-             f], stderr=subprocess.PIPE, cwd=Config()['DIR'])
+             f], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=Config()['DIR'])
         return proc
+
+    @staticmethod
+    def handle_output(proc):
+        """handle process output."""
+        lock = multiprocessing.dummy.Lock()
+
+        def _stderr():
+            while True:
+                line = proc.stderr.readline()
+                if not line:
+                    break
+                line = l10n(line)
+                msg = 'STDERR: {}\n'.format(line)
+                with lock:
+                    sys.stderr.write(msg)
+                with open(Config().log_path, 'a') as f:
+                    f.write(msg)
+                proc.stderr.flush()
+            LOGGER.debug('Finished thread: handle_stderr')
+
+        def _stdout():
+            while True:
+                line = proc.stdout.readline()
+                if not line:
+                    break
+                line = l10n(line)
+                msg = 'STDOUT: {}\n'.format(line)
+                with lock:
+                    sys.stdout.write(msg)
+                if LOGGER.getEffectiveLevel() == logging.DEBUG:
+                    with open(Config().log_path, 'a') as f:
+                        f.write(msg)
+                proc.stdout.flush()
+            LOGGER.debug('Finished thread: handle_stdout')
+        multiprocessing.dummy.Process(
+            name='handle_stderr', target=_stderr).start()
+        multiprocessing.dummy.Process(
+            name='handle_stdout', target=_stdout).start()
 
     def execute_task(self, task):
         """Render the task file.  """
+        task.file = Files.lock(task.file)
+
         time.clock()
         proc = self.nuke_process(task.file)
+        LOGGER.debug('Started render process: %s', proc.pid)
 
-        LOGGER.debug('Start process: %s', proc.pid)
-        while True:
-            line = proc.stderr.readline()
-            if not line:
-                break
-            line = l10n(line)
-            sys.stderr.write('STDERR: {}\n'.format(line))
+        self.handle_output(proc)
 
-            LOGGER.info('STDERR: %s', line)
-            proc.stderr.flush()
-        proc.wait()
-        retcode = proc.returncode
-
-        # Logging total time.
+        retcode = proc.wait()
         LOGGER.info(
             '%s: 结束渲染 耗时 %s %s',
             task.file,
@@ -165,7 +167,7 @@ class Pool(multiprocessing.Process):
                 # Not retry.
                 LOGGER.error('%s: 连续渲染错误超过3次,不再进行重试。', task.file)
             else:
-                Files.unlock(task.file)
+                task.file = Files.unlock(task.file)
         else:
             # Normal exit.
             if not Config()['PROXY']:
@@ -243,6 +245,7 @@ class Files(list):
             os.remove(f)
             LOGGER.info('因为有更新的文件, 移除: %s', f)
         else:
+            LOGGER.debug('%s -> %s', f, _unlocked_name)
             os.rename(f, _unlocked_name)
         return _unlocked_name
 
@@ -261,14 +264,12 @@ class Files(list):
     @staticmethod
     def archive(f, dest='文件备份'):
         """Archive file in a folder with time struture.  """
-
         now = datetime.datetime.now()
-        weekday = ('周日', '周一', '周二', '周三', '周四', '周五', '周六')
         dest = os.path.join(
             dest,
-            now.strftime('%Y年%m月'),
-            now.strftime('%d日%H时%M分_{}/')
-        ).format(weekday[int(now.strftime('%w'))])
+            get_unicode(now.strftime(
+                get_encoded('%y-%m-%d_%A\\%H时%M分\\'))))
+
         copy(f, dest)
 
     def remove_old_version(self):
@@ -305,7 +306,7 @@ class Files(list):
 
 def copy(src, dst):
     """Copy src to dst."""
-
+    src, dst = get_unicode(src), get_unicode(dst)
     LOGGER.info('\n复制:\n\t%s\n->\t%s', src, dst)
     if not os.path.exists(src):
         return

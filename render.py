@@ -175,9 +175,8 @@ class Pool(QtCore.QThread):
                     break
                 match = re.match(r'.*?(\d+)\s?of\s?(\d+)', line)
                 if match:
-                    print(match.groups())
                     percent = int(match.group(1)) * 100 / int(match.group(2))
-                    LOGGER.debug('Percent %s', percent)
+                    # LOGGER.debug('Percent %s', percent)
                     self.progress.emit(percent)
                 line = l10n(line)
                 # msg = 'STDOUT: {}\n'.format(line)

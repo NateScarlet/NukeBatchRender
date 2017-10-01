@@ -75,7 +75,8 @@ def _set_logger():
             LOGGER.debug('Rollover log file failed.')
 
 
-_set_logger()
+if __name__ == '__main__':
+    _set_logger()
 
 if sys.getdefaultencoding() != 'UTF-8':
     reload(sys)
@@ -154,6 +155,12 @@ class MainWindow(QMainWindow):
         _icon()
         self.pushButtonStop.clicked.emit()
         render.Files().unlock_all()
+
+        # TODO
+        self.comboBoxAfterFinish.setEnabled(False)
+        self.toolButtonRemove.setEnabled(False)
+        self.toolButtonSelectAll.setEnabled(False)
+        self.toolButtonReverseSelection.setEnabled(False)
 
     def __getattr__(self, name):
         return getattr(self._ui, name)
@@ -398,8 +405,10 @@ class TaskTable(object):
         LOGGER.debug('Update table row count: %s', row)
         for index, task in enumerate(self.queue):
             _item = QtWidgets.QTableWidgetItem(task.file)
-            _item.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled |
-                           QtCore.Qt.ItemIsUserCheckable)
+            _flags = QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled
+            # TODO
+            # _flags |= QtCore.Qt.ItemIsUserCheckable
+            _item.setFlags(_flags)
             _item.setCheckState(QtCore.Qt.Checked)
             self.widget.setItem(index, 0, _item)
             _item = QtWidgets.QTableWidgetItem(str(task.priority))

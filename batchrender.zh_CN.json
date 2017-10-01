@@ -7,5 +7,8 @@
     "There are no active Write operators in this script": "此脚本中没有启用任何Write节点",
     "\\[.*?\\] ERROR: (.+)": "\\1",
     "Can't read (.+?): Permission denied": "不能读取 \\1:没有权限",
+    "Can't read (.+?): No such file or directory": "不能读取 \\1:找不到文件或目录",
+    "Writing (.+?) took (.+?) seconds": "写入 <a href=\"\\1\">\\1</a> 耗时 \\2 秒",
+    "Frame": "帧",
     "All Rights Reserved": "版权所有"
 }

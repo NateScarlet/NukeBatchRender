@@ -27,7 +27,7 @@ if __name__ == '__main__':
     __SINGLETON = singleton.SingleInstance()
 
 try:
-    from Qt import QtCompat, QtCore, QtWidgets
+    from Qt import QtCompat, QtCore, QtWidgets, QtGui
     from Qt.QtWidgets import QApplication, QFileDialog, QMainWindow
 except:
     raise
@@ -97,6 +97,8 @@ class MainWindow(QMainWindow):
                 lambda: webbrowser.open(CONFIG.log_path))
             self.pushButtonRemoveOldVersion.clicked.connect(
                 lambda: render.Files().remove_old_version())
+            self.textBrowser.anchorClicked.connect(
+                lambda QUrl: webbrowser.open(QUrl.toString()))
 
         def _edits():
             for edit, key in self.edits_key.iteritems():
@@ -129,7 +131,7 @@ class MainWindow(QMainWindow):
         self._ui = QtCompat.loadUi(os.path.abspath(
             os.path.join(__file__, '../batchrender.ui')))
         self.setCentralWidget(self._ui)
-        self.task_table = TaskTable(self.tableWidget)
+        self.task_table = TaskTable(self.tableWidget, self)
         self.resize(500, 700)
         self.setWindowTitle('Nuke批渲染')
 
@@ -151,6 +153,7 @@ class MainWindow(QMainWindow):
         _actions()
         _edits()
         _icon()
+        self.pushButtonStop.clicked.emit()
         render.Files().unlock_all()
 
     def __getattr__(self, name):
@@ -175,20 +178,20 @@ class MainWindow(QMainWindow):
     def update(self):
         """Update UI content.  """
 
-        rendering = self.is_rendering
-        if not rendering and self.rendering:
-            self.on_stop_callback()
-        self.rendering = rendering
         _files = render.Files()
 
         def _button_enabled():
-            if rendering:
-                self.tableWidget.setStyleSheet(
-                    'color:white;background-color:rgb(12%, 16%, 18%);')
+            if self.is_rendering:
+                # self.tableWidget.setStyleSheet(
+                #     'color:white;background-color:rgb(12%, 16%, 18%);')
                 self.pushButtonRemoveOldVersion.setEnabled(False)
             else:
-                self.tableWidget.setStyleSheet('')
+                # self.tableWidget.setStyleSheet('')
                 self.pushButtonRemoveOldVersion.setEnabled(True)
+            if self.task_table.queue:
+                self.pushButtonStart.setEnabled(True)
+            else:
+                self.pushButtonStart.setEnabled(False)
 
         def _edits():
             for qt_edit, k in self.edits_key.items():
@@ -204,9 +207,8 @@ class MainWindow(QMainWindow):
         _edits()
         _button_enabled()
 
-    def on_stop_callback(self):
+    def on_task_finished(self):
         """Do work when rendering stop.  """
-
         QApplication.alert(self)
         self.pushButtonStop.clicked.emit()
         LOGGER.info('渲染结束')
@@ -232,18 +234,20 @@ class MainWindow(QMainWindow):
         """Button clicked action.  """
 
         start_error_handler()
+        LOGGER.debug('Task queue: %s', self.task_table.queue)
         self.render_pool = render.Pool(self.task_table.queue)
-        self.render_pool.stdout.connect(self.textEdit.append)
-        self.render_pool.stderr.connect(self.textEdit.append)
+        self.render_pool.stdout.connect(self.textBrowser.append)
+        self.render_pool.stderr.connect(self.textBrowser.append)
+        self.render_pool.task_finished.connect(self.on_task_finished)
         self.render_pool.start()
         self.tabWidget.setCurrentIndex(1)
-        print(self.textEdit.toHtml())
 
     def stop_button_clicked(self):
         """Button clicked action.  """
 
         self.comboBoxAfterFinish.setCurrentIndex(0)
-        self.render_pool.terminate()
+        if self.render_pool:
+            self.render_pool.stop()
         self.tabWidget.setCurrentIndex(0)
 
     def closeEvent(self, event):
@@ -275,10 +279,16 @@ def start_error_handler():
 
 class TaskTable(object):
     """Table widget.  """
+    brushes = {
+        'bg_doing': QtGui.QBrush(QtGui.QColor(30, 40, 45)),
+        'fg_doing': QtGui.QBrush(QtGui.QColor(QtCore.Qt.white)),
+        'bg_waiting': QtGui.QBrush(QtGui.QColor(QtCore.Qt.white)),
+        'fg_waiting': QtGui.QBrush(QtGui.QColor(QtCore.Qt.black)),
+    }
 
-    def __init__(self, widget):
+    def __init__(self, widget, parent=None):
         self.widget = widget
-        self.parent = self.widget.parent()
+        self.parent = parent or self.widget.parent()
         self.queue = render.TaskQueue()
         self._lock = multiprocessing.Lock()
         # self._brushes = {}
@@ -295,9 +305,9 @@ class TaskTable(object):
         # self.parent.actionReverseSelection.triggered.connect(
         #     self.reverse_selection)
         self.widget.setColumnWidth(0, 400)
-        # self.widget.showEvent = self.showEvent
-        # self.widget.hideEvent = self.hideEvent
         self._start_update()
+        self.widget.cellChanged.connect(self.on_cell_changed)
+        self._updating = False
 
     def __del__(self):
         self._lock.acquire()
@@ -340,37 +350,71 @@ class TaskTable(object):
             if not item:
                 continue
             text = item.text()
+            if self.parent.render_pool:
+                if self.parent.render_pool.is_current_task(text):
+                    item.setBackground(self.brushes['bg_doing'])
+                    item.setForeground(self.brushes['fg_doing'])
+                else:
+                    item.setBackground(self.brushes['bg_waiting'])
+                    item.setForeground(self.brushes['fg_waiting'])
+
             if text not in files:
                 widget.removeRow(item.row())
 
-            elif item.checkState() \
-                    and isinstance(self.parent.get_dest(text, refresh=True), Exception):
-                item.setCheckState(QtCore.Qt.Unchecked)
-
         # Add.
+        found_new = False
         for i in files:
             try:
                 item = self.widget.findItems(
                     i, QtCore.Qt.MatchExactly)[0]
             except IndexError:
                 LOGGER.debug('Add task: %s', i)
-                self.add_task(render.Task(i))
+                self.queue.put(i)
+                found_new = True
+
+        if found_new:
+            self.update_table()
 
         # # Count
         # self.parent.labelCount.setText(
         #     '{}/{}/{}'.format(len(list(self.checked_files)), len(local_files), len(all_files)))
 
-    def add_task(self, task):
-        """Add task to the task table and queue.  """
-        row = self.widget.rowCount()
-        self.widget.insertRow(row)
-        LOGGER.debug('Insert row: %s', row)
-        _item = QtWidgets.QTableWidgetItem(task.file)
-        _item.setCheckState(QtCore.Qt.Unchecked)
-        self.widget.setItem(row, 0, _item)
-        _item = QtWidgets.QTableWidgetItem('0')
-        self.widget.setItem(row, 1, _item)
-        self.queue.put(task)
+    def update_table(self):
+        """Update table to match task quene.  """
+        self._updating = True
+
+        self.queue.sort()
+        row = len(self.queue)
+        self.widget.setRowCount(row)
+        LOGGER.debug('Update table row count: %s', row)
+        for index, task in enumerate(self.queue):
+            _item = QtWidgets.QTableWidgetItem(task.file)
+            _item.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled |
+                           QtCore.Qt.ItemIsUserCheckable)
+            _item.setCheckState(QtCore.Qt.Checked)
+            self.widget.setItem(index, 0, _item)
+            _item = QtWidgets.QTableWidgetItem(str(task.priority))
+            _item.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled |
+                           QtCore.Qt.ItemIsEditable)
+            self.widget.setItem(index, 1, _item)
+
+        self._updating = False
+
+    @QtCore.Slot(int, int)
+    def on_cell_changed(self, row, column):
+        """Callback on cell changed.  """
+        if self._updating:
+            return
+
+        item = self.widget.item(row, column)
+        if column == 1:
+            task = self.queue[row]
+            try:
+                text = item.text()
+                task.priority = int(text)
+            except TypeError:
+                LOGGER.warning('不能识别优先级 %s', text)
+            self.update_table()
 
     @property
     def checked_files(self):

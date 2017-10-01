@@ -25,25 +25,27 @@ class TaskQueue(list):
     """Task render quene.  """
 
     def sort(self):
-        list.sort(self, key=lambda x: x.priority, reverse=True)
+        list.sort(self, key=lambda x: (-x.priority, x.mtime))
 
     def get(self):
-        """Get first item from queue.  """
+        """Get first task from queue.  """
 
         self.sort()
         return self.pop(0)
 
     def put(self, item):
-        """Put item to queue.  """
-
+        """Put task to queue.  """
         if not isinstance(item, Task):
-            raise TypeError('Expect Task, got %s' % item)
-        self.append(item)
+            item = Task(item)
+        if item not in self:
+            self.append(item)
         self.sort()
 
-    def empty(self):
-        """Return if queue empty.  """
-        return not self
+    def __contains__(self, item):
+        return any(i for i in self if i == item)
+
+    def __str__(self):
+        return '\n'.join(str(i) for i in self)
 
 
 class Task(object):
@@ -53,60 +55,95 @@ class Task(object):
         self.file = filename
         self.priority = priority
         self.error_count = 0
+        self._mtime = None
         self._proc = None
 
+    def __eq__(self, other):
+        return self.file == other.file
+
     def __str__(self):
-        return 'Render task:{0.file} with priority {0.priority}'.format(self)
+        return '<Render task:{0.file} with priority {0.priority}>'.format(self)
+
+    @property
+    def mtime(self):
+        """File modified time.  """
+        try:
+            self._mtime = os.path.getmtime(self.file)
+        except OSError:
+            pass
+        return self._mtime
 
 
 class Pool(QtCore.QThread):
     """Single thread render pool.  """
     stdout = QtCore.Signal(unicode)
     stderr = QtCore.Signal(unicode)
+    progress = QtCore.Signal(unicode)
+    task_finished = QtCore.Signal()
 
     def __init__(self, taskqueue):
         super(Pool, self).__init__()
         self.queue = taskqueue
-        self.lock = multiprocessing.Lock()
         self._child_pid = multiprocessing.Value('i')
+        self._current_task = multiprocessing.Array('c', 128)
 
     @property
     def child_pid(self):
         """Child pid value.  """
         return self._child_pid.value
 
+    @property
+    def current_task(self):
+        """Current task value.  """
+        return self._current_task.value
+
+    def is_current_task(self, name):
+        """Return if @name is current task.  """
+        return name[:128] == self.current_task
+
     def run(self):
         """Overridde.  """
         LOGGER.debug('Render start')
 
-        while self.lock.acquire(False) and not self.queue.empty():
+        while self.queue:
+            LOGGER.debug('Rendering')
             task = self.queue.get()
             self.execute_task(task)
+        LOGGER.debug('Render finished.')
+        self.task_finished.emit()
+        self.stdout.emit(stylize('渲染结束', 'info'))
 
     def stop(self):
         """Stop rendering.  """
         pid = self.child_pid
-        LOGGER.debug('Stoping child: %s', pid)
         if pid:
-            os.kill(pid, 9)
+            LOGGER.debug('Stoping child: %s', pid)
+            try:
+                os.kill(pid, 9)
+                self.stdout.emit(stylize('终止进程 pid: {}'.format(pid), 'info'))
+            except OSError as ex:
+                LOGGER.debug('Kill process fail: %s: %s', pid, ex)
         self.terminate()
 
     @staticmethod
     def nuke_process(f):
         """Nuke render process for file @f.  """
-        args = [CONFIG['NUKE'],
+        f = '"{}"'.format(f.strip('"'))
+        nuke = '"{}"'.format(CONFIG['NUKE'].strip('"'))
+        args = [nuke,
                 '-x',
                 '-p' if CONFIG['PROXY'] else '-f',
                 '--cont' if CONFIG['CONTINUE'] else '',
                 '--priority low' if CONFIG['LOW_PRIORITY'] else '',
                 '-c 8G' if CONFIG['LOW_PRIORITY'] else '',
                 f]
-        kwargs = {}
+        args = ' '.join([i for i in args if i])
         if sys.platform != 'win32':
-            args = ' '.join(args)
             kwargs = {
                 'shell': True
             }
+        else:
+            kwargs = {}
         LOGGER.debug('Popen: %s', args)
         proc = subprocess.Popen(
             args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=CONFIG['DIR'], **kwargs)
@@ -125,9 +162,9 @@ class Pool(QtCore.QThread):
                 msg = 'STDERR: {}\n'.format(line)
                 with lock:
                     sys.stderr.write(msg)
-                with open(CONFIG.log_path, 'a') as f:
-                    f.write(msg)
-                self.stderr.emit(stylize(line, 'stderr'))
+                    with open(CONFIG.log_path, 'a') as f:
+                        f.write(msg)
+                    self.stderr.emit(stylize(line, 'stderr'))
                 proc.stderr.flush()
             LOGGER.debug('Finished thread: handle_stderr')
 
@@ -139,11 +176,11 @@ class Pool(QtCore.QThread):
                 line = l10n(line)
                 msg = 'STDOUT: {}\n'.format(line)
                 with lock:
-                    sys.stdout.write(msg)
-                if LOGGER.getEffectiveLevel() == logging.DEBUG:
-                    with open(CONFIG.log_path, 'a') as f:
-                        f.write(msg)
-                self.stdout.emit(stylize(line, 'stdout'))
+                    # sys.stdout.write(msg)
+                    # if LOGGER.getEffectiveLevel() == logging.DEBUG:
+                    #     with open(CONFIG.log_path, 'a') as f:
+                    #         f.write(msg)
+                    self.stdout.emit(stylize(line, 'stdout'))
                 proc.stdout.flush()
             LOGGER.debug('Finished thread: handle_stdout')
         multiprocessing.dummy.Process(
@@ -156,9 +193,11 @@ class Pool(QtCore.QThread):
 
         LOGGER.debug('Executing task: %s', task)
         task.file = Files.lock(task.file)
+        self._current_task.value = task.file
 
         time.clock()
         proc = self.nuke_process(task.file)
+        self._child_pid.value = proc.pid
         LOGGER.debug('Started render process: %s', proc.pid)
 
         self.handle_output(proc)

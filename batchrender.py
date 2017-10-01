@@ -237,6 +237,7 @@ class MainWindow(QMainWindow):
         self.render_pool = render.Pool(self.task_table.queue)
         self.render_pool.stdout.connect(self.textBrowser.append)
         self.render_pool.stderr.connect(self.textBrowser.append)
+        self.render_pool.progress.connect(self.progressBar.setValue)
         self.render_pool.task_finished.connect(self.on_task_finished)
         self.render_pool.start()
         self.tabWidget.setCurrentIndex(1)

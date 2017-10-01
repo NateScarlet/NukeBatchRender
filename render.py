@@ -78,7 +78,7 @@ class Pool(QtCore.QThread):
     """Single thread render pool.  """
     stdout = QtCore.Signal(unicode)
     stderr = QtCore.Signal(unicode)
-    progress = QtCore.Signal(unicode)
+    progress = QtCore.Signal(int)
     task_finished = QtCore.Signal()
 
     def __init__(self, taskqueue):
@@ -173,6 +173,12 @@ class Pool(QtCore.QThread):
                 line = proc.stdout.readline()
                 if not line:
                     break
+                match = re.match(r'.*?(\d+)\s?of\s?(\d+)', line)
+                if match:
+                    print(match.groups())
+                    percent = int(match.group(1)) * 100 / int(match.group(2))
+                    LOGGER.debug('Percent %s', percent)
+                    self.progress.emit(percent)
                 line = l10n(line)
                 # msg = 'STDOUT: {}\n'.format(line)
                 with lock:
@@ -181,6 +187,7 @@ class Pool(QtCore.QThread):
                     #     with open(CONFIG.log_path, 'a') as f:
                     #         f.write(msg)
                     self.stdout.emit(stylize(line, 'stdout'))
+
                 proc.stdout.flush()
             LOGGER.debug('Finished thread: handle_stdout')
         multiprocessing.dummy.Process(
@@ -192,6 +199,7 @@ class Pool(QtCore.QThread):
         """Render the task file.  """
 
         LOGGER.debug('Executing task: %s', task)
+        self.progress.emit(0)
         task.file = Files.lock(task.file)
         self._current_task.value = task.file
 

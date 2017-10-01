@@ -9,10 +9,21 @@ import re
 import sys
 
 LOGGER = logging.getLogger('config')
+CONSOLE_STYLE = ''
 
 if sys.platform == 'win32':
     import locale
     locale.setlocale(locale.LC_ALL, 'chinese')
+
+
+def _update_style():
+    path = os.path.join(os.path.dirname(__file__), 'console.css')
+    with open(path) as f:
+        style = '<style>{}</style>'.format(f.read())
+    setattr(sys.modules[__name__], 'CONSOLE_STYLE', style)
+
+
+_update_style()
 
 
 class Config(dict):
@@ -92,5 +103,8 @@ def l10n(text):
 
 
 def stylize(text, text_type=None):
-    # TODO
-    return text
+    """Stylelize text for text edit"""
+
+    if text_type:
+        text = '<span class={}>{}</span>'.format(text_type, text)
+    return CONSOLE_STYLE + text

@@ -15,6 +15,7 @@ import time
 
 from config import Config, l10n, stylize
 from path import get_unicode, get_encoded
+from Qt import QtCore
 
 LOGGER = logging.getLogger('render')
 CONFIG = Config()
@@ -58,13 +59,14 @@ class Task(object):
         return 'Render task:{0.file} with priority {0.priority}'.format(self)
 
 
-class Pool(multiprocessing.Process):
+class Pool(QtCore.QThread):
     """Single thread render pool.  """
+    stdout = QtCore.Signal(unicode)
+    stderr = QtCore.Signal(unicode)
 
-    def __init__(self, taskqueue, widget=None):
+    def __init__(self, taskqueue):
         super(Pool, self).__init__()
         self.queue = taskqueue
-        self.widget = widget
         self.lock = multiprocessing.Lock()
         self._child_pid = multiprocessing.Value('i')
 
@@ -80,7 +82,6 @@ class Pool(multiprocessing.Process):
         while self.lock.acquire(False) and not self.queue.empty():
             task = self.queue.get()
             self.execute_task(task)
-            LOGGER.debug('Current task: %s pid: %s', task, self.child_pid)
 
     def stop(self):
         """Stop rendering.  """
@@ -126,8 +127,7 @@ class Pool(multiprocessing.Process):
                     sys.stderr.write(msg)
                 with open(CONFIG.log_path, 'a') as f:
                     f.write(msg)
-                if self.widget:
-                    self.widget.append(stylize(msg, 'stderr'))
+                self.stderr.emit(stylize(line, 'stderr'))
                 proc.stderr.flush()
             LOGGER.debug('Finished thread: handle_stderr')
 
@@ -143,8 +143,7 @@ class Pool(multiprocessing.Process):
                 if LOGGER.getEffectiveLevel() == logging.DEBUG:
                     with open(CONFIG.log_path, 'a') as f:
                         f.write(msg)
-                if self.widget:
-                    self.widget.append(stylize(msg, 'stdout'))
+                self.stdout.emit(stylize(line, 'stdout'))
                 proc.stdout.flush()
             LOGGER.debug('Finished thread: handle_stdout')
         multiprocessing.dummy.Process(
@@ -154,6 +153,8 @@ class Pool(multiprocessing.Process):
 
     def execute_task(self, task):
         """Render the task file.  """
+
+        LOGGER.debug('Executing task: %s', task)
         task.file = Files.lock(task.file)
 
         time.clock()

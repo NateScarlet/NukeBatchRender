@@ -130,7 +130,7 @@ class MainWindow(QMainWindow):
             os.path.join(__file__, '../batchrender.ui')))
         self.setCentralWidget(self._ui)
         self.task_table = TaskTable(self.tableWidget)
-        self.resize(600, 500)
+        self.resize(500, 700)
         self.setWindowTitle('Nuke批渲染')
 
         self._proc = None
@@ -163,7 +163,7 @@ class MainWindow(QMainWindow):
     @property
     def is_rendering(self):
         """If render runing.  """
-        return self.render_pool and self.render_pool.is_alive()
+        return self.render_pool and self.render_pool.isRunning()
 
     def _start_update(self):
         """Start a thread for update.  """
@@ -208,7 +208,7 @@ class MainWindow(QMainWindow):
         """Do work when rendering stop.  """
 
         QApplication.alert(self)
-        self.stop_button_clicked()
+        self.pushButtonStop.clicked.emit()
         LOGGER.info('渲染结束')
 
     def ask_dir(self):
@@ -232,14 +232,19 @@ class MainWindow(QMainWindow):
         """Button clicked action.  """
 
         start_error_handler()
-        self.render_pool = render.Pool(self.task_table.queue, self.textEdit)
+        self.render_pool = render.Pool(self.task_table.queue)
+        self.render_pool.stdout.connect(self.textEdit.append)
+        self.render_pool.stderr.connect(self.textEdit.append)
         self.render_pool.start()
+        self.tabWidget.setCurrentIndex(1)
+        print(self.textEdit.toHtml())
 
     def stop_button_clicked(self):
         """Button clicked action.  """
 
         self.comboBoxAfterFinish.setCurrentIndex(0)
         self.render_pool.terminate()
+        self.tabWidget.setCurrentIndex(0)
 
     def closeEvent(self, event):
         """Override qt closeEvent."""
@@ -289,9 +294,9 @@ class TaskTable(object):
         # self.parent.actionSelectAll.triggered.connect(self.select_all)
         # self.parent.actionReverseSelection.triggered.connect(
         #     self.reverse_selection)
-        self.widget.setColumnWidth(0, 300)
-        self.widget.showEvent = self.showEvent
-        self.widget.hideEvent = self.hideEvent
+        self.widget.setColumnWidth(0, 400)
+        # self.widget.showEvent = self.showEvent
+        # self.widget.hideEvent = self.hideEvent
         self._start_update()
 
     def __del__(self):
@@ -302,32 +307,30 @@ class TaskTable(object):
         """Current working dir.  """
         return self.parent.directory
 
-    def showEvent(self, event):
+    def _start_update(self):
         def _run():
             LOGGER.debug('TableWidget update start')
             lock = self._lock
             while lock.acquire(False):
                 try:
-                    if self.widget.isVisible():
-                        self.update()
-                except RuntimeError:
-                    pass
+                    self.update()
+                except RuntimeError as ex:
+                    LOGGER.debug('TableWidget update fail: %s', ex)
                 time.sleep(1)
                 lock.release()
-        self.update()
         thread = multiprocessing.dummy.Process(
             name='TaskTableUpdate', target=_run)
         thread.daemon = True
         thread.start()
-        event.accept()
 
-    def hideEvent(self, event):
-        event.accept()
+    def _stop_update(self):
+        LOGGER.debug('TableWidget update stop')
         self._lock.acquire()
         self._lock.release()
 
     def update(self):
         """Update info.  """
+        # LOGGER.debug('TableWidget update')
         widget = self.widget
         files = render.Files()
         files.update()
@@ -368,23 +371,6 @@ class TaskTable(object):
         _item = QtWidgets.QTableWidgetItem('0')
         self.widget.setItem(row, 1, _item)
         self.queue.put(task)
-
-    def _start_update(self):
-        def _run():
-            LOGGER.debug('TableWidget update start')
-            lock = self._lock
-            while lock.acquire(False):
-                try:
-                    if self.widget.isVisible():
-                        self.update()
-                except RuntimeError:
-                    pass
-                time.sleep(1)
-                lock.release()
-        thread = multiprocessing.dummy.Process(
-            name='TaskTableUpdate', target=_run)
-        thread.daemon = True
-        thread.start()
 
     @property
     def checked_files(self):

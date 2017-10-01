@@ -35,6 +35,7 @@ except:
 __version__ = '0.8.9'
 
 LOGGER = logging.getLogger()
+CONFIG = Config()
 
 
 def _set_logger():
@@ -87,25 +88,28 @@ class MainWindow(QMainWindow):
 
     def __init__(self, parent=None):
         def _actions():
-            self.actionRender.triggered.connect(self.render)
-            self.actionDir.triggered.connect(self.ask_dir)
-            self.actionStop.triggered.connect(self.stop_button_clicked)
-            self.actionOpenDir.triggered.connect(self.open_dir)
-            self.actionRemoveOldVersion.triggered.connect(
-                self.remove_old_version)
+            self.toolButtonAskDir.clicked.connect(self.ask_dir)
+            self.pushButtonStart.clicked.connect(self.start_button_clicked)
+            self.pushButtonStop.clicked.connect(self.stop_button_clicked)
+            self.toolButtonOpenDir.clicked.connect(
+                lambda: webbrowser.open(CONFIG['DIR']))
+            self.toolButtonOpenLog.clicked.connect(
+                lambda: webbrowser.open(CONFIG.log_path))
+            self.pushButtonRemoveOldVersion.clicked.connect(
+                lambda: render.Files().remove_old_version())
 
         def _edits():
             for edit, key in self.edits_key.iteritems():
                 if isinstance(edit, QtWidgets.QLineEdit):
                     edit.textChanged.connect(
-                        lambda text, k=key: self._config.__setitem__(k, text))
+                        lambda text, k=key: CONFIG.__setitem__(k, text))
                 elif isinstance(edit, QtWidgets.QCheckBox):
                     edit.stateChanged.connect(
-                        lambda state, k=key: self._config.__setitem__(k, state))
+                        lambda state, k=key: CONFIG.__setitem__(k, state))
                 elif isinstance(edit, QtWidgets.QComboBox):
                     edit.currentIndexChanged.connect(
                         lambda index, ex=edit, k=key:
-                        self._config.__setitem__(k, ex.itemText(index)))
+                        CONFIG.__setitem__(k, ex.itemText(index)))
                 else:
                     LOGGER.debug('待处理的控件: %s %s', type(edit), edit)
 
@@ -119,7 +123,7 @@ class MainWindow(QMainWindow):
             self.toolButtonOpenDir.setIcon(_icon)
 
             _icon = _stdicon(QtWidgets.QStyle.SP_DialogOpenButton)
-            self.toolButtonDir.setIcon(_icon)
+            self.toolButtonAskDir.setIcon(_icon)
 
         QMainWindow.__init__(self, parent)
         self._ui = QtCompat.loadUi(os.path.abspath(
@@ -129,20 +133,20 @@ class MainWindow(QMainWindow):
         self.resize(600, 500)
         self.setWindowTitle('Nuke批渲染')
 
-        self._config = Config()
         self._proc = None
         self.rendering = False
 
         self.edits_key = {
-            self.dirEdit: 'DIR',
-            self.proxyCheck: 'PROXY',
-            self.priorityCheck: 'LOW_PRIORITY',
-            self.continueCheck: 'CONTINUE',
-            self.hiberCheck: 'HIBER',
+            self.lineEditDir: 'DIR',
+            self.checkBoxProxy: 'PROXY',
+            self.checkBoxPriority: 'LOW_PRIORITY',
+            self.checkBoxContinue: 'CONTINUE',
+            self.comboBoxAfterFinish: 'AFTER_FINISH',
         }
         self.update()
         self._start_update()
-        self.versionLabel.setText('v{}'.format(__version__))
+
+        self.labelVersion.setText('v{}'.format(__version__))
 
         _actions()
         _edits()
@@ -161,15 +165,6 @@ class MainWindow(QMainWindow):
         """If render runing.  """
         return self.render_pool and self.render_pool.is_alive()
 
-    def open_dir(self):
-        """Open dir in explorer.  """
-        webbrowser.open(self._config['DIR'])
-
-    def open_log(self):
-        """Open log in explorer.  """
-        # TODO: open log
-        pass
-
     def _start_update(self):
         """Start a thread for update.  """
 
@@ -180,7 +175,7 @@ class MainWindow(QMainWindow):
     def update(self):
         """Update UI content.  """
 
-        rendering = self.render_pool and self.render_pool.is_alive()
+        rendering = self.is_rendering
         if not rendering and self.rendering:
             self.on_stop_callback()
         self.rendering = rendering
@@ -188,17 +183,10 @@ class MainWindow(QMainWindow):
 
         def _button_enabled():
             if rendering:
-                self.renderButton.setEnabled(False)
-                self.stopButton.setEnabled(True)
                 self.tableWidget.setStyleSheet(
                     'color:white;background-color:rgb(12%, 16%, 18%);')
                 self.pushButtonRemoveOldVersion.setEnabled(False)
             else:
-                if os.path.isdir(self._config['DIR']) and _files:
-                    self.renderButton.setEnabled(True)
-                else:
-                    self.renderButton.setEnabled(False)
-                self.stopButton.setEnabled(False)
                 self.tableWidget.setStyleSheet('')
                 self.pushButtonRemoveOldVersion.setEnabled(True)
 
@@ -206,16 +194,13 @@ class MainWindow(QMainWindow):
             for qt_edit, k in self.edits_key.items():
                 try:
                     if isinstance(qt_edit, QtWidgets.QLineEdit):
-                        qt_edit.setText(self._config[k])
+                        qt_edit.setText(CONFIG[k])
                     if isinstance(qt_edit, QtWidgets.QCheckBox):
                         qt_edit.setCheckState(
-                            QtCore.Qt.CheckState(self._config[k]))
+                            QtCore.Qt.CheckState(CONFIG[k]))
                 except KeyError as ex:
                     LOGGER.debug(ex)
 
-        if not rendering and self.checkBoxAutoStart.isChecked() \
-                and _files and not _files.all_locked:
-            self.render()
         _edits()
         _button_enabled()
 
@@ -223,46 +208,37 @@ class MainWindow(QMainWindow):
         """Do work when rendering stop.  """
 
         QApplication.alert(self)
+        self.stop_button_clicked()
         LOGGER.info('渲染结束')
-        self.statusbar.showMessage('')
-        if self.hiberCheck.isChecked():
-            LOGGER.info('休眠')
-            self.hiberCheck.setCheckState(QtCore.Qt.CheckState.Unchecked)
-            hiber()
 
     def ask_dir(self):
         """Show a dialog ask config['DIR'].  """
 
         dialog = QFileDialog()
         dir_ = dialog.getExistingDirectory(
-            dir=os.path.dirname(self._config['DIR']))
+            dir=os.path.dirname(CONFIG['DIR']))
         if dir_:
             try:
                 dir_.encode('ascii')
             except UnicodeEncodeError:
-                self.statusbar.showMessage('Nuke只支持英文路径', 10000)
+                msg_box = QtWidgets.QMessageBox()
+                msg_box.setText('Nuke只支持英文路径')
+                msg_box.show()
+                self.ask_dir()
             else:
-                self._config['DIR'] = dir_
+                CONFIG['DIR'] = dir_
 
-    def render(self):
-        """Start rendering from UI.  """
-        _file = os.path.abspath(os.path.join(__file__, '../error_handler.exe'))
-        webbrowser.open(_file)
-        self.render_pool = render.Pool(self.task_table.queue)
+    def start_button_clicked(self):
+        """Button clicked action.  """
+
+        start_error_handler()
+        self.render_pool = render.Pool(self.task_table.queue, self.textEdit)
         self.render_pool.start()
-        self.statusbar.showMessage('渲染中')
-
-    @staticmethod
-    def remove_old_version():
-        """Remove old version nk files from UI.  """
-
-        render.Files().remove_old_version()
 
     def stop_button_clicked(self):
-        """Stop rendering from UI."""
+        """Button clicked action.  """
 
-        self.hiberCheck.setCheckState(QtCore.Qt.CheckState.Unchecked)
-        self.checkBoxAutoStart.setCheckState(QtCore.Qt.CheckState.Unchecked)
+        self.comboBoxAfterFinish.setCurrentIndex(0)
         self.render_pool.terminate()
 
     def closeEvent(self, event):
@@ -283,6 +259,13 @@ class MainWindow(QMainWindow):
                 event.ignore()
         else:
             sys.exit()
+
+
+def start_error_handler():
+    """Start error dialog handle for windows.  """
+    if sys.platform == 'win32':
+        _file = os.path.abspath(os.path.join(__file__, '../error_handler.exe'))
+        webbrowser.open(_file)
 
 
 class TaskTable(object):

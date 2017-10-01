@@ -13,10 +13,11 @@ import subprocess
 import sys
 import time
 
-from config import Config, l10n
+from config import Config, l10n, stylize
 from path import get_unicode, get_encoded
 
 LOGGER = logging.getLogger('render')
+CONFIG = Config()
 
 
 class TaskQueue(list):
@@ -60,9 +61,10 @@ class Task(object):
 class Pool(multiprocessing.Process):
     """Single thread render pool.  """
 
-    def __init__(self, taskqueue):
+    def __init__(self, taskqueue, widget=None):
         super(Pool, self).__init__()
         self.queue = taskqueue
+        self.widget = widget
         self.lock = multiprocessing.Lock()
         self._child_pid = multiprocessing.Value('i')
 
@@ -91,19 +93,25 @@ class Pool(multiprocessing.Process):
     @staticmethod
     def nuke_process(f):
         """Nuke render process for file @f.  """
-
+        args = [CONFIG['NUKE'],
+                '-x',
+                '-p' if CONFIG['PROXY'] else '-f',
+                '--cont' if CONFIG['CONTINUE'] else '',
+                '--priority low' if CONFIG['LOW_PRIORITY'] else '',
+                '-c 8G' if CONFIG['LOW_PRIORITY'] else '',
+                f]
+        kwargs = {}
+        if sys.platform != 'win32':
+            args = ' '.join(args)
+            kwargs = {
+                'shell': True
+            }
+        LOGGER.debug('Popen: %s', args)
         proc = subprocess.Popen(
-            [Config()['NUKE'],
-             '-x',
-             '-p' if Config()['PROXY'] else '-f',
-             '--cont' if Config()['CONTINUE'] else '',
-             '--priority low' if Config()['LOW_PRIORITY'] else '',
-             '-c 8G' if Config()['LOW_PRIORITY'] else '',
-             f], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=Config()['DIR'])
+            args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=CONFIG['DIR'], **kwargs)
         return proc
 
-    @staticmethod
-    def handle_output(proc):
+    def handle_output(self, proc):
         """handle process output."""
         lock = multiprocessing.dummy.Lock()
 
@@ -116,8 +124,10 @@ class Pool(multiprocessing.Process):
                 msg = 'STDERR: {}\n'.format(line)
                 with lock:
                     sys.stderr.write(msg)
-                with open(Config().log_path, 'a') as f:
+                with open(CONFIG.log_path, 'a') as f:
                     f.write(msg)
+                if self.widget:
+                    self.widget.append(stylize(msg, 'stderr'))
                 proc.stderr.flush()
             LOGGER.debug('Finished thread: handle_stderr')
 
@@ -131,8 +141,10 @@ class Pool(multiprocessing.Process):
                 with lock:
                     sys.stdout.write(msg)
                 if LOGGER.getEffectiveLevel() == logging.DEBUG:
-                    with open(Config().log_path, 'a') as f:
+                    with open(CONFIG.log_path, 'a') as f:
                         f.write(msg)
+                if self.widget:
+                    self.widget.append(stylize(msg, 'stdout'))
                 proc.stdout.flush()
             LOGGER.debug('Finished thread: handle_stdout')
         multiprocessing.dummy.Process(
@@ -170,7 +182,7 @@ class Pool(multiprocessing.Process):
                 task.file = Files.unlock(task.file)
         else:
             # Normal exit.
-            if not Config()['PROXY']:
+            if not CONFIG['PROXY']:
                 os.remove(task.file)
 
         return retcode
@@ -236,6 +248,7 @@ class Files(list):
     @staticmethod
     def unlock(f):
         """Rename a (raw_name).(ext) file back or delete it.  """
+        LOGGER.debug('Unlocking file: %s', f)
         if not os.path.exists(f):
             LOGGER.warning('尝试解锁不存在的文件: %s', f)
             return
@@ -252,7 +265,7 @@ class Files(list):
     @staticmethod
     def lock(f):
         """Duplicate given file with .lock append on name then archive it.  """
-
+        LOGGER.debug('Locking file: %s', f)
         if f.endswith('.lock'):
             return f
 
@@ -264,17 +277,19 @@ class Files(list):
     @staticmethod
     def archive(f, dest='文件备份'):
         """Archive file in a folder with time struture.  """
+        LOGGER.debug('Archiving file: %s -> %s', f, dest)
         now = datetime.datetime.now()
         dest = os.path.join(
             dest,
             get_unicode(now.strftime(
-                get_encoded('%y-%m-%d_%A\\%H时%M分\\'))))
+                get_encoded('%y-%m-%d_%A/%H时%M分/'))))
 
         copy(f, dest)
 
     def remove_old_version(self):
         """Remove all old version nk files.  """
 
+        LOGGER.info('删除较低版本号文件')
         all_version = {}
         while True:
             for i in self:

@@ -89,3 +89,8 @@ def l10n(text):
     for k, v in translate_dict.iteritems():
         ret = re.sub(k, v, ret)
     return ret
+
+
+def stylize(text, text_type=None):
+    # TODO
+    return text

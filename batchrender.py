@@ -97,8 +97,7 @@ class MainWindow(QMainWindow):
                 lambda: webbrowser.open(CONFIG.log_path))
             self.pushButtonRemoveOldVersion.clicked.connect(
                 lambda: render.Files().remove_old_version())
-            self.textBrowser.anchorClicked.connect(
-                lambda QUrl: webbrowser.open(QUrl.toString()))
+            self.textBrowser.anchorClicked.connect(open_path)
 
         def _edits():
             for edit, key in self.edits_key.iteritems():
@@ -268,6 +267,15 @@ class MainWindow(QMainWindow):
                 event.ignore()
         else:
             sys.exit()
+
+
+@QtCore.Slot(QtCore.QUrl)
+def open_path(q_url):
+    """Open file in console.  """
+    path = q_url.toString()
+    if not os.path.exists(path):
+        path = os.path.dirname(path)
+    webbrowser.open(path)
 
 
 def start_error_handler():

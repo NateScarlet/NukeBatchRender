@@ -95,7 +95,7 @@ class Pool(QtCore.QThread):
     @property
     def current_task(self):
         """Current task value.  """
-        return self._current_task.value
+        return get_unicode(self._current_task.value)
 
     def is_current_task(self, name):
         """Return if @name is current task.  """
@@ -174,7 +174,7 @@ class Pool(QtCore.QThread):
                 if not line:
                     break
                 line = l10n(line)
-                msg = 'STDOUT: {}\n'.format(line)
+                # msg = 'STDOUT: {}\n'.format(line)
                 with lock:
                     # sys.stdout.write(msg)
                     # if LOGGER.getEffectiveLevel() == logging.DEBUG:

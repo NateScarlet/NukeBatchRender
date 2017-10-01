@@ -222,16 +222,15 @@ class MainWindow(QMainWindow):
     def ask_dir(self):
         """Show a dialog ask config['DIR'].  """
 
-        dialog = QFileDialog()
+        dialog = QFileDialog(self)
         dir_ = dialog.getExistingDirectory(
             dir=os.path.dirname(CONFIG['DIR']))
         if dir_:
             try:
                 dir_.encode('ascii')
             except UnicodeEncodeError:
-                msg_box = QtWidgets.QMessageBox()
-                msg_box.setText('Nuke只支持英文路径')
-                msg_box.show()
+                QtWidgets.QMessageBox.information(
+                    self, dir_, 'Nuke只支持英文路径')
                 self.ask_dir()
             else:
                 CONFIG['DIR'] = dir_

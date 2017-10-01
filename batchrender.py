@@ -313,7 +313,7 @@ class TaskTable(object):
         # self.parent.actionSelectAll.triggered.connect(self.select_all)
         # self.parent.actionReverseSelection.triggered.connect(
         #     self.reverse_selection)
-        self.widget.setColumnWidth(0, 400)
+        self.widget.setColumnWidth(0, 350)
         self._start_update()
         self.widget.cellChanged.connect(self.on_cell_changed)
         self._updating = False

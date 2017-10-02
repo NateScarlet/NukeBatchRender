@@ -187,7 +187,7 @@ class MainWindow(QMainWindow):
         self._start_update()
 
         # TODO
-        self.comboBoxAfterFinish.setEnabled(False)
+        # self.comboBoxAfterFinish.setEnabled(False)
         self.toolButtonRemove.setEnabled(False)
         self.toolButtonSelectAll.setEnabled(False)
         self.toolButtonReverseSelection.setEnabled(False)
@@ -250,7 +250,16 @@ class MainWindow(QMainWindow):
         Application.alert(self)
         self.pushButtonStop.clicked.emit()
         self.update_title_prefix()
+
         LOGGER.info('渲染结束')
+        after_render = self.comboBoxAfterFinish.text()
+
+        actions = {
+            '休眠': hiber,
+            '关机': shutdown
+        }
+        actions.get(after_render, lambda: LOGGER.error(
+            'Not found match action for %s', after_render))()
 
     def ask_dir(self):
         """Show a dialog ask config['DIR'].  """
@@ -535,12 +544,20 @@ class TaskTable(object):
 def hiber():
     """Hibernate this computer.  """
 
+    LOGGER.info('休眠')
     proc = subprocess.Popen('SHUTDOWN /H', stderr=subprocess.PIPE)
     stderr = get_unicode(proc.communicate()[1])
     LOGGER.error(stderr)
     if '没有启用休眠' in stderr:
         LOGGER.info('没有启用休眠, 转为使用关机')
-        subprocess.call('SHUTDOWN /S')
+        shutdown()
+
+
+def shutdown():
+    """Shutdown this computer.  """
+
+    LOGGER.info('关机')
+    subprocess.call('SHUTDOWN /S')
 
 
 def call_from_nuke():

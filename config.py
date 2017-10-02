@@ -8,12 +8,18 @@ import os
 import re
 import sys
 
+
+from path import get_unicode
+
 LOGGER = logging.getLogger('config')
 CONSOLE_STYLE = ''
 
 if sys.platform == 'win32':
     import locale
     locale.setlocale(locale.LC_ALL, str('chinese'))
+
+if getattr(sys, 'frozen', False):
+    __file__ = os.path.join(getattr(sys, '_MEIPASS', ''), __file__)
 
 
 def _update_style():
@@ -93,12 +99,19 @@ def change_dir(dir_):
 
 def l10n(text):
     """Translate error info to chinese."""
-    ret = text.strip('\r\n')
+    if not isinstance(text, (str, unicode)):
+        return text
+
+    ret = get_unicode(text)
 
     with open(os.path.join(os.path.dirname(__file__), 'batchrender.zh_CN.json')) as f:
         translate_dict = json.load(f)
     for k, v in translate_dict.iteritems():
-        ret = re.sub(k, v, ret)
+        try:
+            LOGGER.debug(ret)
+            ret = re.sub(k, v, ret)
+        except TypeError as ex:
+            LOGGER.debug('l10n fail: re.sub(%s, %s, %s)\n %s', k, v, ret, ex)
     return ret
 
 
@@ -106,5 +119,5 @@ def stylize(text, text_type=None):
     """Stylelize text for text edit"""
 
     if text_type:
-        text = '<span class={}>{}</span>'.format(text_type, text)
+        text = '<span class={}>{}</span>'.format(get_unicode(text_type), text)
     return CONSOLE_STYLE + text

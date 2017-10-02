@@ -16,6 +16,7 @@ import subprocess
 import sys
 import time
 import webbrowser
+import atexit
 
 import render
 import singleton
@@ -32,10 +33,13 @@ try:
 except:
     raise
 
-__version__ = '0.8.9'
+__version__ = '0.8.10'
 
 LOGGER = logging.getLogger()
 CONFIG = Config()
+
+if getattr(sys, 'frozen', False):
+    __file__ = os.path.join(getattr(sys, '_MEIPASS', ''), __file__)
 
 
 def _set_logger():
@@ -51,7 +55,7 @@ def _set_logger():
     logger.debug('Added stream handler.  ')
 
     # File handler
-    path = Config().log_path
+    path = CONFIG.log_path
     _handler = MultiProcessingHandler(
         logging.handlers.RotatingFileHandler,
         args=(path,), kwargs={'backupCount': 5})
@@ -289,7 +293,8 @@ def start_error_handler():
     """Start error dialog handle for windows.  """
     if sys.platform == 'win32':
         _file = os.path.abspath(os.path.join(__file__, '../error_handler.exe'))
-        webbrowser.open(_file)
+        proc = subprocess.Popen(_file)
+        atexit.register(proc.terminate)
 
 
 class TaskTable(object):
@@ -473,15 +478,28 @@ def hiber():
 
 def call_from_nuke():
     """For nuke menu call.  """
+    CONFIG['NUKE'] = sys.executable
 
-    Config()['NUKE'] = sys.executable
+    if sys.platform == 'win32':
+        # Try use built executable
+        dist_dir = os.path.join(os.path.dirname(__file__), 'dist')
+        try:
+            exe_path = sorted([os.path.join(dist_dir, i)
+                               for i in os.listdir(dist_dir)
+                               if i.endswith('.exe') and i.startswith('batchrender')],
+                              key=os.path.getmtime, reverse=True)[0]
+            webbrowser.open(exe_path)
+            return
+        except IndexError:
+            LOGGER.debug('Executable not found in %s', dist_dir)
+
     _file = __file__.rstrip('c')
-    render_dir = Config()['DIR']
+    render_dir = CONFIG['DIR']
     if not os.path.exists(render_dir):
         render_dir = os.path.expanduser('~/batchrender')
         if not os.path.exists(render_dir):
             os.mkdir(render_dir)
-        Config()['DIR'] = render_dir
+        CONFIG['DIR'] = render_dir
     args = [sys.executable, '--tg', _file]
     if sys.platform == 'win32':
         args = [os.path.join(os.path.dirname(
@@ -497,9 +515,8 @@ def call_from_nuke():
 
 def main():
     """Run this script standalone."""
-
     try:
-        working_dir = Config()['DIR']
+        working_dir = CONFIG['DIR']
         os.chdir(working_dir)
     except OSError:
         LOGGER.warning('Can not change dir to: %s', working_dir)

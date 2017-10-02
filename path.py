@@ -14,7 +14,7 @@ def get_unicode(input_str, codecs=('UTF-8', 'GBK')):
     for i in tuple(codecs) + tuple(locale.getdefaultlocale()[1]):
         try:
             return unicode(input_str, i)
-        except UnicodeDecodeError:
+        except (UnicodeDecodeError, LookupError):
             continue
 
 

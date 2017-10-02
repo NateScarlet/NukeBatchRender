@@ -1,6 +1,7 @@
 build/
+dist/
 *.pyc
-*.spec
+
 
 # PySide libarary
 PySide/

@@ -137,7 +137,8 @@ class Pool(QtCore.QThread):
                 self.stdout.emit(stylize('终止进程 pid: {}'.format(pid), 'info'))
             except OSError as ex:
                 LOGGER.debug('Kill process fail: %s: %s', pid, ex)
-        self.terminate()
+        if self.isRunning():
+            self.terminate()
 
     @staticmethod
     def nuke_process(f):

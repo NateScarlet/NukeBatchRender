@@ -13,7 +13,7 @@ CONSOLE_STYLE = ''
 
 if sys.platform == 'win32':
     import locale
-    locale.setlocale(locale.LC_ALL, 'chinese')
+    locale.setlocale(locale.LC_ALL, str('chinese'))
 
 
 def _update_style():

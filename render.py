@@ -45,7 +45,7 @@ class TaskQueue(list):
         return any(i for i in self if i == item)
 
     def __str__(self):
-        return '\n'.join(str(i) for i in self)
+        return '[{}]'.format(',\n'.join(str(i) for i in self))
 
 
 class Task(object):
@@ -165,7 +165,6 @@ class Pool(QtCore.QThread):
                     with open(CONFIG.log_path, 'a') as f:
                         f.write(msg)
                     self.stderr.emit(stylize(line, 'stderr'))
-                proc.stderr.flush()
             LOGGER.debug('Finished thread: handle_stderr')
 
         def _stdout():
@@ -179,15 +178,15 @@ class Pool(QtCore.QThread):
                     # LOGGER.debug('Percent %s', percent)
                     self.progress.emit(percent)
                 line = l10n(line)
-                # msg = 'STDOUT: {}\n'.format(line)
-                with lock:
-                    # sys.stdout.write(msg)
-                    # if LOGGER.getEffectiveLevel() == logging.DEBUG:
-                    #     with open(CONFIG.log_path, 'a') as f:
-                    #         f.write(msg)
-                    self.stdout.emit(stylize(line, 'stdout'))
+                # with lock:
+                #     line = l10n(line)
+                #     msg = 'STDOUT: {}\n'.format(line)
+                #     if LOGGER.getEffectiveLevel() == logging.DEBUG:
+                #         sys.stdout.write(msg)
+                #     with open(CONFIG.log_path, 'a') as f:
+                #         f.write(msg)
+                self.stdout.emit(stylize(line, 'stdout'))
 
-                proc.stdout.flush()
             LOGGER.debug('Finished thread: handle_stdout')
         multiprocessing.dummy.Process(
             name='handle_stderr', target=_stderr).start()
@@ -230,7 +229,10 @@ class Pool(QtCore.QThread):
         else:
             # Normal exit.
             if not CONFIG['PROXY']:
-                os.remove(task.file)
+                try:
+                    os.remove(task.file)
+                except OSError:
+                    LOGGER.debug('Remove %s fail', task.file)
 
         return retcode
 

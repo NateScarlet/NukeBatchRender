@@ -100,15 +100,15 @@ def change_dir(dir_):
 def l10n(text):
     """Translate error info to chinese."""
     if not isinstance(text, (str, unicode)):
+        LOGGER.debug('Try localization non-str: %s', text)
         return text
 
-    ret = get_unicode(text)
+    ret = get_unicode(text).replace('\r', '')
 
     with open(os.path.join(os.path.dirname(__file__), 'batchrender.zh_CN.json')) as f:
         translate_dict = json.load(f)
     for k, v in translate_dict.iteritems():
         try:
-            LOGGER.debug(ret)
             ret = re.sub(k, v, ret)
         except TypeError as ex:
             LOGGER.debug('l10n fail: re.sub(%s, %s, %s)\n %s', k, v, ret, ex)

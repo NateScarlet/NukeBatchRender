@@ -16,6 +16,7 @@ def get_unicode(input_str, codecs=('UTF-8', 'GBK')):
             return unicode(input_str, i)
         except (UnicodeDecodeError, LookupError):
             continue
+    raise UnicodeError(repr(input_str))
 
 
 def get_encoded(input_str, encoding=None):

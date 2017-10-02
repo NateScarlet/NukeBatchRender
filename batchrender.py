@@ -434,8 +434,11 @@ class TaskTable(object):
             try:
                 text = item.text()
                 task.priority = int(text)
-            except TypeError:
+            except ValueError:
                 LOGGER.warning('不能识别优先级 %s', text)
+                self._updating = True
+                item.setText(unicode(task.priority))
+                self._updating = False
             self.update_table()
 
     @property

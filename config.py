@@ -103,7 +103,7 @@ def l10n(text):
         LOGGER.debug('Try localization non-str: %s', text)
         return text
 
-    ret = get_unicode(text).replace('\r', '')
+    ret = get_unicode(text).strip('\r\n')
 
     with open(os.path.join(os.path.dirname(__file__), 'batchrender.zh_CN.json')) as f:
         translate_dict = json.load(f)

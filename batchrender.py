@@ -89,9 +89,13 @@ class MainWindow(QMainWindow):
     """Main GUI window.  """
     render_pool = None
     default_title = 'Nuke批渲染'
+    title_prefix = None
+    title_index = 0
+    render_started = QtCore.Signal()
+    render_stopped = QtCore.Signal()
 
     def __init__(self, parent=None):
-        def _actions():
+        def _signals():
             self.toolButtonAskDir.clicked.connect(self.ask_dir)
             self.pushButtonStart.clicked.connect(self.start_button_clicked)
             self.pushButtonStop.clicked.connect(self.stop_button_clicked)
@@ -102,6 +106,11 @@ class MainWindow(QMainWindow):
             self.pushButtonRemoveOldVersion.clicked.connect(
                 lambda: render.Files().remove_old_version())
             self.textBrowser.anchorClicked.connect(open_path)
+            self.title_timer.timeout.connect(self.update_title)
+            self.render_started.connect(self.title_timer.start)
+            self.render_started.connect(lambda: self.progressBar.setValue(0))
+            self.render_stopped.connect(self.title_timer.stop)
+            self.render_stopped.connect(self.on_task_finished)
 
         def _edits():
             for edit, key in self.edits_key.iteritems():
@@ -137,7 +146,7 @@ class MainWindow(QMainWindow):
         self.task_table = TaskTable(self.tableWidget, self)
         self.resize(500, 700)
         self.setWindowTitle(self.default_title)
-        self.progressBar.valueChanged.connect(self.update_title)
+        self.progressBar.valueChanged.connect(self.update_title_prefix)
 
         self._proc = None
         self.rendering = False
@@ -149,16 +158,19 @@ class MainWindow(QMainWindow):
             self.checkBoxContinue: 'CONTINUE',
             self.comboBoxAfterFinish: 'AFTER_FINISH',
         }
-        self.update()
-        self._start_update()
 
         self.labelVersion.setText('v{}'.format(__version__))
+        self.title_timer = QtCore.QTimer()
+        self.title_timer.setInterval(300)
 
-        _actions()
+        _signals()
         _edits()
         _icon()
-        self.pushButtonStop.clicked.emit()
+
         render.Files().unlock_all()
+
+        self.render_stopped.emit()
+        self._start_update()
 
         # TODO
         self.comboBoxAfterFinish.setEnabled(False)
@@ -189,6 +201,7 @@ class MainWindow(QMainWindow):
         """Update UI content.  """
 
         super(MainWindow, self).update()
+        self.update_title_prefix()
         _files = render.Files()
 
         def _button_enabled():
@@ -222,6 +235,7 @@ class MainWindow(QMainWindow):
         """Do work when rendering stop.  """
         QApplication.alert(self)
         self.pushButtonStop.clicked.emit()
+        self.update_title_prefix()
         LOGGER.info('渲染结束')
 
     def ask_dir(self):
@@ -249,10 +263,10 @@ class MainWindow(QMainWindow):
         self.render_pool.stdout.connect(self.textBrowser.append)
         self.render_pool.stderr.connect(self.textBrowser.append)
         self.render_pool.progress.connect(self.progressBar.setValue)
-        self.render_pool.task_finished.connect(self.on_task_finished)
-        self.render_pool.task_finished.connect(self.update_title)
+        self.render_pool.task_finished.connect(self.render_stopped.emit)
         self.render_pool.start()
         self.tabWidget.setCurrentIndex(1)
+        self.render_started.emit()
 
     def stop_button_clicked(self):
         """Button clicked action.  """
@@ -262,17 +276,36 @@ class MainWindow(QMainWindow):
             self.render_pool.stop()
         self.tabWidget.setCurrentIndex(0)
 
-    @QtCore.Slot(int)
     @QtCore.Slot()
-    def update_title(self, progress=None):
-        """Update title with progress bar.  """
-        title = self.default_title
+    def update_title_prefix(self):
+        """Update title prefix with progress.  """
+        prefix = ''
         queue_length = len(self.task_table.queue)
 
         if queue_length:
-            title = '[{}]{}'.format(queue_length, title)
-        if progress:
-            title = '{}%{}'.format(progress, title)
+            prefix = '[{}]{}'.format(queue_length, prefix)
+        if self.is_rendering:
+            prefix = '{}%{}'.format(self.progressBar.value(), prefix)
+
+        if prefix != self.title_prefix:
+            self.title_prefix = prefix
+            self.update_title()
+
+    def update_title(self):
+        """Update title, rotate when rendering.  """
+
+        if self.is_rendering:
+            title = self.render_pool.current_task.partition('.nk')[0]
+            self.title_index += 1
+            index = self.title_index % len(title)
+        else:
+            title = self.default_title
+            self.title_index = 0
+            index = 0
+
+        title = '{}{} {}'.format(
+            self.title_prefix, title[index:], title[:index])
+
         self.setWindowTitle(title)
 
     def closeEvent(self, event):
@@ -395,6 +428,7 @@ class TaskTable(object):
 
             if text not in files:
                 widget.removeRow(item.row())
+                self.parent.update_title_prefix()
 
         # Add.
         found_new = False
@@ -404,6 +438,7 @@ class TaskTable(object):
                     i, QtCore.Qt.MatchExactly)[0]
             except IndexError:
                 LOGGER.debug('Add task: %s', i)
+                self.parent.update_title_prefix()
                 self.queue.put(i)
                 found_new = True
 

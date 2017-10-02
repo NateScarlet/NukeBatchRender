@@ -50,28 +50,42 @@ class TaskQueue(list):
 
 class Task(object):
     """Nuke render task.  """
+    enabled = True
+    filename = None
+    error_count = 0
+    priority = 0
 
     def __init__(self, filename, priority=0):
-        self.file = filename
+        self.filename = filename
         self.priority = priority
-        self.error_count = 0
+        self.result_files = []
+        self.clock = TaskClock()
         self._mtime = None
         self._proc = None
 
     def __eq__(self, other):
-        return self.file == other.file
+        return self.filename == other.filename
 
     def __str__(self):
-        return '<Render task:{0.file} with priority {0.priority}>'.format(self)
+        return '<Render task:{0.filename} with priority {0.priority}>'.format(self)
 
     @property
     def mtime(self):
         """File modified time.  """
         try:
-            self._mtime = os.path.getmtime(self.file)
+            mtime = os.path.getmtime(self.filename)
+            if mtime != self._mtime:
+                self.enabled = True
+
         except OSError:
             pass
         return self._mtime
+
+
+class TaskClock(object):
+    """Caculate remain time.  """
+    # TODO
+    pass
 
 
 class Pool(QtCore.QThread):
@@ -198,11 +212,11 @@ class Pool(QtCore.QThread):
 
         LOGGER.debug('Executing task: %s', task)
         self.progress.emit(0)
-        task.file = Files.lock(task.file)
-        self._current_task.value = task.file
+        task.filename = Files.lock(task.filename)
+        self._current_task.value = task.filename
 
         time.clock()
-        proc = self.nuke_process(task.file)
+        proc = self.nuke_process(task.filename)
         self._child_pid.value = proc.pid
         LOGGER.debug('Started render process: %s', proc.pid)
 
@@ -211,7 +225,7 @@ class Pool(QtCore.QThread):
         retcode = proc.wait()
         LOGGER.info(
             '%s: 结束渲染 耗时 %s %s',
-            task.file,
+            task.filename,
             timef(time.clock()),
             '退出码: {}'.format(retcode) if retcode else '正常退出',
         )
@@ -219,20 +233,20 @@ class Pool(QtCore.QThread):
         if retcode:
             # Exited with error.
             task.error_count += 1
-            LOGGER.error('%s: 渲染出错 第%s次', task.file, task.error_count)
+            LOGGER.error('%s: 渲染出错 第%s次', task.filename, task.error_count)
             # TODO: retry limit
             if task.error_count >= 3:
                 # Not retry.
-                LOGGER.error('%s: 连续渲染错误超过3次,不再进行重试。', task.file)
+                LOGGER.error('%s: 连续渲染错误超过3次,不再进行重试。', task.filename)
             else:
-                task.file = Files.unlock(task.file)
+                task.filename = Files.unlock(task.filename)
         else:
             # Normal exit.
             if not CONFIG['PROXY']:
                 try:
-                    os.remove(task.file)
+                    os.remove(task.filename)
                 except OSError:
-                    LOGGER.debug('Remove %s fail', task.file)
+                    LOGGER.debug('Remove %s fail', task.filename)
 
         return retcode
 

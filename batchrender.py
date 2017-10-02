@@ -3,8 +3,6 @@
 """
 GUI Batchrender for nuke.
 """
-# TODO: title change when rendering
-# TODO: file can change order manually
 from __future__ import print_function, unicode_literals
 
 import logging
@@ -90,6 +88,7 @@ if sys.getdefaultencoding() != 'UTF-8':
 class MainWindow(QMainWindow):
     """Main GUI window.  """
     render_pool = None
+    default_title = 'Nuke批渲染'
 
     def __init__(self, parent=None):
         def _actions():
@@ -137,7 +136,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self._ui)
         self.task_table = TaskTable(self.tableWidget, self)
         self.resize(500, 700)
-        self.setWindowTitle('Nuke批渲染')
+        self.setWindowTitle(self.default_title)
+        self.progressBar.valueChanged.connect(self.update_title)
 
         self._proc = None
         self.rendering = False
@@ -188,6 +188,7 @@ class MainWindow(QMainWindow):
     def update(self):
         """Update UI content.  """
 
+        super(MainWindow, self).update()
         _files = render.Files()
 
         def _button_enabled():
@@ -249,6 +250,7 @@ class MainWindow(QMainWindow):
         self.render_pool.stderr.connect(self.textBrowser.append)
         self.render_pool.progress.connect(self.progressBar.setValue)
         self.render_pool.task_finished.connect(self.on_task_finished)
+        self.render_pool.task_finished.connect(self.update_title)
         self.render_pool.start()
         self.tabWidget.setCurrentIndex(1)
 
@@ -259,6 +261,19 @@ class MainWindow(QMainWindow):
         if self.render_pool:
             self.render_pool.stop()
         self.tabWidget.setCurrentIndex(0)
+
+    @QtCore.Slot(int)
+    @QtCore.Slot()
+    def update_title(self, progress=None):
+        """Update title with progress bar.  """
+        title = self.default_title
+        queue_length = len(self.task_table.queue)
+
+        if queue_length:
+            title = '[{}]{}'.format(queue_length, title)
+        if progress:
+            title = '{}%{}'.format(progress, title)
+        self.setWindowTitle(title)
 
     def closeEvent(self, event):
         """Override qt closeEvent."""
@@ -408,7 +423,7 @@ class TaskTable(object):
         self.widget.setRowCount(row)
         LOGGER.debug('Update table row count: %s', row)
         for index, task in enumerate(self.queue):
-            _item = QtWidgets.QTableWidgetItem(task.file)
+            _item = QtWidgets.QTableWidgetItem(task.filename)
             _flags = QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled
             # TODO
             # _flags |= QtCore.Qt.ItemIsUserCheckable

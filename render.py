@@ -122,7 +122,11 @@ class Pool(QtCore.QThread):
         while self.queue:
             LOGGER.debug('Rendering')
             task = self.queue.get()
-            self.execute_task(task)
+            try:
+                self.execute_task(task)
+            except Exception as ex:
+                LOGGER.debug(ex)
+                raise
         LOGGER.debug('Render finished.')
         self.task_finished.emit()
         self.stdout.emit(stylize('渲染结束', 'info'))
@@ -138,6 +142,7 @@ class Pool(QtCore.QThread):
             except OSError as ex:
                 LOGGER.debug('Kill process fail: %s: %s', pid, ex)
         if self.isRunning():
+            self.exit(1)
             self.terminate()
 
     @staticmethod

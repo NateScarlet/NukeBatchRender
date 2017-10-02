@@ -85,6 +85,20 @@ if sys.getdefaultencoding() != 'UTF-8':
     sys.setdefaultencoding('UTF-8')
 
 
+class Application(QApplication):
+    """QApplication subclass. """
+
+    def notify(self, reciever, event):
+        """(Overrride)  """
+
+        try:
+            return super(Application, self).notify(reciever, event)
+        except Exception as ex:
+            LOGGER.error(ex)
+            raise
+        return False
+
+
 class MainWindow(QMainWindow):
     """Main GUI window.  """
     render_pool = None
@@ -233,7 +247,7 @@ class MainWindow(QMainWindow):
 
     def on_task_finished(self):
         """Do work when rendering stop.  """
-        QApplication.alert(self)
+        Application.alert(self)
         self.pushButtonStop.clicked.emit()
         self.update_title_prefix()
         LOGGER.info('渲染结束')
@@ -258,7 +272,7 @@ class MainWindow(QMainWindow):
         """Button clicked action.  """
 
         start_error_handler()
-        LOGGER.debug('Task queue: %s', self.task_table.queue)
+        LOGGER.debug('Task queue:\n %s', self.task_table.queue)
         self.render_pool = render.Pool(self.task_table.queue)
         self.render_pool.stdout.connect(self.textBrowser.append)
         self.render_pool.stderr.connect(self.textBrowser.append)
@@ -535,15 +549,15 @@ def call_from_nuke():
 
     if sys.platform == 'win32':
         # Try use built executable
-        dist_dir = os.path.join(os.path.dirname(__file__), 'dist')
         try:
+            dist_dir = os.path.join(os.path.dirname(__file__), 'dist')
             exe_path = sorted([os.path.join(dist_dir, i)
                                for i in os.listdir(dist_dir)
                                if i.endswith('.exe') and i.startswith('batchrender')],
                               key=os.path.getmtime, reverse=True)[0]
             webbrowser.open(exe_path)
             return
-        except IndexError:
+        except (IndexError, OSError):
             LOGGER.debug('Executable not found in %s', dist_dir)
 
     _file = __file__.rstrip('c')
@@ -573,9 +587,9 @@ def main():
         os.chdir(working_dir)
     except OSError:
         LOGGER.warning('Can not change dir to: %s', working_dir)
-    app = QApplication.instance()
+    app = Application.instance()
     if not app:
-        app = QApplication(sys.argv)
+        app = Application(sys.argv)
     frame = MainWindow()
     frame.show()
     sys.exit(app.exec_())

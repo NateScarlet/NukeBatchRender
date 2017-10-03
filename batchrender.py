@@ -378,8 +378,8 @@ class MainWindow(QMainWindow):
         self.render_pool.stdout.connect(self.textBrowser.append)
         self.render_pool.stderr.connect(self.textBrowser.append)
         self.render_pool.progress.connect(self.progressBar.setValue)
-        self.render_pool.task_started.connect(self.task_table.queue_changed)
-        self.render_pool.task_finished.connect(self.task_table.queue_changed)
+        self.render_pool.task_started.connect(self.task_table.update_widget)
+        self.render_pool.task_finished.connect(self.task_table.update_widget)
         self.render_pool.queue_finished.connect(self.render_stopped.emit)
 
     def start_button_clicked(self):
@@ -566,6 +566,8 @@ class TaskTable(QtCore.QObject):
         elif change < 0:
             self.widget.setRowCount(number)
             del self[number:]
+        if change:
+            self.queue_changed.emit()
 
     def update_queue(self):
         """Update queue to match files.  """
@@ -590,13 +592,17 @@ class TaskTable(QtCore.QObject):
 
         if changed:
             self.update_widget()
-            self.queue_changed.emit()
 
     def update_widget(self):
         """Update table to match task queue.  """
 
         LOGGER.debug('Update task table')
+
+        old = list(self.queue)
         self.queue.sort()
+        if old != self.queue:
+            self.queue_changed.emit()
+
         self.set_row_count(len(self.queue))
         for index, task in enumerate(self.queue):
             row = self[index]
@@ -628,7 +634,6 @@ class TaskTable(QtCore.QObject):
                 item.setText(unicode(task.priority))
             else:
                 self.update_widget()
-                self.queue_changed.emit()
 
     def on_selection_changed(self):
         """Do work on selection changed.  """
@@ -697,7 +702,6 @@ class TaskTable(QtCore.QObject):
 
         if tasks:
             self.update_widget()
-            self.queue_changed.emit()
 
 
 def hiber():

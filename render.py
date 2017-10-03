@@ -53,7 +53,12 @@ class Queue(list):
 
     def get(self):
         """Get first task from queue.  """
-        ret = self.enabled_tasks()[0]
+        while True:
+            try:
+                ret = self.enabled_tasks()[0]
+                break
+            except IndexError:
+                time.sleep(1)
         LOGGER.debug('Get task from queue: %s', ret)
         return ret
 
@@ -284,7 +289,7 @@ class Pool(QtCore.QThread):
         # task.filename = Files.lock(task.filename)
         Files.archive(task.filename)
 
-        time.clock()
+        start_time = time.clock()
         proc = self.nuke_process(task.filename)
         self._child_pid.value = proc.pid
         LOGGER.debug('Started render process: %s', proc.pid)
@@ -292,7 +297,7 @@ class Pool(QtCore.QThread):
         self.handle_output(proc)
 
         retcode = proc.wait()
-        time_cost = timef(time.clock())
+        time_cost = timef(time.clock() - start_time)
         retcode_str = '退出码: {}'.format(retcode) if retcode else '正常退出'
         self.info('耗时 {} {}'.format(time_cost, retcode_str))
         LOGGER.info(

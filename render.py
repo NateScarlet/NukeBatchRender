@@ -30,7 +30,9 @@ class Queue(list):
         return any(i for i in self if i == item)
 
     def __nonzero__(self):
-        return bool(self.enabled_tasks())
+        ret = bool(self.enabled_tasks())
+        LOGGER.debug('Queue bool result: %s', ret)
+        return ret
 
     def __str__(self):
         return '[{}]'.format(',\n'.join(str(i) for i in self))
@@ -51,7 +53,9 @@ class Queue(list):
 
     def get(self):
         """Get first task from queue.  """
-        return self.enabled_tasks()[0]
+        ret = self.enabled_tasks()[0]
+        LOGGER.debug('Get task from queue: %s', ret)
+        return ret
 
     def put(self, item):
         """Put task to queue.  """
@@ -169,7 +173,7 @@ class Pool(QtCore.QThread):
         self.queue_started.emit()
 
         while self.queue:
-            LOGGER.debug('Rendering')
+            LOGGER.debug('Rendering:\n%s', self.queue)
             task = self.queue.get()
             try:
                 self.execute_task(task)
@@ -227,7 +231,6 @@ class Pool(QtCore.QThread):
 
     def handle_output(self, proc):
         """handle process output."""
-        lock = multiprocessing.dummy.Lock()
 
         def _stderr():
             while True:
@@ -236,11 +239,10 @@ class Pool(QtCore.QThread):
                     break
                 line = l10n(line)
                 msg = 'STDERR: {}\n'.format(line)
-                with lock:
-                    sys.stderr.write(msg)
-                    with open(CONFIG.log_path, 'a') as f:
-                        f.write(msg)
-                    self.stderr.emit(stylize(line, 'stderr'))
+                sys.stderr.write(msg)
+                with open(CONFIG.log_path, 'a') as f:
+                    f.write(msg)
+                self.stderr.emit(stylize(line, 'stderr'))
             LOGGER.debug('Finished thread: handle_stderr')
 
         def _stdout():
@@ -290,20 +292,24 @@ class Pool(QtCore.QThread):
         self.handle_output(proc)
 
         retcode = proc.wait()
+        time_cost = timef(time.clock())
+        retcode_str = '退出码: {}'.format(retcode) if retcode else '正常退出'
+        self.info('耗时 {} {}'.format(time_cost, retcode_str))
         LOGGER.info(
             '%s: 结束渲染 耗时 %s %s',
             task.filename,
-            timef(time.clock()),
-            '退出码: {}'.format(retcode) if retcode else '正常退出',
+            time_cost,
+            retcode_str,
         )
 
         if retcode:
             # Exited with error.
             task.error_count += 1
+            task.priority -= 1
             LOGGER.error('%s: 渲染出错 第%s次', task.filename, task.error_count)
             if task.error_count >= task.max_retry:
                 LOGGER.error('%s: 连续渲染错误超过%s次,不再进行重试。',
-                             task.max_retry, task.filename)
+                             task.filename, task.max_retry)
                 task.is_enabled = False
         else:
             # Normal exit.

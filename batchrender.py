@@ -574,6 +574,9 @@ class TaskTable(QtCore.QObject):
         files = render.Files()
         files.update()
 
+        self.parent.pushButtonRemoveOldVersion.setEnabled(
+            bool(files.old_version_files()))
+
         # Disable.
         for row in self:
             if row.task.is_enabled and not os.path.exists(row.task.filename):
@@ -696,8 +699,7 @@ class TaskTable(QtCore.QObject):
 
         for i in tasks:
             self.queue.remove(i)
-            render.Files.archive(i.filename)
-            os.remove(i.filename)
+            render.Files.remove(i.filename)
             LOGGER.debug('Remove task: %s', i)
 
         if tasks:

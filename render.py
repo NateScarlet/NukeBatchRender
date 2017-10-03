@@ -15,7 +15,7 @@ import sys
 import time
 
 from config import CONFIG, l10n, stylize
-from path import get_unicode, get_encoded
+from path import get_unicode, get_encoded, version_filter
 from Qt import QtCore
 
 LOGGER = logging.getLogger('render')
@@ -438,34 +438,51 @@ class Files(list):
     def remove_old_version(self):
         """Remove all old version nk files.  """
 
-        LOGGER.info('删除较低版本号文件')
-        all_version = {}
-        while True:
-            for i in self:
-                if not os.path.exists(i):
-                    continue
-                shot, version = self.split_version(i)
-                prev_version = all_version.get(shot, -2)
-                if version > prev_version:
-                    all_version[shot] = version
-                    break
-                elif version < prev_version:
-                    self.archive(i)
-                    os.remove(i)
-            else:
-                break
+        self.update()
+        files = self.old_version_files()
+
+        LOGGER.info('删除较低版本号文件: %s', files)
+        for i in files:
+            self.remove(i)
+
+    def old_version_files(self):
+        """Files that already has higher version.  """
+
+        newest = version_filter(self)
+        ret = [i for i in self if i not in newest]
+        return ret
+
+    @classmethod
+    def remove(cls, f):
+        """Archive file then remove it.  """
+
+        cls.archive(f)
+        os.remove(f)
 
     @staticmethod
     def split_version(f):
-        """Return nuke style _v# (shot, version number) pair.  """
+        """Return nuke style _v# (shot, version number) pair.  
 
-        match = re.match(r'(.+)_v(\d+)', f)
+        >>> Files.split_version('sc_001_v20.nk')
+        (u'sc_001', 20)
+        >>> Files.split_version('hello world')
+        (u'hello world', None)
+        >>> Files.split_version('sc_001_v-1.nk')
+        (u'sc_001_v-1', None)
+        >>> Files.split_version('sc001V1.jpg')
+        (u'sc001', 1)
+        >>> Files.split_version('sc001V1_no_bg.jpg')
+        (u'sc001', 1)
+        >>> Files.split_version('suv2005_v2_m.jpg')
+        (u'suv2005', 2)
+        """
+
+        f = os.path.splitext(f)[0]
+        match = re.match(r'(.+)v(\d+)', f, flags=re.I)
         if not match:
-            return (f, -1)
+            return (f, None)
         shot, version = match.groups()
-        if version < 0:
-            raise ValueError('Negative version number not supported.')
-        return (shot, version)
+        return (shot.rstrip('_'), int(version))
 
 
 def copy(src, dst):

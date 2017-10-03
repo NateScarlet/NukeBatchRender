@@ -387,42 +387,6 @@ class Files(list):
         self.extend(_files)
         self.all_locked = self and all(bool(i.endswith('.lock')) for i in self)
 
-    # def unlock_all(self):
-    #     """Unlock all .nk.lock files."""
-
-    #     _files = [i for i in self if i.endswith('.nk.lock')]
-    #     for f in _files:
-    #         self.unlock(f)
-
-    # @staticmethod
-    # def unlock(f):
-    #     """Rename a (raw_name).(ext) file back or delete it.  """
-    #     LOGGER.debug('Unlocking file: %s', f)
-    #     if not os.path.exists(f):
-    #         LOGGER.warning('尝试解锁不存在的文件: %s', f)
-    #         return
-
-    #     _unlocked_name = os.path.splitext(f)[0]
-    #     if os.path.isfile(_unlocked_name):
-    #         os.remove(f)
-    #         LOGGER.info('因为有更新的文件, 移除: %s', f)
-    #     else:
-    #         LOGGER.debug('%s -> %s', f, _unlocked_name)
-    #         os.rename(f, _unlocked_name)
-    #     return _unlocked_name
-
-    # @staticmethod
-    # def lock(f):
-    #     """Duplicate given file with .lock append on name then archive it.  """
-    #     LOGGER.debug('Locking file: %s', f)
-    #     if f.endswith('.lock'):
-    #         return f
-
-    #     Files.archive(f)
-    #     locked_file = f + '.lock'
-    #     os.rename(f, locked_file)
-    #     return locked_file
-
     @staticmethod
     def archive(f, dest='文件备份'):
         """Archive file in a folder with time struture.  """
@@ -483,6 +447,9 @@ class Files(list):
             return (f, None)
         shot, version = match.groups()
         return (shot.rstrip('_'), int(version))
+
+
+FILES = Files()
 
 
 def copy(src, dst):

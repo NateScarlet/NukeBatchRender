@@ -3,6 +3,7 @@
 """
 GUI Batchrender for nuke.
 """
+# TODO: Add task detail to table item tooltip.
 from __future__ import print_function, unicode_literals
 
 import atexit
@@ -242,7 +243,6 @@ class MainWindow(QMainWindow):
         }
         _edits()
 
-        # render.Files().unlock_all()
         self.new_render_pool()
 
         _signals()
@@ -534,6 +534,7 @@ class TaskTable(QtCore.QObject):
         _timer.start(1000)
 
         self.widget.cellChanged.connect(self.on_cell_changed)
+        self.queue_changed.connect(self.on_queue_changed)
 
     def __getitem__(self, index):
         return self._rows[index]
@@ -571,12 +572,6 @@ class TaskTable(QtCore.QObject):
 
     def update_queue(self):
         """Update queue to match files.  """
-        files = render.Files()
-        files.update()
-
-        self.parent.pushButtonRemoveOldVersion.setEnabled(
-            bool(files.old_version_files()))
-
         # Disable.
         for row in self:
             if row.task.is_enabled and not os.path.exists(row.task.filename):
@@ -586,8 +581,9 @@ class TaskTable(QtCore.QObject):
                 row.update()
 
         # Add.
+        render.FILES.update()
         changed = False
-        for i in files:
+        for i in render.FILES:
             if i not in self.queue:
                 LOGGER.debug('Add task: %s', i)
                 self.queue.put(i)
@@ -642,6 +638,16 @@ class TaskTable(QtCore.QObject):
         """Do work on selection changed.  """
 
         self.parent.toolButtonRemove.setEnabled(bool(self.current_selected()))
+
+    def on_queue_changed(self):
+        """Do work on queue changed.  """
+        _old_files = render.FILES.old_version_files()
+        _button = self.parent.pushButtonRemoveOldVersion
+        _button.setEnabled(bool(_old_files))
+        _button.setToolTip('备份后从目录中移除低版本文件\n{}'.format('\n'.join(_old_files)))
+
+        _enabled = any(i for i in self.queue if i.state == 'disabled')
+        self.parent.toolButtonCheckAll.setEnabled(_enabled)
 
     @property
     def checked_files(self):

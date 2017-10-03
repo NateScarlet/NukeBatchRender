@@ -45,6 +45,8 @@ class Queue(list):
                 return [i for i in self if i.filename == name][0]
             except IndexError:
                 raise ValueError('No task match filename: %s' % name)
+        elif isinstance(name, Task):
+            return self.__getitem__(name.filename)
         else:
             raise TypeError('Accept int or str, got %s' % type(name))
 
@@ -69,6 +71,17 @@ class Queue(list):
         if item not in self:
             self.append(item)
         self.sort()
+
+    def remove(self, item):
+        """Archive file, then remove task and file.  """
+
+        item = self[item]
+        filename = item.filename
+        LOGGER.debug('Remove task: %s', item)
+
+        if os.path.exists(filename):
+            FILES.remove(filename)
+        super(Queue, self).remove(item)
 
     def enabled_tasks(self):
         """All enabled task in queue. """
@@ -101,7 +114,9 @@ class Task(object):
         self._proc = None
 
     def __eq__(self, other):
-        return self.filename == other.filename
+        if isinstance(other, Task):
+            other = other.filename
+        return self.filename == other
 
     def __str__(self):
         return '<Render task:{0.filename}: {0.state}: priority: {0.priority}>'.format(self)
@@ -399,16 +414,6 @@ class Files(list):
 
         copy(f, dest)
 
-    def remove_old_version(self):
-        """Remove all old version nk files.  """
-
-        self.update()
-        files = self.old_version_files()
-
-        LOGGER.info('删除较低版本号文件: %s', files)
-        for i in files:
-            self.remove(i)
-
     def old_version_files(self):
         """Files that already has higher version.  """
 
@@ -421,7 +426,7 @@ class Files(list):
         """Archive file then remove it.  """
 
         cls.archive(f)
-        os.remove(f)
+        os.remove(get_encoded(f))
 
     @staticmethod
     def split_version(f):

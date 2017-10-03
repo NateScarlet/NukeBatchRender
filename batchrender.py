@@ -178,8 +178,6 @@ class MainWindow(QMainWindow):
 
             self.pushButtonStart.clicked.connect(self.start_button_clicked)
             self.pushButtonStop.clicked.connect(self.stop_button_clicked)
-            self.pushButtonRemoveOldVersion.clicked.connect(
-                lambda: render.Files().remove_old_version())
 
             self.textBrowser.anchorClicked.connect(open_path)
 
@@ -523,6 +521,8 @@ class TaskTable(QtCore.QObject):
         self.widget.setColumnWidth(0, 350)
 
         # self.widget.itemDoubleClicked.connect(self.open_file)
+        self.parent.pushButtonRemoveOldVersion.clicked.connect(
+            self.remove_old_version)
         self.parent.toolButtonCheckAll.clicked.connect(self.check_all)
         self.parent.toolButtonReverseCheck.clicked.connect(self.reverse_check)
         self.parent.toolButtonRemove.clicked.connect(self.remove_selected)
@@ -641,10 +641,13 @@ class TaskTable(QtCore.QObject):
 
     def on_queue_changed(self):
         """Do work on queue changed.  """
+
+        render.FILES.update()
         _old_files = render.FILES.old_version_files()
         _button = self.parent.pushButtonRemoveOldVersion
         _button.setEnabled(bool(_old_files))
-        _button.setToolTip('备份后从目录中移除低版本文件\n{}'.format('\n'.join(_old_files)))
+        _button.setToolTip('备份后从目录中移除低版本文件\n{}'.format(
+            '\n'.join(_old_files) or '<无>'))
 
         _enabled = any(i for i in self.queue if i.state == 'disabled')
         self.parent.toolButtonCheckAll.setEnabled(_enabled)
@@ -659,6 +662,19 @@ class TaskTable(QtCore.QObject):
 
         widget = self.widget
         return list(widget.item(i, 0) for i in xrange(widget.rowCount()))
+
+    def remove_old_version(self):
+        """Remove all old version nk files.  """
+
+        files = render.FILES.old_version_files()
+        if not files:
+            return
+
+        LOGGER.info('移除较低版本号文件: %s', files)
+        for i in files:
+            self.queue.remove(i)
+        self.update_widget()
+        self.queue_changed.emit()
 
     def check_all(self):
         """Check all item.  """
@@ -705,8 +721,6 @@ class TaskTable(QtCore.QObject):
 
         for i in tasks:
             self.queue.remove(i)
-            render.Files.remove(i.filename)
-            LOGGER.debug('Remove task: %s', i)
 
         if tasks:
             self.update_widget()

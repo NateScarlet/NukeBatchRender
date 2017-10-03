@@ -14,12 +14,11 @@ import subprocess
 import sys
 import time
 
-from config import Config, l10n, stylize
+from config import CONFIG, l10n, stylize
 from path import get_unicode, get_encoded
 from Qt import QtCore
 
 LOGGER = logging.getLogger('render')
-CONFIG = Config()
 
 
 class Queue(list):

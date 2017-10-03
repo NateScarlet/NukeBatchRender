@@ -8,8 +8,8 @@ import os
 import re
 import sys
 
-
 from path import get_unicode
+
 
 LOGGER = logging.getLogger('config')
 CONSOLE_STYLE = ''
@@ -39,8 +39,9 @@ class Config(dict):
         'NUKE': r'C:\Program Files\Nuke10.0v4\Nuke10.0.exe',
         'DEADLINE': r'C:\Program Files\Thinkbox\Deadline7\bin\deadlineslave.exe',
         'DIR': r'E:\batchrender',
-        'AFTER_RENDER_CMD': '',
-        'AFTER_RENDER_PROGRAM': '',
+        'AFTER_FINISH': 0,
+        'AFTER_FINISH_CMD': '',
+        'AFTER_FINISH_PROGRAM': '',
         'PROXY': 0,
         'LOW_PRIORITY': 2,
         'CONTINUE': 2,
@@ -88,6 +89,23 @@ class Config(dict):
             working_dir = os.getcwd()
 
         return os.path.join(working_dir, 'Nuke批渲染.log')
+
+    def update(self, other):
+        """Type checked update.  """
+        assert isinstance(other, dict)
+        other = dict(other)
+        for k in self.keys():
+            if other.has_key(k):
+                other_type = type(other[k])
+                self_type = type(self[k])
+                if other_type != self_type:
+                    logging.warning('config: Key %s should be %s, got %s. ignored.',
+                                    k, self_type, other_type)
+                    del other[k]
+        dict.update(self, other)
+
+
+CONFIG = Config()
 
 
 def change_dir(dir_):

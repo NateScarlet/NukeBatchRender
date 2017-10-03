@@ -15,7 +15,7 @@ import webbrowser
 
 import render
 import singleton
-from config import Config
+from config import CONFIG
 from log import MultiProcessingHandler
 from path import get_unicode
 
@@ -30,11 +30,8 @@ except:
 
 __version__ = '0.8.10'
 
-LOGGER = logging.getLogger()
-CONFIG = Config()
 
-if getattr(sys, 'frozen', False):
-    __file__ = os.path.join(getattr(sys, '_MEIPASS', ''), __file__)
+LOGGER = logging.getLogger()
 
 
 def _set_logger():
@@ -76,6 +73,11 @@ def _set_logger():
 
 if __name__ == '__main__':
     _set_logger()
+del _set_logger
+
+if getattr(sys, 'frozen', False):
+    __file__ = os.path.join(getattr(sys, '_MEIPASS', ''), __file__)
+
 
 if sys.getdefaultencoding() != 'UTF-8':
     reload(sys)
@@ -261,14 +263,14 @@ class MainWindow(QMainWindow):
     def on_render_stopped(self):
         """Do work when rendering stop.  """
 
-        after_render = self.comboBoxAfterFinish.currentText()
+        after_finish = self.comboBoxAfterFinish.currentText()
         actions = {
-            '什么都不做': lambda: LOGGER.info('无渲染完成后任务'),
+            '什么都不做': lambda: LOGGER.info('渲染完成后什么都不做'),
             '休眠': hiber,
             '关机': shutdown,
             'Deadline': lambda: webbrowser.open(CONFIG['DEADLINE']),
-            '执行命令': lambda: subprocess.Popen(CONFIG['AFTER_RENDER_CMD'], shell=True),
-            '运行程序': lambda: webbrowser.open(CONFIG['AFTER_RENDER_PROGRAM']),
+            '执行命令': lambda: subprocess.Popen(CONFIG['AFTER_FINISH_CMD'], shell=True),
+            '运行程序': lambda: webbrowser.open(CONFIG['AFTER_FINISH_PROGRAM']),
         }
 
         self.pushButtonStop.hide()
@@ -286,8 +288,8 @@ class MainWindow(QMainWindow):
         self.new_render_pool()
         LOGGER.info('渲染结束')
 
-        actions.get(after_render, lambda: LOGGER.error(
-            'Not found match action for %s', after_render))()
+        actions.get(after_finish, lambda: LOGGER.error(
+            'Not found match action for %s', after_finish))()
 
     def on_task_table_changed(self):
         """Do work when task table changed.  """
@@ -310,7 +312,11 @@ class MainWindow(QMainWindow):
                 LOGGER.info('渲染后运行Deadline: %s', CONFIG['DEADLINE'])
                 return
             path = QFileDialog.getOpenFileName(
-                self, '选择Deadline Slave执行程序', dir=CONFIG['DEADLINE'], filter='deadlineslave.exe;;*.*', selectedFilter='deadlineslave.exe')[0]
+                self,
+                '选择Deadline Slave执行程序',
+                dir=CONFIG['DEADLINE'],
+                filter='deadlineslave.exe;;*.*',
+                selectedFilter='deadlineslave.exe')[0]
             if path:
                 CONFIG['DEADLINE'] = path
                 LOGGER.info('Deadline 路径改为: %s', path)
@@ -319,18 +325,18 @@ class MainWindow(QMainWindow):
                 _reset()
         elif text == '执行命令':
             cmd, confirm = QtWidgets.QInputDialog.getText(
-                self, '执行命令', '命令内容', text=CONFIG['AFTER_RENDER_CMD'])
+                self, '执行命令', '命令内容', text=CONFIG['AFTER_FINISH_CMD'])
             if confirm and cmd:
-                CONFIG['AFTER_RENDER_CMD'] = cmd
+                CONFIG['AFTER_FINISH_CMD'] = cmd
                 LOGGER.info('渲染后执行命令: %s', cmd)
                 edit.setToolTip(cmd)
             else:
                 _reset()
         elif text == '运行程序':
             path = QFileDialog.getOpenFileName(
-                self, '渲染完成后运行...', dir=CONFIG['AFTER_RENDER_PROGRAM'])[0]
+                self, '渲染完成后运行...', dir=CONFIG['AFTER_FINISH_PROGRAM'])[0]
             if path:
-                CONFIG['AFTER_RENDER_PROGRAM'] = path
+                CONFIG['AFTER_FINISH_PROGRAM'] = path
                 LOGGER.info('渲染后运行程序: %s', cmd)
                 edit.setToolTip(path)
             else:
@@ -716,4 +722,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except:
+        LOGGER.error('Uncaught exception.', exc_info=True)
+        raise

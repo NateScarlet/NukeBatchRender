@@ -134,7 +134,8 @@ class MainWindow(QMainWindow):
         def update_prefix(self):
             """Update title prefix with progress.  """
             prefix = ''
-            queue_length = len(self.parent.task_table.queue)
+            queue_length = len([
+                i for i in self.parent.queue if i.state == 'waiting'])
 
             if queue_length:
                 prefix = '[{}]{}'.format(queue_length, prefix)

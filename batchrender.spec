@@ -3,9 +3,9 @@
 block_cipher = None
 
 
-a = Analysis(['d:\\Users\\zhouxuan.WLF\\CloudSync\\Scripts\\Comp\\nuke\\batchrender\\batchrender.py'],
+a = Analysis(['batchrender.py'],
              pathex=[
-                 'd:\\Users\\zhouxuan.WLF\\CloudSync\\Scripts\\Comp\\nuke\\batchrender'],
+                 ''],
              binaries=[],
              datas=[('console.css', '.'),
                     ('error_handler.exe', '.'),

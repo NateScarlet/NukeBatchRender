@@ -252,7 +252,7 @@ class MainWindow(QMainWindow):
         self.update_title_prefix()
 
         LOGGER.info('渲染结束')
-        after_render = self.comboBoxAfterFinish.text()
+        after_render = self.comboBoxAfterFinish.currentText()
 
         actions = {
             '休眠': hiber,

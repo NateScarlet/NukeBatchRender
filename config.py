@@ -37,7 +37,10 @@ class Config(dict):
 
     default = {
         'NUKE': r'C:\Program Files\Nuke10.0v4\Nuke10.0.exe',
+        'DEADLINE': r'C:\Program Files\Thinkbox\Deadline7\bin\deadlineslave.exe',
         'DIR': r'E:\batchrender',
+        'AFTER_RENDER_CMD': '',
+        'AFTER_RENDER_PROGRAM': '',
         'PROXY': 0,
         'LOW_PRIORITY': 2,
         'CONTINUE': 2,

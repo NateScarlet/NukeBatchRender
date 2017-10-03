@@ -164,6 +164,8 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         def _signals():
             self.lineEditDir.textChanged.connect(self.check_dir)
+            self.comboBoxAfterFinish.currentIndexChanged.connect(
+                self.on_after_render_changed)
 
             self.toolButtonAskDir.clicked.connect(self.ask_dir)
             self.toolButtonOpenDir.clicked.connect(
@@ -259,11 +261,15 @@ class MainWindow(QMainWindow):
 
     def on_render_stopped(self):
         """Do work when rendering stop.  """
+
         after_render = self.comboBoxAfterFinish.currentText()
         actions = {
+            '什么都不做': lambda: LOGGER.info('无渲染完成后任务'),
             '休眠': hiber,
             '关机': shutdown,
-            '什么都不做': lambda: LOGGER.info('无渲染完成后任务')
+            'Deadline': lambda: webbrowser.open(CONFIG['DEADLINE']),
+            '执行命令': lambda: subprocess.Popen(CONFIG['AFTER_RENDER_CMD'], shell=True),
+            '运行程序': lambda: webbrowser.open(CONFIG['AFTER_RENDER_PROGRAM']),
         }
 
         self.pushButtonStop.hide()
@@ -291,11 +297,52 @@ class MainWindow(QMainWindow):
         else:
             self.pushButtonStart.setEnabled(False)
 
+    def on_after_render_changed(self):
+        """Do work when comboBoxAfterFinish changed.  """
+        edit = self.comboBoxAfterFinish
+        text = edit.currentText()
+        LOGGER.debug('After render change to %s', text)
+
+        def _reset():
+            edit.setCurrentIndex(0)
+
+        if text == 'Deadline':
+            if os.path.exists(CONFIG['DEADLINE']):
+                LOGGER.info('渲染后运行Deadline: %s', CONFIG['DEADLINE'])
+                return
+            path = QFileDialog.getOpenFileName(
+                self, '选择Deadline Slave执行程序', dir=CONFIG['DEADLINE'], filter='deadlineslave.exe;;*.*', selectedFilter='deadlineslave.exe')[0]
+            if path:
+                CONFIG['DEADLINE'] = path
+                LOGGER.info('Deadline 路径改为: %s', path)
+                edit.setToolTip(path)
+            else:
+                _reset()
+        elif text == '执行命令':
+            cmd, confirm = QtWidgets.QInputDialog.getText(
+                self, '执行命令', '命令内容', text=CONFIG['AFTER_RENDER_CMD'])
+            if confirm and cmd:
+                CONFIG['AFTER_RENDER_CMD'] = cmd
+                LOGGER.info('渲染后执行命令: %s', cmd)
+                edit.setToolTip(cmd)
+            else:
+                _reset()
+        elif text == '运行程序':
+            path = QFileDialog.getOpenFileName(
+                self, '渲染完成后运行...', dir=CONFIG['AFTER_RENDER_PROGRAM'])[0]
+            if path:
+                CONFIG['AFTER_RENDER_PROGRAM'] = path
+                LOGGER.info('渲染后运行程序: %s', cmd)
+                edit.setToolTip(path)
+            else:
+                _reset()
+        else:
+            edit.setToolTip('')
+
     def ask_dir(self):
         """Show a dialog ask config['DIR'].  """
 
-        dialog = QFileDialog(self)
-        path = dialog.getExistingDirectory(
+        path = QFileDialog.getExistingDirectory(
             dir=os.path.dirname(CONFIG['DIR']))
         if path:
             if self.check_dir(path):
@@ -527,6 +574,9 @@ class TaskTable(QtCore.QObject):
 
     def update_widget(self):
         """Update table to match task queue.  """
+        if self._updating:
+            return
+
         self._updating = True
 
         self.queue.sort()
@@ -562,6 +612,7 @@ class TaskTable(QtCore.QObject):
 
         self._updating = True
         self[row].update()
+        self.changed.emit()
         self._updating = False
 
     @property

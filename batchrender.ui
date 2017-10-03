@@ -265,6 +265,11 @@ p, li { white-space: pre-wrap; }
               <string>执行命令</string>
              </property>
             </item>
+            <item>
+             <property name="text">
+              <string>运行程序</string>
+             </property>
+            </item>
            </widget>
           </item>
          </layout>

@@ -102,7 +102,7 @@ class Task(object):
     def mtime(self):
         """File modified time.  """
 
-        if self.is_doing:
+        if self.is_doing or not os.path.exists(self.filename):
             return self._mtime
 
         try:
@@ -110,6 +110,7 @@ class Task(object):
             if mtime != self._mtime:
                 LOGGER.debug(
                     'Found mtime change %s -> %s, %s', mtime, self._mtime, self)
+                self.is_finished = False
             self._mtime = mtime
         except OSError as ex:
             LOGGER.debug('Update mtime fail %s: %s', self, ex)

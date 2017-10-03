@@ -102,42 +102,101 @@ class Application(QApplication):
 class MainWindow(QMainWindow):
     """Main GUI window.  """
     render_pool = None
-    default_title = 'Nuke批渲染'
-    title_prefix = None
-    title_index = 0
     render_started = QtCore.Signal()
     render_stopped = QtCore.Signal()
 
+    class Title(object):
+        """Window title.  """
+        default_title = 'Nuke批渲染'
+        prefix = ''
+        title_index = 0
+
+        def __init__(self, parent):
+            self.title_index = 0
+            assert isinstance(
+                parent, MainWindow), 'Need a Mainwindow as parent.'
+            self.parent = parent
+
+            self._timer = QtCore.QTimer()
+            self._timer.setInterval(300)
+            self._timer.timeout.connect(self.update)
+            setattr(self.parent, '_title', self)
+
+            self.parent.progressBar.valueChanged.connect(self.update_prefix)
+            self.parent.render_stopped.connect(self.update_prefix)
+            self.parent.render_started.connect(self._timer.start)
+            self.parent.render_stopped.connect(self._timer.stop)
+
+            self.update()
+
+        def update_prefix(self):
+            """Update title prefix with progress.  """
+            prefix = ''
+            queue_length = len(self.parent.task_table.queue)
+
+            if queue_length:
+                prefix = '[{}]{}'.format(queue_length, prefix)
+            if self.parent.is_rendering:
+                prefix = '{}%{}'.format(
+                    self.parent.progressBar.value(), prefix)
+
+            if prefix != self.prefix:
+                self.prefix = prefix
+                self.update()
+
+        def update(self):
+            """Update title, rotate when rendering.  """
+
+            if self.parent.is_rendering:
+                title = self.parent.render_pool.current_task.partition('.nk')[
+                    0]
+                self.title_index += 1
+                index = self.title_index % len(title)
+            else:
+                title = self.default_title
+                self.title_index = 0
+                index = 0
+
+            title = '{}{} {}'.format(
+                self.prefix, title[index:], title[:index])
+
+            self.parent.setWindowTitle(title)
+
     def __init__(self, parent=None):
         def _signals():
+            self.lineEditDir.textChanged.connect(self.check_dir)
+
             self.toolButtonAskDir.clicked.connect(self.ask_dir)
-            self.pushButtonStart.clicked.connect(self.start_button_clicked)
-            self.pushButtonStop.clicked.connect(self.stop_button_clicked)
             self.toolButtonOpenDir.clicked.connect(
                 lambda: webbrowser.open(CONFIG['DIR']))
             self.toolButtonOpenLog.clicked.connect(
                 lambda: webbrowser.open(CONFIG.log_path))
+
+            self.pushButtonStart.clicked.connect(self.start_button_clicked)
+            self.pushButtonStop.clicked.connect(self.stop_button_clicked)
             self.pushButtonRemoveOldVersion.clicked.connect(
                 lambda: render.Files().remove_old_version())
+
             self.textBrowser.anchorClicked.connect(open_path)
-            self.title_timer.timeout.connect(self.update_title)
-            self.render_started.connect(self.title_timer.start)
+
             self.render_started.connect(lambda: self.progressBar.setValue(0))
-            self.render_stopped.connect(self.title_timer.stop)
-            self.render_stopped.connect(self.on_task_finished)
+            self.render_stopped.connect(self.on_render_stopped)
 
         def _edits():
             for edit, key in self.edits_key.iteritems():
                 if isinstance(edit, QtWidgets.QLineEdit):
-                    edit.textChanged.connect(
-                        lambda text, k=key: CONFIG.__setitem__(k, text))
+                    edit.setText(CONFIG.get(key, ''))
+                    edit.editingFinished.connect(
+                        lambda edit=edit, k=key: CONFIG.__setitem__(k, edit.text()))
                 elif isinstance(edit, QtWidgets.QCheckBox):
+                    edit.setCheckState(
+                        QtCore.Qt.CheckState(CONFIG.get(key, 0)))
                     edit.stateChanged.connect(
                         lambda state, k=key: CONFIG.__setitem__(k, state))
                 elif isinstance(edit, QtWidgets.QComboBox):
+                    edit.setCurrentIndex(CONFIG.get(key, 0))
                     edit.currentIndexChanged.connect(
-                        lambda index, ex=edit, k=key:
-                        CONFIG.__setitem__(k, ex.itemText(index)))
+                        lambda index, k=key: CONFIG.__setitem__(k, index))
                 else:
                     LOGGER.debug('待处理的控件: %s %s', type(edit), edit)
 
@@ -153,18 +212,32 @@ class MainWindow(QMainWindow):
             _icon = _stdicon(QtWidgets.QStyle.SP_DialogOpenButton)
             self.toolButtonAskDir.setIcon(_icon)
 
+        def _button_enabled():
+            if self.is_rendering:
+                # self.tableWidget.setStyleSheet(
+                #     'color:white;background-color:rgb(12%, 16%, 18%);')
+                self.pushButtonRemoveOldVersion.setEnabled(False)
+            else:
+                # self.tableWidget.setStyleSheet('')
+                self.pushButtonRemoveOldVersion.setEnabled(True)
+            if self.task_table.queue:
+                self.pushButtonStart.setEnabled(True)
+            else:
+                self.pushButtonStart.setEnabled(False)
         QMainWindow.__init__(self, parent)
+
+        # ui
         self._ui = QtCompat.loadUi(os.path.abspath(
             os.path.join(__file__, '../batchrender.ui')))
         self.setCentralWidget(self._ui)
         self.task_table = TaskTable(self.tableWidget, self)
+        self.Title(self)
+        self.pushButtonStop.clicked.emit()
+        self.labelVersion.setText('v{}'.format(__version__))
+        _icon()
         self.resize(500, 700)
-        self.setWindowTitle(self.default_title)
-        self.progressBar.valueChanged.connect(self.update_title_prefix)
 
-        self._proc = None
-        self.rendering = False
-
+        # Connect edit to config
         self.edits_key = {
             self.lineEditDir: 'DIR',
             self.checkBoxProxy: 'PROXY',
@@ -172,22 +245,18 @@ class MainWindow(QMainWindow):
             self.checkBoxContinue: 'CONTINUE',
             self.comboBoxAfterFinish: 'AFTER_FINISH',
         }
-
-        self.labelVersion.setText('v{}'.format(__version__))
-        self.title_timer = QtCore.QTimer()
-        self.title_timer.setInterval(300)
+        _edits()
 
         _signals()
-        _edits()
-        _icon()
 
         render.Files().unlock_all()
 
-        self.render_stopped.emit()
-        self._start_update()
+        # Timer for button enabled
+        _timer = QtCore.QTimer(self)
+        _timer.timeout.connect(_button_enabled)
+        _timer.start(1000)
 
         # TODO
-        # self.comboBoxAfterFinish.setEnabled(False)
         self.toolButtonRemove.setEnabled(False)
         self.toolButtonSelectAll.setEnabled(False)
         self.toolButtonReverseSelection.setEnabled(False)
@@ -204,60 +273,18 @@ class MainWindow(QMainWindow):
         """If render runing.  """
         return self.render_pool and self.render_pool.isRunning()
 
-    def _start_update(self):
-        """Start a thread for update.  """
-
-        _timer = QtCore.QTimer(self)
-        _timer.timeout.connect(self.update)
-        _timer.start(1000)
-
-    def update(self):
-        """Update UI content.  """
-
-        super(MainWindow, self).update()
-        self.update_title_prefix()
-        _files = render.Files()
-
-        def _button_enabled():
-            if self.is_rendering:
-                # self.tableWidget.setStyleSheet(
-                #     'color:white;background-color:rgb(12%, 16%, 18%);')
-                self.pushButtonRemoveOldVersion.setEnabled(False)
-            else:
-                # self.tableWidget.setStyleSheet('')
-                self.pushButtonRemoveOldVersion.setEnabled(True)
-            if self.task_table.queue:
-                self.pushButtonStart.setEnabled(True)
-            else:
-                self.pushButtonStart.setEnabled(False)
-
-        def _edits():
-            for qt_edit, k in self.edits_key.items():
-                try:
-                    if isinstance(qt_edit, QtWidgets.QLineEdit):
-                        qt_edit.setText(CONFIG[k])
-                    if isinstance(qt_edit, QtWidgets.QCheckBox):
-                        qt_edit.setCheckState(
-                            QtCore.Qt.CheckState(CONFIG[k]))
-                except KeyError as ex:
-                    LOGGER.debug(ex)
-
-        _edits()
-        _button_enabled()
-
-    def on_task_finished(self):
+    def on_render_stopped(self):
         """Do work when rendering stop.  """
-        Application.alert(self)
-        self.pushButtonStop.clicked.emit()
-        self.update_title_prefix()
-
-        LOGGER.info('渲染结束')
         after_render = self.comboBoxAfterFinish.currentText()
-
         actions = {
             '休眠': hiber,
-            '关机': shutdown
+            '关机': shutdown,
+            '什么都不做': lambda: LOGGER.info('无渲染完成后任务')
         }
+
+        Application.alert(self)
+        self.pushButtonStop.clicked.emit()
+        LOGGER.info('渲染结束')
         actions.get(after_render, lambda: LOGGER.error(
             'Not found match action for %s', after_render))()
 
@@ -265,17 +292,31 @@ class MainWindow(QMainWindow):
         """Show a dialog ask config['DIR'].  """
 
         dialog = QFileDialog(self)
-        dir_ = dialog.getExistingDirectory(
+        path = dialog.getExistingDirectory(
             dir=os.path.dirname(CONFIG['DIR']))
-        if dir_:
-            try:
-                dir_.encode('ascii')
-            except UnicodeEncodeError:
-                QtWidgets.QMessageBox.information(
-                    self, dir_, 'Nuke只支持英文路径')
-                self.ask_dir()
+        if path:
+            if self.check_dir(path):
+                CONFIG['DIR'] = path
             else:
-                CONFIG['DIR'] = dir_
+                self.ask_dir()
+
+    def check_dir(self, path):
+        """Check if dir is nuke readable.  """
+
+        edit = self.lineEditDir
+        path = path or edit.text()
+        try:
+            path.encode('ascii')
+            if os.path.exists(path):
+                edit.setStyleSheet('')
+            else:
+                edit.setStyleSheet('background:rgb(100%,50%,50%)')
+        except UnicodeEncodeError:
+            edit.setText(CONFIG['DIR'])
+            QtWidgets.QMessageBox.information(
+                self, path, 'Nuke只支持英文路径')
+            return False
+        return True
 
     def start_button_clicked(self):
         """Button clicked action.  """
@@ -299,38 +340,6 @@ class MainWindow(QMainWindow):
             self.render_pool.stop()
         self.tabWidget.setCurrentIndex(0)
 
-    @QtCore.Slot()
-    def update_title_prefix(self):
-        """Update title prefix with progress.  """
-        prefix = ''
-        queue_length = len(self.task_table.queue)
-
-        if queue_length:
-            prefix = '[{}]{}'.format(queue_length, prefix)
-        if self.is_rendering:
-            prefix = '{}%{}'.format(self.progressBar.value(), prefix)
-
-        if prefix != self.title_prefix:
-            self.title_prefix = prefix
-            self.update_title()
-
-    def update_title(self):
-        """Update title, rotate when rendering.  """
-
-        if self.is_rendering:
-            title = self.render_pool.current_task.partition('.nk')[0]
-            self.title_index += 1
-            index = self.title_index % len(title)
-        else:
-            title = self.default_title
-            self.title_index = 0
-            index = 0
-
-        title = '{}{} {}'.format(
-            self.title_prefix, title[index:], title[:index])
-
-        self.setWindowTitle(title)
-
     def closeEvent(self, event):
         """Override qt closeEvent."""
 
@@ -344,11 +353,11 @@ class MainWindow(QMainWindow):
                 QtWidgets.QMessageBox.No
             )
             if confirm == QtWidgets.QMessageBox.Yes:
-                sys.exit()
+                Application.exit()
             else:
                 event.ignore()
         else:
-            sys.exit()
+            Application.exit()
 
 
 @QtCore.Slot(QtCore.QUrl)
@@ -368,7 +377,7 @@ def start_error_handler():
         atexit.register(proc.terminate)
 
 
-class TaskTable(object):
+class TaskTable(QtCore.QObject):
     """Table widget.  """
     brushes = {
         'bg_doing': QtGui.QBrush(QtGui.QColor(30, 40, 45)),
@@ -377,11 +386,13 @@ class TaskTable(object):
         'fg_waiting': QtGui.QBrush(QtGui.QColor(QtCore.Qt.black)),
     }
 
-    def __init__(self, widget, parent=None):
+    def __init__(self, widget, parent):
+        super(TaskTable, self).__init__(parent)
         self.widget = widget
+        assert isinstance(parent, MainWindow)
         self.parent = parent or self.widget.parent()
         self.queue = render.TaskQueue()
-        self._lock = multiprocessing.Lock()
+
         # self._brushes = {}
         # if HAS_NUKE:
         #     self._brushes['local'] = QtGui.QBrush(QtGui.QColor(200, 200, 200))
@@ -396,41 +407,22 @@ class TaskTable(object):
         # self.parent.actionReverseSelection.triggered.connect(
         #     self.reverse_selection)
         self.widget.setColumnWidth(0, 350)
-        self._start_update()
+
+        # Timer for widget update
+        _timer = QtCore.QTimer(self)
+        _timer.timeout.connect(self.update)
+        _timer.start(1000)
+
         self.widget.cellChanged.connect(self.on_cell_changed)
         self._updating = False
-
-    def __del__(self):
-        self._lock.acquire()
 
     @property
     def directory(self):
         """Current working dir.  """
         return self.parent.directory
 
-    def _start_update(self):
-        def _run():
-            LOGGER.debug('TableWidget update start')
-            lock = self._lock
-            while lock.acquire(False):
-                try:
-                    self.update()
-                except RuntimeError as ex:
-                    LOGGER.debug('TableWidget update fail: %s', ex)
-                time.sleep(1)
-                lock.release()
-        thread = multiprocessing.dummy.Process(
-            name='TaskTableUpdate', target=_run)
-        thread.daemon = True
-        thread.start()
-
-    def _stop_update(self):
-        LOGGER.debug('TableWidget update stop')
-        self._lock.acquire()
-        self._lock.release()
-
     def update(self):
-        """Update info.  """
+        """Update queue to match files.  """
         # LOGGER.debug('TableWidget update')
         widget = self.widget
         files = render.Files()
@@ -468,12 +460,8 @@ class TaskTable(object):
         if found_new:
             self.update_table()
 
-        # # Count
-        # self.parent.labelCount.setText(
-        #     '{}/{}/{}'.format(len(list(self.checked_files)), len(local_files), len(all_files)))
-
     def update_table(self):
-        """Update table to match task quene.  """
+        """Update table to match task queue.  """
         self._updating = True
 
         self.queue.sort()

@@ -122,7 +122,7 @@ class MainWindow(QMainWindow):
             setattr(self.parent, '_title', self)
 
             self.parent.render_stopped.connect(self.update_prefix)
-            self.parent.task_table.changed.connect(self.update_prefix)
+            self.parent.task_table.queue_changed.connect(self.update_prefix)
             self.parent.progressBar.valueChanged.connect(self.update_prefix)
 
             self.parent.render_started.connect(self._timer.start)
@@ -150,7 +150,7 @@ class MainWindow(QMainWindow):
 
             if self.parent.is_rendering:
                 title = self.parent.render_pool.current_task.partition('.nk')[
-                    0]
+                    0] or self.default_title
                 self.title_index += 1
                 index = self.title_index % len(title)
             else:
@@ -185,7 +185,7 @@ class MainWindow(QMainWindow):
             self.render_started.connect(lambda: self.progressBar.setValue(0))
             self.render_stopped.connect(self.on_render_stopped)
 
-            self.task_table.changed.connect(self.on_task_table_changed)
+            self.task_table.queue_changed.connect(self.on_queue_changed)
 
         def _edits():
             for edit, key in self.edits_key.iteritems():
@@ -247,11 +247,6 @@ class MainWindow(QMainWindow):
 
         _signals()
 
-        # TODO
-        self.toolButtonRemove.setEnabled(False)
-        self.toolButtonSelectAll.setEnabled(False)
-        self.toolButtonReverseSelection.setEnabled(False)
-
     def __getattr__(self, name):
         return getattr(self._ui, name)
 
@@ -279,8 +274,9 @@ class MainWindow(QMainWindow):
         self.pushButtonRemoveOldVersion.setEnabled(True)
 
         for task in self.queue:
-            task.is_doing = False
-        self.task_table.changed.emit()
+            if task.is_doing:
+                task.is_doing = False
+                self.task_table[self.queue.index(task)].update()
         self.tabWidget.setCurrentIndex(0)
 
         Application.alert(self)
@@ -291,8 +287,10 @@ class MainWindow(QMainWindow):
         actions.get(after_finish, lambda: LOGGER.error(
             'Not found match action for %s', after_finish))()
 
-    def on_task_table_changed(self):
-        """Do work when task table changed.  """
+    def on_queue_changed(self):
+        """Do work when task queue changed.  """
+
+        LOGGER.debug('On task table changed.')
         if self.task_table.queue:
             self.pushButtonStart.setEnabled(True)
         else:
@@ -375,12 +373,13 @@ class MainWindow(QMainWindow):
 
     def new_render_pool(self):
         """Switch to new render pool.  """
+        LOGGER.debug('New render pool.')
         self.render_pool = render.Pool(self.task_table.queue)
         self.render_pool.stdout.connect(self.textBrowser.append)
         self.render_pool.stderr.connect(self.textBrowser.append)
         self.render_pool.progress.connect(self.progressBar.setValue)
-        self.render_pool.task_started.connect(self.task_table.changed)
-        self.render_pool.task_finished.connect(self.task_table.changed)
+        self.render_pool.task_started.connect(self.task_table.queue_changed)
+        self.render_pool.task_finished.connect(self.task_table.queue_changed)
         self.render_pool.queue_finished.connect(self.render_stopped.emit)
 
     def start_button_clicked(self):
@@ -444,8 +443,7 @@ def start_error_handler():
 
 class TaskTable(QtCore.QObject):
     """Table widget.  """
-    changed = QtCore.Signal()
-    _updating = False
+    queue_changed = QtCore.Signal()
 
     class Row(list):
         """Single row."""
@@ -474,20 +472,22 @@ class TaskTable(QtCore.QObject):
                  'finished': ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled),
                               (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable))}
         task = None
+        updating = False
 
-        def __init__(self, task=None):
-            assert task is None or isinstance(task, render.Task)
+        def __init__(self):
             column = [QtWidgets.QTableWidgetItem() for _ in range(2)]
-            list.__init__(self, column)
+            super(TaskTable.Row, self).__init__(column)
 
-            self.task = task
-
-            self.update()
+        def __str__(self):
+            ret = ' '.join('({},{})'.format(i.row(), i.column()) for i in self)
+            ret = '<Row {}>'.format(ret)
+            return ret
 
         def update(self):
             """Update row by task."""
-            if not self.task:
+            if not self.task or self.updating:
                 return
+            self.updating = True
 
             def _stylize(item):
                 """Set item style. """
@@ -509,6 +509,8 @@ class TaskTable(QtCore.QObject):
             _stylize(self[0])
             _stylize(self[1])
 
+            self.updating = False
+
     def __init__(self, widget, parent):
         super(TaskTable, self).__init__(parent)
         self._rows = []
@@ -518,11 +520,13 @@ class TaskTable(QtCore.QObject):
         self.queue = self.parent.queue
         assert isinstance(self.queue, render.Queue)
 
-        # self.widget.itemDoubleClicked.connect(self.open_file)
-        # self.parent.actionSelectAll.triggered.connect(self.select_all)
-        # self.parent.actionReverseSelection.triggered.connect(
-        #     self.reverse_selection)
         self.widget.setColumnWidth(0, 350)
+
+        # self.widget.itemDoubleClicked.connect(self.open_file)
+        self.parent.toolButtonCheckAll.clicked.connect(self.check_all)
+        self.parent.toolButtonReverseCheck.clicked.connect(self.reverse_check)
+        self.parent.toolButtonRemove.clicked.connect(self.remove_selected)
+        self.widget.itemSelectionChanged.connect(self.on_selection_changed)
 
         # Timer for widget update
         _timer = QtCore.QTimer(self)
@@ -530,7 +534,6 @@ class TaskTable(QtCore.QObject):
         _timer.start(1000)
 
         self.widget.cellChanged.connect(self.on_cell_changed)
-        self.changed.connect(self.update_widget)
 
     def __getitem__(self, index):
         return self._rows[index]
@@ -544,10 +547,14 @@ class TaskTable(QtCore.QObject):
     def append(self, row):
         """Add row to last.  """
         assert isinstance(row, self.Row)
+        row.updating = True
+
         index = len(self._rows)
         self._rows.append(row)
         for column, item in enumerate(row):
             self.widget.setItem(index, column, item)
+
+        row.updating = False
 
     def set_row_count(self, number):
         """Set row count number.  """
@@ -564,26 +571,31 @@ class TaskTable(QtCore.QObject):
         """Update queue to match files.  """
         files = render.Files()
         files.update()
-        # Remove.
+
+        # Disable.
         for row in self:
-            if not os.path.exists(row.task.filename):
+            if row.task.is_enabled and not os.path.exists(row.task.filename):
+                LOGGER.debug('%s not existed in %s anymore.',
+                             row.task.filename, os.getcwd())
                 row.task.is_enabled = False
-                self.changed.emit()
+                row.update()
 
         # Add.
+        changed = False
         for i in files:
             if i not in self.queue:
                 LOGGER.debug('Add task: %s', i)
                 self.queue.put(i)
-                self.changed.emit()
+                changed = True
+
+        if changed:
+            self.update_widget()
+            self.queue_changed.emit()
 
     def update_widget(self):
         """Update table to match task queue.  """
-        if self._updating:
-            return
 
-        self._updating = True
-
+        LOGGER.debug('Update task table')
         self.queue.sort()
         self.set_row_count(len(self.queue))
         for index, task in enumerate(self.queue):
@@ -592,12 +604,10 @@ class TaskTable(QtCore.QObject):
             row.task = task
             row.update()
 
-        self._updating = False
-
     @QtCore.Slot(int, int)
     def on_cell_changed(self, row, column):
         """Callback on cell changed.  """
-        if self._updating:
+        if self[row].updating:
             return
 
         item = self.widget.item(row, column)
@@ -606,19 +616,24 @@ class TaskTable(QtCore.QObject):
         if column == 0:
             task.is_enabled = bool(item.checkState())
             LOGGER.debug('Change enabled: %s', task)
+            self[row].update()
+            self.queue_changed.emit()
         elif column == 1:
             try:
                 text = item.text()
                 task.priority = int(text)
                 LOGGER.debug('Change priority: %s', task)
             except ValueError:
-                LOGGER.warning('不能识别优先级 %s', text)
+                LOGGER.warning('不能识别优先级 %s, 重置为', text)
                 item.setText(unicode(task.priority))
+            else:
+                self.update_widget()
+                self.queue_changed.emit()
 
-        self._updating = True
-        self[row].update()
-        self.changed.emit()
-        self._updating = False
+    def on_selection_changed(self):
+        """Do work on selection changed.  """
+
+        self.parent.toolButtonRemove.setEnabled(bool(self.current_selected()))
 
     @property
     def checked_files(self):
@@ -631,20 +646,58 @@ class TaskTable(QtCore.QObject):
         widget = self.widget
         return list(widget.item(i, 0) for i in xrange(widget.rowCount()))
 
-    # def select_all(self):
-    #     """Select all item in list widget.  """
-    #     for item in self.items():
-    #         if item.text() not in self.uploaded_files:
-    #             item.setCheckState(QtCore.Qt.Checked)
+    def check_all(self):
+        """Check all item.  """
 
-    # def reverse_selection(self):
-    #     """Select all item in list widget.  """
-    #     for item in self.items():
-    #         if item.text() not in self.uploaded_files:
-    #             if item.checkState():
-    #                 item.setCheckState(QtCore.Qt.Unchecked)
-    #             else:
-    #                 item.setCheckState(QtCore.Qt.Checked)
+        changed = False
+        for row in self:
+            task = row.task
+            assert isinstance(task, render.Task)
+            if task.state == 'disabled':
+                task.is_enabled = True
+                row.update()
+                changed = True
+        if changed:
+            self.queue_changed.emit()
+
+    def reverse_check(self):
+        """Reverse checkstate for every item.  """
+
+        changed = False
+        for row in self:
+            task = row.task
+            assert isinstance(task, render.Task)
+            if task.state in ('waiting', 'disabled'):
+                task.is_enabled = not task.is_enabled
+                row.update()
+                changed = True
+        if changed:
+            self.queue_changed.emit()
+
+    def current_selected(self):
+        """Current selected tasks.  """
+
+        rows = set()
+        _ = [rows.add(i.row()) for i in self.widget.selectedItems()]
+        ret = [self[i].task for i in rows]
+        LOGGER.debug('Current selected: %s',
+                     ''.join(['\n{}'.format(i) for i in ret]) or '<None>')
+        return ret
+
+    def remove_selected(self):
+        """Select all item in list widget.  """
+
+        tasks = self.current_selected()
+
+        for i in tasks:
+            self.queue.remove(i)
+            render.Files.archive(i.filename)
+            os.remove(i.filename)
+            LOGGER.debug('Remove task: %s', i)
+
+        if tasks:
+            self.update_widget()
+            self.queue_changed.emit()
 
 
 def hiber():
@@ -724,6 +777,8 @@ def main():
 if __name__ == '__main__':
     try:
         main()
+    except SystemExit:
+        pass
     except:
         LOGGER.error('Uncaught exception.', exc_info=True)
         raise

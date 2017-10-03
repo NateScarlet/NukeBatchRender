@@ -117,20 +117,23 @@
                 </item>
                 <item>
                  <widget class="QToolButton" name="toolButtonRemove">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
                   <property name="text">
-                   <string>移除所选</string>
+                   <string>移除</string>
                   </property>
                  </widget>
                 </item>
                 <item>
-                 <widget class="QToolButton" name="toolButtonSelectAll">
+                 <widget class="QToolButton" name="toolButtonCheckAll">
                   <property name="text">
                    <string>全选</string>
                   </property>
                  </widget>
                 </item>
                 <item>
-                 <widget class="QToolButton" name="toolButtonReverseSelection">
+                 <widget class="QToolButton" name="toolButtonReverseCheck">
                   <property name="text">
                    <string>反选</string>
                   </property>

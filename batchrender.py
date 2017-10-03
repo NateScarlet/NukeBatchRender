@@ -183,7 +183,6 @@ class MainWindow(QMainWindow):
             self.render_started.connect(lambda: self.progressBar.setValue(0))
             self.render_stopped.connect(self.on_render_stopped)
 
-            self.render_pool.task_finished.connect(self.render_stopped.emit)
             self.task_table.changed.connect(self.on_task_table_changed)
 
         def _edits():

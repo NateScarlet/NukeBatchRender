@@ -174,8 +174,8 @@ class Pool(QtCore.QThread):
             task = self.queue.get()
             try:
                 self.execute_task(task)
-            except Exception as ex:
-                LOGGER.debug(ex)
+            except Exception:
+                LOGGER.error('Exception during render.', exc_info=True)
                 raise
         LOGGER.debug('Render finished.')
 

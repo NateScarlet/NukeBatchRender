@@ -704,6 +704,7 @@ def main():
     try:
         working_dir = CONFIG['DIR']
         os.chdir(working_dir)
+        LOGGER.debug('Change dir: %s', os.getcwd())
     except OSError:
         LOGGER.warning('Can not change dir to: %s', working_dir)
     app = Application.instance()

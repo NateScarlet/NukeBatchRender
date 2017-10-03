@@ -6,6 +6,7 @@ import datetime
 import logging
 import logging.handlers
 import multiprocessing
+import multiprocessing.dummy
 import os
 import re
 import shutil
@@ -21,17 +22,37 @@ LOGGER = logging.getLogger('render')
 CONFIG = Config()
 
 
-class TaskQueue(list):
+class Queue(list):
     """Task render quene.  """
 
+    def __contains__(self, item):
+        if isinstance(item, (str, unicode)):
+            return any(i for i in self if i.filename == item)
+        return any(i for i in self if i == item)
+
+    def __nonzero__(self):
+        return bool(self.enabled_tasks())
+
+    def __str__(self):
+        return '[{}]'.format(',\n'.join(str(i) for i in self))
+
+    def __getitem__(self, name):
+        if isinstance(name, int):
+            return list.__getitem__(self, name)
+        elif isinstance(name, (str, unicode)):
+            try:
+                return [i for i in self if i.filename == name][0]
+            except IndexError:
+                raise ValueError('No task match filename: %s' % name)
+        else:
+            raise TypeError('Accept int or str, got %s' % type(name))
+
     def sort(self):
-        list.sort(self, key=lambda x: (-x.priority, x.mtime))
+        list.sort(self, key=lambda x: (x.is_finished, -x.priority, x.mtime))
 
     def get(self):
         """Get first task from queue.  """
-
-        self.sort()
-        return self.pop(0)
+        return self.enabled_tasks()[0]
 
     def put(self, item):
         """Put task to queue.  """
@@ -41,51 +62,70 @@ class TaskQueue(list):
             self.append(item)
         self.sort()
 
-    def __contains__(self, item):
-        return any(i for i in self if i == item)
-
-    def __str__(self):
-        return '[{}]'.format(',\n'.join(str(i) for i in self))
+    def enabled_tasks(self):
+        """All enabled task in queue. """
+        self.sort()
+        return [i for i in self
+                if i.is_enabled and not i.is_doing]
 
 
 class Task(object):
     """Nuke render task.  """
-    enabled = True
     filename = None
+    is_enabled = True
+    is_doing = False
+    is_finished = False
     error_count = 0
     priority = 0
+    max_retry = 3
+
+    class Clock(object):
+        """Caculate remain time.  """
+        # TODO
+        pass
 
     def __init__(self, filename, priority=0):
         self.filename = filename
         self.priority = priority
         self.result_files = []
-        self.clock = TaskClock()
-        self._mtime = None
+        self.clock = self.Clock()
+        self._mtime = os.path.getmtime(self.filename)
         self._proc = None
 
     def __eq__(self, other):
         return self.filename == other.filename
 
     def __str__(self):
-        return '<Render task:{0.filename} with priority {0.priority}>'.format(self)
+        return '<Render task:{0.filename}: {0.state}: priority: {0.priority}>'.format(self)
 
     @property
     def mtime(self):
         """File modified time.  """
+
+        if self.is_doing:
+            return self._mtime
+
         try:
             mtime = os.path.getmtime(self.filename)
             if mtime != self._mtime:
-                self.enabled = True
-
-        except OSError:
-            pass
+                LOGGER.debug(
+                    'Found mtime change %s -> %s, %s', mtime, self._mtime, self)
+            self._mtime = mtime
+        except OSError as ex:
+            LOGGER.debug('Update mtime fail %s: %s', self, ex)
         return self._mtime
 
+    @property
+    def state(self):
+        """The current state as a string.  """
+        if self.is_finished:
+            return 'finished'
+        elif not self.is_enabled:
+            return 'disabled'
+        elif self.is_doing:
+            return 'doing'
 
-class TaskClock(object):
-    """Caculate remain time.  """
-    # TODO
-    pass
+        return 'waiting'
 
 
 class Pool(QtCore.QThread):
@@ -93,13 +133,18 @@ class Pool(QtCore.QThread):
     stdout = QtCore.Signal(unicode)
     stderr = QtCore.Signal(unicode)
     progress = QtCore.Signal(int)
+    task_started = QtCore.Signal()
     task_finished = QtCore.Signal()
+    queue_started = QtCore.Signal()
+    queue_finished = QtCore.Signal()
 
     def __init__(self, taskqueue):
         super(Pool, self).__init__()
+        assert isinstance(taskqueue, Queue)
         self.queue = taskqueue
         self._child_pid = multiprocessing.Value('i')
         self._current_task = multiprocessing.Array('c', 128)
+        self.task_started.connect(lambda: self.progress.emit(0))
 
     @property
     def child_pid(self):
@@ -113,11 +158,15 @@ class Pool(QtCore.QThread):
 
     def is_current_task(self, name):
         """Return if @name is current task.  """
+        if isinstance(name, Task):
+            name = name.filename
         return name[:128] == self.current_task
 
     def run(self):
         """Overridde.  """
         LOGGER.debug('Render start')
+        LOGGER.debug('Task queue:\n %s', self.queue)
+        self.queue_started.emit()
 
         while self.queue:
             LOGGER.debug('Rendering')
@@ -128,12 +177,19 @@ class Pool(QtCore.QThread):
                 LOGGER.debug(ex)
                 raise
         LOGGER.debug('Render finished.')
-        self.task_finished.emit()
-        self.stdout.emit(stylize('渲染结束', 'info'))
+
+        self.queue_finished.emit()
+        self.info('渲染结束')
+
+    def info(self, text):
+        """Send info to stdout.  """
+        self.stdout.emit(stylize(text, 'info'))
 
     def stop(self):
         """Stop rendering.  """
         pid = self.child_pid
+        for task in self.queue:
+            task.is_doing = False
         if pid:
             LOGGER.debug('Stoping child: %s', pid)
             try:
@@ -216,10 +272,15 @@ class Pool(QtCore.QThread):
     def execute_task(self, task):
         """Render the task file.  """
 
-        LOGGER.debug('Executing task: %s', task)
-        self.progress.emit(0)
-        task.filename = Files.lock(task.filename)
+        assert isinstance(task, Task)
+
+        task.is_doing = True
         self._current_task.value = task.filename
+        self.task_started.emit()
+        LOGGER.debug('Executing task: %s', task)
+
+        # task.filename = Files.lock(task.filename)
+        Files.archive(task.filename)
 
         time.clock()
         proc = self.nuke_process(task.filename)
@@ -240,20 +301,28 @@ class Pool(QtCore.QThread):
             # Exited with error.
             task.error_count += 1
             LOGGER.error('%s: 渲染出错 第%s次', task.filename, task.error_count)
-            # TODO: retry limit
-            if task.error_count >= 3:
-                # Not retry.
-                LOGGER.error('%s: 连续渲染错误超过3次,不再进行重试。', task.filename)
-            else:
-                task.filename = Files.unlock(task.filename)
+            if task.error_count >= task.max_retry:
+                LOGGER.error('%s: 连续渲染错误超过%s次,不再进行重试。',
+                             task.max_retry, task.filename)
+                task.is_enabled = False
         else:
             # Normal exit.
             if not CONFIG['PROXY']:
                 try:
-                    os.remove(task.filename)
+                    mtime = os.path.getmtime(task.filename)
+                    if mtime == task.mtime:
+                        task.is_finished = True
+                        os.remove(task.filename)
+                    else:
+                        LOGGER.debug(
+                            'Found mtime change %s -> %s, will do again %s',
+                            mtime, task.mtime, self)
+                        task.mtime = mtime
                 except OSError:
                     LOGGER.debug('Remove %s fail', task.filename)
 
+        task.is_doing = False
+        self.task_finished.emit()
         return retcode
 
 
@@ -307,41 +376,41 @@ class Files(list):
         self.extend(_files)
         self.all_locked = self and all(bool(i.endswith('.lock')) for i in self)
 
-    def unlock_all(self):
-        """Unlock all .nk.lock files."""
+    # def unlock_all(self):
+    #     """Unlock all .nk.lock files."""
 
-        _files = [i for i in self if i.endswith('.nk.lock')]
-        for f in _files:
-            self.unlock(f)
+    #     _files = [i for i in self if i.endswith('.nk.lock')]
+    #     for f in _files:
+    #         self.unlock(f)
 
-    @staticmethod
-    def unlock(f):
-        """Rename a (raw_name).(ext) file back or delete it.  """
-        LOGGER.debug('Unlocking file: %s', f)
-        if not os.path.exists(f):
-            LOGGER.warning('尝试解锁不存在的文件: %s', f)
-            return
+    # @staticmethod
+    # def unlock(f):
+    #     """Rename a (raw_name).(ext) file back or delete it.  """
+    #     LOGGER.debug('Unlocking file: %s', f)
+    #     if not os.path.exists(f):
+    #         LOGGER.warning('尝试解锁不存在的文件: %s', f)
+    #         return
 
-        _unlocked_name = os.path.splitext(f)[0]
-        if os.path.isfile(_unlocked_name):
-            os.remove(f)
-            LOGGER.info('因为有更新的文件, 移除: %s', f)
-        else:
-            LOGGER.debug('%s -> %s', f, _unlocked_name)
-            os.rename(f, _unlocked_name)
-        return _unlocked_name
+    #     _unlocked_name = os.path.splitext(f)[0]
+    #     if os.path.isfile(_unlocked_name):
+    #         os.remove(f)
+    #         LOGGER.info('因为有更新的文件, 移除: %s', f)
+    #     else:
+    #         LOGGER.debug('%s -> %s', f, _unlocked_name)
+    #         os.rename(f, _unlocked_name)
+    #     return _unlocked_name
 
-    @staticmethod
-    def lock(f):
-        """Duplicate given file with .lock append on name then archive it.  """
-        LOGGER.debug('Locking file: %s', f)
-        if f.endswith('.lock'):
-            return f
+    # @staticmethod
+    # def lock(f):
+    #     """Duplicate given file with .lock append on name then archive it.  """
+    #     LOGGER.debug('Locking file: %s', f)
+    #     if f.endswith('.lock'):
+    #         return f
 
-        Files.archive(f)
-        locked_file = f + '.lock'
-        os.rename(f, locked_file)
-        return locked_file
+    #     Files.archive(f)
+    #     locked_file = f + '.lock'
+    #     os.rename(f, locked_file)
+    #     return locked_file
 
     @staticmethod
     def archive(f, dest='文件备份'):

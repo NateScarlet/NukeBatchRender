@@ -5,22 +5,19 @@ GUI Batchrender for nuke.
 """
 from __future__ import print_function, unicode_literals
 
+import atexit
 import logging
 import logging.handlers
-import multiprocessing
-import multiprocessing.dummy
 import os
 import subprocess
 import sys
-import time
 import webbrowser
-import atexit
 
 import render
 import singleton
 from config import Config
-from path import get_unicode
 from log import MultiProcessingHandler
+from path import get_unicode
 
 if __name__ == '__main__':
     __SINGLETON = singleton.SingleInstance()
@@ -47,7 +44,7 @@ def _set_logger():
     # Stream handler
     _handler = MultiProcessingHandler(logging.StreamHandler)
     _formatter = logging.Formatter(
-        '%(levelname)-6s[%(asctime)s]: %(name)s: %(message)s', '%H:%M:%S')
+        '%(levelname)-6s[%(asctime)s]:%(filename)s:%(lineno)d: %(message)s', '%H:%M:%S')
     _handler.setFormatter(_formatter)
     logger.addHandler(_handler)
     logger.debug('Added stream handler.  ')
@@ -58,7 +55,7 @@ def _set_logger():
         logging.handlers.RotatingFileHandler,
         args=(path,), kwargs={'backupCount': 5})
     _formatter = logging.Formatter(
-        '%(levelname)-6s[%(asctime)s]: %(name)s: %(message)s', '%x %X')
+        '%(levelname)-6s[%(asctime)s]:%(name)s: %(message)s', '%x %X')
     _handler.setFormatter(_formatter)
     logger.addHandler(_handler)
 
@@ -122,8 +119,10 @@ class MainWindow(QMainWindow):
             self._timer.timeout.connect(self.update)
             setattr(self.parent, '_title', self)
 
-            self.parent.progressBar.valueChanged.connect(self.update_prefix)
             self.parent.render_stopped.connect(self.update_prefix)
+            self.parent.task_table.changed.connect(self.update_prefix)
+            self.parent.progressBar.valueChanged.connect(self.update_prefix)
+
             self.parent.render_started.connect(self._timer.start)
             self.parent.render_stopped.connect(self._timer.stop)
 
@@ -182,6 +181,9 @@ class MainWindow(QMainWindow):
             self.render_started.connect(lambda: self.progressBar.setValue(0))
             self.render_stopped.connect(self.on_render_stopped)
 
+            self.render_pool.task_finished.connect(self.render_stopped.emit)
+            self.task_table.changed.connect(self.on_task_table_changed)
+
         def _edits():
             for edit, key in self.edits_key.iteritems():
                 if isinstance(edit, QtWidgets.QLineEdit):
@@ -212,19 +214,8 @@ class MainWindow(QMainWindow):
             _icon = _stdicon(QtWidgets.QStyle.SP_DialogOpenButton)
             self.toolButtonAskDir.setIcon(_icon)
 
-        def _button_enabled():
-            if self.is_rendering:
-                # self.tableWidget.setStyleSheet(
-                #     'color:white;background-color:rgb(12%, 16%, 18%);')
-                self.pushButtonRemoveOldVersion.setEnabled(False)
-            else:
-                # self.tableWidget.setStyleSheet('')
-                self.pushButtonRemoveOldVersion.setEnabled(True)
-            if self.task_table.queue:
-                self.pushButtonStart.setEnabled(True)
-            else:
-                self.pushButtonStart.setEnabled(False)
         QMainWindow.__init__(self, parent)
+        self.queue = render.Queue()
 
         # ui
         self._ui = QtCompat.loadUi(os.path.abspath(
@@ -232,7 +223,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self._ui)
         self.task_table = TaskTable(self.tableWidget, self)
         self.Title(self)
-        self.pushButtonStop.clicked.emit()
+        self.pushButtonStop.hide()
+        self.progressBar.hide()
         self.labelVersion.setText('v{}'.format(__version__))
         _icon()
         self.resize(500, 700)
@@ -247,14 +239,10 @@ class MainWindow(QMainWindow):
         }
         _edits()
 
+        # render.Files().unlock_all()
+        self.new_render_pool()
+
         _signals()
-
-        render.Files().unlock_all()
-
-        # Timer for button enabled
-        _timer = QtCore.QTimer(self)
-        _timer.timeout.connect(_button_enabled)
-        _timer.start(1000)
 
         # TODO
         self.toolButtonRemove.setEnabled(False)
@@ -263,10 +251,6 @@ class MainWindow(QMainWindow):
 
     def __getattr__(self, name):
         return getattr(self._ui, name)
-
-    def __del__(self):
-        if self.render_pool:
-            self.render_pool.terminate()
 
     @property
     def is_rendering(self):
@@ -282,11 +266,30 @@ class MainWindow(QMainWindow):
             '什么都不做': lambda: LOGGER.info('无渲染完成后任务')
         }
 
+        self.pushButtonStop.hide()
+        self.progressBar.hide()
+        self.pushButtonStart.show()
+        self.pushButtonRemoveOldVersion.setEnabled(True)
+
+        for task in self.queue:
+            task.is_doing = False
+        self.task_table.changed.emit()
+        self.tabWidget.setCurrentIndex(0)
+
         Application.alert(self)
-        self.pushButtonStop.clicked.emit()
+
+        self.new_render_pool()
         LOGGER.info('渲染结束')
+
         actions.get(after_render, lambda: LOGGER.error(
             'Not found match action for %s', after_render))()
+
+    def on_task_table_changed(self):
+        """Do work when task table changed.  """
+        if self.task_table.queue:
+            self.pushButtonStart.setEnabled(True)
+        else:
+            self.pushButtonStart.setEnabled(False)
 
     def ask_dir(self):
         """Show a dialog ask config['DIR'].  """
@@ -318,27 +321,34 @@ class MainWindow(QMainWindow):
             return False
         return True
 
-    def start_button_clicked(self):
-        """Button clicked action.  """
-
-        start_error_handler()
-        LOGGER.debug('Task queue:\n %s', self.task_table.queue)
+    def new_render_pool(self):
+        """Switch to new render pool.  """
         self.render_pool = render.Pool(self.task_table.queue)
         self.render_pool.stdout.connect(self.textBrowser.append)
         self.render_pool.stderr.connect(self.textBrowser.append)
         self.render_pool.progress.connect(self.progressBar.setValue)
-        self.render_pool.task_finished.connect(self.render_stopped.emit)
-        self.render_pool.start()
+        self.render_pool.task_started.connect(self.task_table.changed)
+        self.render_pool.task_finished.connect(self.task_table.changed)
+        self.render_pool.queue_finished.connect(self.render_stopped.emit)
+
+    def start_button_clicked(self):
+        """Button clicked action.  """
+
         self.tabWidget.setCurrentIndex(1)
+        self.pushButtonRemoveOldVersion.setEnabled(False)
+
+        start_error_handler()
+        self.render_pool.start()
+
         self.render_started.emit()
 
     def stop_button_clicked(self):
         """Button clicked action.  """
-
         self.comboBoxAfterFinish.setCurrentIndex(0)
-        if self.render_pool:
-            self.render_pool.stop()
-        self.tabWidget.setCurrentIndex(0)
+
+        self.render_pool.stop()
+
+        self.render_stopped.emit()
 
     def closeEvent(self, event):
         """Override qt closeEvent."""
@@ -353,11 +363,14 @@ class MainWindow(QMainWindow):
                 QtWidgets.QMessageBox.No
             )
             if confirm == QtWidgets.QMessageBox.Yes:
+                self.render_pool.stop()
                 Application.exit()
+                LOGGER.info('渲染途中退出')
             else:
                 event.ignore()
         else:
             Application.exit()
+            LOGGER.info('退出')
 
 
 @QtCore.Slot(QtCore.QUrl)
@@ -379,28 +392,79 @@ def start_error_handler():
 
 class TaskTable(QtCore.QObject):
     """Table widget.  """
-    brushes = {
-        'bg_doing': QtGui.QBrush(QtGui.QColor(30, 40, 45)),
-        'fg_doing': QtGui.QBrush(QtGui.QColor(QtCore.Qt.white)),
-        'bg_waiting': QtGui.QBrush(QtGui.QColor(QtCore.Qt.white)),
-        'fg_waiting': QtGui.QBrush(QtGui.QColor(QtCore.Qt.black)),
-    }
+    changed = QtCore.Signal()
+    _updating = False
+
+    class Row(list):
+        """Single row."""
+        brushes = {
+            'waiting': (QtGui.QBrush(QtGui.QColor(QtCore.Qt.white)),
+                        QtGui.QBrush(QtGui.QColor(QtCore.Qt.black))),
+            'doing': (QtGui.QBrush(QtGui.QColor(30, 40, 45)),
+                      QtGui.QBrush(QtGui.QColor(QtCore.Qt.white))),
+            'disabled': (QtGui.QBrush(QtGui.QColor(QtCore.Qt.gray)),
+                         QtGui.QBrush(QtGui.QColor(QtCore.Qt.black))),
+            'finished': (QtGui.QBrush(QtGui.QColor(QtCore.Qt.white)),
+                         QtGui.QBrush(QtGui.QColor(QtCore.Qt.gray)))
+        }
+        flags = {'waiting': ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled
+                              | QtCore.Qt.ItemIsUserCheckable),
+                             (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
+                              | QtCore.Qt.ItemIsEditable)),
+                 'doing': ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled
+                            | QtCore.Qt.ItemIsUserCheckable),
+                           (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
+                            | QtCore.Qt.ItemIsEditable)),
+                 'disabled': ((QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
+                               | QtCore.Qt.ItemIsUserCheckable),
+                              (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
+                               | QtCore.Qt.ItemIsEditable)),
+                 'finished': ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled),
+                              (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable))}
+        task = None
+
+        def __init__(self, task=None):
+            assert task is None or isinstance(task, render.Task)
+            column = [QtWidgets.QTableWidgetItem() for _ in range(2)]
+            list.__init__(self, column)
+
+            self.task = task
+
+            self.update()
+
+        def update(self):
+            """Update row by task."""
+            if not self.task:
+                return
+
+            def _stylize(item):
+                """Set item style. """
+
+                item.setBackground(self.brushes[self.task.state][0])
+                item.setForeground(self.brushes[self.task.state][1])
+
+            LOGGER.debug('update row: %s', self.task)
+            assert all(isinstance(i, QtWidgets.QTableWidgetItem) for i in self)
+
+            self[0].setText(self.task.filename)
+            self[0].setCheckState(QtCore.Qt.CheckState(
+                2 if self.task.is_enabled else 0))
+            self[0].setFlags(self.flags[self.task.state][0])
+
+            self[1].setText(str(self.task.priority))
+            self[1].setFlags(self.flags[self.task.state][1])
+
+            _stylize(self[0])
+            _stylize(self[1])
 
     def __init__(self, widget, parent):
         super(TaskTable, self).__init__(parent)
+        self._rows = []
         self.widget = widget
         assert isinstance(parent, MainWindow)
-        self.parent = parent or self.widget.parent()
-        self.queue = render.TaskQueue()
-
-        # self._brushes = {}
-        # if HAS_NUKE:
-        #     self._brushes['local'] = QtGui.QBrush(QtGui.QColor(200, 200, 200))
-        #     self._brushes['uploaded'] = QtGui.QBrush(
-        #         QtGui.QColor(100, 100, 100))
-        # else:
-        #     self._brushes['local'] = QtGui.QBrush(QtCore.Qt.black)
-        #     self._brushes['uploaded'] = QtGui.QBrush(QtCore.Qt.gray)
+        self.parent = parent
+        self.queue = self.parent.queue
+        assert isinstance(self.queue, render.Queue)
 
         # self.widget.itemDoubleClicked.connect(self.open_file)
         # self.parent.actionSelectAll.triggered.connect(self.select_all)
@@ -410,76 +474,68 @@ class TaskTable(QtCore.QObject):
 
         # Timer for widget update
         _timer = QtCore.QTimer(self)
-        _timer.timeout.connect(self.update)
+        _timer.timeout.connect(self.update_queue)
         _timer.start(1000)
 
         self.widget.cellChanged.connect(self.on_cell_changed)
-        self._updating = False
+        self.changed.connect(self.update_widget)
 
-    @property
-    def directory(self):
-        """Current working dir.  """
-        return self.parent.directory
+    def __getitem__(self, index):
+        return self._rows[index]
 
-    def update(self):
+    def __delitem__(self, index):
+        del self._rows[index]
+
+    def __len__(self):
+        return len(self._rows)
+
+    def append(self, row):
+        """Add row to last.  """
+        assert isinstance(row, self.Row)
+        index = len(self._rows)
+        self._rows.append(row)
+        for column, item in enumerate(row):
+            self.widget.setItem(index, column, item)
+
+    def set_row_count(self, number):
+        """Set row count number.  """
+        change = number - len(self)
+        if change > 0:
+            self.widget.setRowCount(number)
+            for _ in range(change):
+                self.append(self.Row())
+        elif change < 0:
+            self.widget.setRowCount(number)
+            del self[number:]
+
+    def update_queue(self):
         """Update queue to match files.  """
-        # LOGGER.debug('TableWidget update')
-        widget = self.widget
         files = render.Files()
         files.update()
-
         # Remove.
-        for item in self.items():
-            if not item:
-                continue
-            text = item.text()
-            if self.parent.render_pool:
-                if self.parent.render_pool.is_current_task(text):
-                    item.setBackground(self.brushes['bg_doing'])
-                    item.setForeground(self.brushes['fg_doing'])
-                else:
-                    item.setBackground(self.brushes['bg_waiting'])
-                    item.setForeground(self.brushes['fg_waiting'])
-
-            if text not in files:
-                widget.removeRow(item.row())
-                self.parent.update_title_prefix()
+        for row in self:
+            if not os.path.exists(row.task.filename):
+                row.task.is_enabled = False
+                self.changed.emit()
 
         # Add.
-        found_new = False
         for i in files:
-            try:
-                item = self.widget.findItems(
-                    i, QtCore.Qt.MatchExactly)[0]
-            except IndexError:
+            if i not in self.queue:
                 LOGGER.debug('Add task: %s', i)
-                self.parent.update_title_prefix()
                 self.queue.put(i)
-                found_new = True
+                self.changed.emit()
 
-        if found_new:
-            self.update_table()
-
-    def update_table(self):
+    def update_widget(self):
         """Update table to match task queue.  """
         self._updating = True
 
         self.queue.sort()
-        row = len(self.queue)
-        self.widget.setRowCount(row)
-        LOGGER.debug('Update table row count: %s', row)
+        self.set_row_count(len(self.queue))
         for index, task in enumerate(self.queue):
-            _item = QtWidgets.QTableWidgetItem(task.filename)
-            _flags = QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled
-            # TODO
-            # _flags |= QtCore.Qt.ItemIsUserCheckable
-            _item.setFlags(_flags)
-            _item.setCheckState(QtCore.Qt.Checked)
-            self.widget.setItem(index, 0, _item)
-            _item = QtWidgets.QTableWidgetItem(str(task.priority))
-            _item.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled |
-                           QtCore.Qt.ItemIsEditable)
-            self.widget.setItem(index, 1, _item)
+            row = self[index]
+            assert isinstance(row, self.Row)
+            row.task = task
+            row.update()
 
         self._updating = False
 
@@ -490,17 +546,23 @@ class TaskTable(QtCore.QObject):
             return
 
         item = self.widget.item(row, column)
-        if column == 1:
-            task = self.queue[row]
+        task = self.queue[row]
+
+        if column == 0:
+            task.is_enabled = bool(item.checkState())
+            LOGGER.debug('Change enabled: %s', task)
+        elif column == 1:
             try:
                 text = item.text()
                 task.priority = int(text)
+                LOGGER.debug('Change priority: %s', task)
             except ValueError:
                 LOGGER.warning('不能识别优先级 %s', text)
-                self._updating = True
                 item.setText(unicode(task.priority))
-                self._updating = False
-            self.update_table()
+
+        self._updating = True
+        self[row].update()
+        self._updating = False
 
     @property
     def checked_files(self):
@@ -587,6 +649,7 @@ def call_from_nuke():
 
 def main():
     """Run this script standalone."""
+    atexit.register(lambda: LOGGER.debug('Python exit.'))
     try:
         working_dir = CONFIG['DIR']
         os.chdir(working_dir)

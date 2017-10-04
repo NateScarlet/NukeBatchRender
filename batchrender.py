@@ -357,6 +357,7 @@ class MainWindow(QMainWindow):
             if self.auto_start:
                 self.auto_start = False
                 self.pushButtonStart.clicked.emit()
+                LOGGER.info('发现新任务, 自动开始渲染')
         else:
             self.pushButtonStart.setEnabled(False)
 

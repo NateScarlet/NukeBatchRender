@@ -536,12 +536,28 @@ class TaskTable(QtCore.QObject):
 
         def __init__(self):
             column = [QtWidgets.QTableWidgetItem() for _ in range(2)]
+            self._add_itemdata_type_check(column[1], int)
             super(TaskTable.Row, self).__init__(column)
 
         def __str__(self):
             ret = ' '.join('({},{})'.format(i.row(), i.column()) for i in self)
             ret = '<Row {}>'.format(ret)
             return ret
+
+        @staticmethod
+        def _add_itemdata_type_check(item, data_type):
+            assert isinstance(item, QtWidgets.QTableWidgetItem)
+
+            def _set_data(index, value):
+                if index == 2:
+                    try:
+                        data_type(value)
+                    except ValueError:
+                        LOGGER.debug('invaild value: %s', value)
+                        return
+                QtWidgets.QTableWidgetItem.setData(
+                    item, index, value)
+            item.setData = _set_data
 
         def update(self):
             """Update row by task."""
@@ -691,7 +707,7 @@ class TaskTable(QtCore.QObject):
                 task.priority = int(text)
                 LOGGER.debug('Change priority: %s', task)
             except ValueError:
-                LOGGER.warning('不能识别优先级 %s, 重置为', text)
+                LOGGER.error('不能识别优先级 %s, 重置为%s', text, task.priority)
                 item.setText(unicode(task.priority))
             else:
                 self.update_widget()

@@ -320,8 +320,7 @@ class Pool(QtCore.QThread):
             task.priority -= 1
             self.error('{}: 渲染出错 第{}次'.format(task.filename, task.error_count))
             if task.error_count >= task.max_retry:
-                self.error('{}: 渲染错误达到{}次,不再进行重试。'.format(
-                    task.filename, task.max_retry))
+                self.error('渲染错误达到{}次,不再进行重试。'.format(task.max_retry))
                 task.is_enabled = False
         else:
             # Normal exit.

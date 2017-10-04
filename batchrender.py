@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python2
 # -*- coding=UTF-8 -*-
 """
 GUI Batchrender for nuke.
@@ -42,7 +42,7 @@ def _set_logger():
     # Stream handler
     _handler = MultiProcessingHandler(logging.StreamHandler)
     _formatter = logging.Formatter(
-        '%(levelname)-6s[%(asctime)s]:%(filename)s:%(lineno)d: %(message)s', '%H:%M:%S')
+        '%(levelname)-6s[%(asctime)s]:%(filename)s:%(lineno)d:%(funcName)s: %(message)s', '%H:%M:%S')
     _handler.setFormatter(_formatter)
     logger.addHandler(_handler)
     logger.debug('Added stream handler.  ')
@@ -217,7 +217,7 @@ class MainWindow(QMainWindow):
             _icon = _stdicon(QtWidgets.QStyle.SP_DialogOpenButton)
             self.toolButtonAskDir.setIcon(_icon)
 
-        QMainWindow.__init__(self, parent)
+        super(MainWindow, self).__init__(parent)
         self.queue = render.Queue()
 
         # ui
@@ -348,7 +348,8 @@ class MainWindow(QMainWindow):
             dir=os.path.dirname(CONFIG['DIR']))
         if path:
             if self.check_dir(path):
-                CONFIG['DIR'] = path
+                CONFIG['dir'] = path
+                self.lineEditDir.setText(path)
             else:
                 self.ask_dir()
 

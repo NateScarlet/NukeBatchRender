@@ -9,3 +9,8 @@
 .info {
     color: yellow
 }
+
+.error{
+    color: white;
+    background: red;
+}

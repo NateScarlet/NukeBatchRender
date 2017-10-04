@@ -163,6 +163,7 @@ class Pool(QtCore.QThread):
     queue_finished = QtCore.Signal()
     child_pid = 0
     current_task = ''
+    stopping = False
 
     def __init__(self, taskqueue):
         super(Pool, self).__init__()
@@ -182,7 +183,7 @@ class Pool(QtCore.QThread):
         LOGGER.debug('Task queue:\n %s', self.queue)
         self.queue_started.emit()
 
-        while self.queue:
+        while not self.stopping and self.queue:
             LOGGER.debug('Rendering:\n%s', self.queue)
             task = self.queue.get()
             try:
@@ -197,10 +198,20 @@ class Pool(QtCore.QThread):
 
     def info(self, text):
         """Send info to stdout.  """
+
+        LOGGER.info(text)
         self.stdout.emit(stylize(text, 'info'))
+
+    def error(self, text):
+        """Send error to stderr.  """
+
+        LOGGER.error(text)
+        self.stderr.emit(stylize(text, 'error'))
 
     def stop(self):
         """Stop rendering.  """
+
+        self.stopping = True
         pid = self.child_pid
         for task in self.queue:
             task.is_doing = False
@@ -208,12 +219,8 @@ class Pool(QtCore.QThread):
             LOGGER.debug('Stoping child: %s', pid)
             try:
                 os.kill(pid, 9)
-                self.stdout.emit(stylize('终止进程 pid: {}'.format(pid), 'info'))
             except OSError as ex:
                 LOGGER.debug('Kill process fail: %s: %s', pid, ex)
-        if self.isRunning():
-            self.exit(1)
-            self.terminate()
 
     @staticmethod
     def nuke_process(f):
@@ -287,7 +294,7 @@ class Pool(QtCore.QThread):
         task.is_doing = True
         self.current_task = task.filename
         self.task_started.emit()
-        LOGGER.debug('Executing task: %s', task)
+        self.info('执行任务: {0.filename} 优先级:{0.priority}'.format(task))
 
         # task.filename = Files.lock(task.filename)
         Files.archive(task.filename)
@@ -295,29 +302,26 @@ class Pool(QtCore.QThread):
         start_time = time.clock()
         proc = self.nuke_process(task.filename)
         self.child_pid = proc.pid
-        LOGGER.debug('Started render process: %s', proc.pid)
+        self.info('开始进程: {}'.format(proc.pid))
 
         self.handle_output(proc)
 
         retcode = proc.wait()
         time_cost = timef(time.clock() - start_time)
         retcode_str = '退出码: {}'.format(retcode) if retcode else '正常退出'
-        self.info('耗时 {} {}'.format(time_cost, retcode_str))
-        LOGGER.info(
-            '%s: 结束渲染 耗时 %s %s',
-            task.filename,
-            time_cost,
-            retcode_str,
-        )
+        self.info('{}: 结束渲染 耗时 {} {}'.format(
+            task.filename, time_cost, retcode_str))
 
-        if retcode:
+        if self.stopping:
+            self.info('中途终止进程 pid: {}'.format(proc.pid))
+        elif retcode:
             # Exited with error.
             task.error_count += 1
             task.priority -= 1
-            LOGGER.error('%s: 渲染出错 第%s次', task.filename, task.error_count)
+            self.error('{}: 渲染出错 第{}次'.format(task.filename, task.error_count))
             if task.error_count >= task.max_retry:
-                LOGGER.error('%s: 连续渲染错误超过%s次,不再进行重试。',
-                             task.filename, task.max_retry)
+                self.error('{}: 渲染错误达到{}次,不再进行重试。'.format(
+                    task.filename, task.max_retry))
                 task.is_enabled = False
         else:
             # Normal exit.
@@ -326,14 +330,16 @@ class Pool(QtCore.QThread):
                     mtime = os.path.getmtime(task.filename)
                     if mtime == task.mtime:
                         task.is_finished = True
-                        os.remove(task.filename)
+                        self.info('任务完成')
+                        Files.remove(task.filename)
                     else:
-                        LOGGER.debug(
-                            'Found mtime change %s -> %s, will do again %s',
-                            mtime, task.mtime, self)
+                        self.info(
+                            '发现修改日期变更 {} -> {}, 将再次执行任务 {}'.format(
+                                mtime, task.mtime, task.filename))
                         task.mtime = mtime
+                        task.error_count = 0
                 except OSError:
-                    LOGGER.debug('Remove %s fail', task.filename)
+                    self.error('移除文件 {} 失败'.format(task.filename))
 
         task.is_doing = False
         self.task_finished.emit()

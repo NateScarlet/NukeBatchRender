@@ -448,6 +448,8 @@ class MainWindow(QMainWindow):
         self.render_pool.stderr.connect(self.textBrowser.append)
         self.render_pool.progress.connect(self.progressBar.setValue)
         self.render_pool.task_started.connect(self.task_table.update_widget)
+        self.render_pool.task_finished.connect(
+            self.task_table.queue_changed.emit)
         self.render_pool.task_finished.connect(self.task_table.update_widget)
         self.render_pool.queue_finished.connect(self.render_stopped.emit)
 
@@ -607,22 +609,22 @@ class TaskTable(QtCore.QObject):
 
         self.widget.setColumnWidth(0, 350)
 
-        # self.widget.itemDoubleClicked.connect(self.open_file)
         self.parent.pushButtonRemoveOldVersion.clicked.connect(
             self.remove_old_version)
         self.parent.toolButtonCheckAll.clicked.connect(self.check_all)
         self.parent.toolButtonReverseCheck.clicked.connect(self.reverse_check)
         self.parent.toolButtonRemove.clicked.connect(self.remove_selected)
+
         self.widget.itemSelectionChanged.connect(self.on_selection_changed)
         self.widget.cellDoubleClicked.connect(self.on_cell_double_clicked)
         self.widget.cellChanged.connect(self.on_cell_changed)
+
+        self.queue_changed.connect(self.on_queue_changed)
 
         # Timer for widget update
         _timer = QtCore.QTimer(self)
         _timer.timeout.connect(self.update_queue)
         _timer.start(1000)
-
-        self.queue_changed.connect(self.on_queue_changed)
 
     def __getitem__(self, index):
         return self._rows[index]

@@ -614,13 +614,14 @@ class TaskTable(QtCore.QObject):
         self.parent.toolButtonReverseCheck.clicked.connect(self.reverse_check)
         self.parent.toolButtonRemove.clicked.connect(self.remove_selected)
         self.widget.itemSelectionChanged.connect(self.on_selection_changed)
+        self.widget.cellDoubleClicked.connect(self.on_cell_double_clicked)
+        self.widget.cellChanged.connect(self.on_cell_changed)
 
         # Timer for widget update
         _timer = QtCore.QTimer(self)
         _timer.timeout.connect(self.update_queue)
         _timer.start(1000)
 
-        self.widget.cellChanged.connect(self.on_cell_changed)
         self.queue_changed.connect(self.on_queue_changed)
 
     def __getitem__(self, index):
@@ -720,6 +721,16 @@ class TaskTable(QtCore.QObject):
                 item.setText(unicode(task.priority))
             else:
                 self.update_widget()
+
+    @QtCore.Slot(int, int)
+    def on_cell_double_clicked(self, row, column):
+        if column != 0:
+            return
+
+        task = self[row].task
+        path = os.path.dirname(task.filename) or '.'
+        LOGGER.debug('User clicked: %s', task)
+        webbrowser.open(path)
 
     def on_selection_changed(self):
         """Do work on selection changed.  """

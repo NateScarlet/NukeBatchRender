@@ -426,7 +426,8 @@ class Files(list):
         """Archive file then remove it.  """
 
         cls.archive(f)
-        os.remove(get_encoded(f))
+        if not os.path.isabs(f):
+            os.remove(get_encoded(f))
 
     @staticmethod
     def split_version(f):

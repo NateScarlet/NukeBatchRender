@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
 try:
     from Qt import QtCompat, QtCore, QtWidgets, QtGui
-    from Qt.QtWidgets import QApplication, QFileDialog, QMainWindow
+    from Qt.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBox
 except:
     raise
 
@@ -42,7 +42,8 @@ def _set_logger():
     # Stream handler
     _handler = MultiProcessingHandler(logging.StreamHandler)
     _formatter = logging.Formatter(
-        '%(levelname)-6s[%(asctime)s]:%(filename)s:%(lineno)d:%(funcName)s: %(message)s', '%H:%M:%S')
+        '%(levelname)-6s[%(asctime)s]:%(filename)s:'
+        '%(lineno)d:%(funcName)s: %(message)s', '%H:%M:%S')
     _handler.setFormatter(_formatter)
     logger.addHandler(_handler)
     logger.debug('Added stream handler.  ')
@@ -104,6 +105,7 @@ class MainWindow(QMainWindow):
     render_pool = None
     render_started = QtCore.Signal()
     render_stopped = QtCore.Signal()
+    file_dropped = QtCore.Signal(list)
 
     class Title(object):
         """Window title.  """
@@ -246,6 +248,64 @@ class MainWindow(QMainWindow):
 
         _signals()
 
+        # XXX: Don't know why tableWidget never trigger drag drop events.
+        self.setAcceptDrops(True)
+        self.file_dropped.connect(self.on_file_dropped)
+
+    def absolute_pos(self, widget):
+        """Return absolute postion for child @widget.  """
+
+        ret = QtCore.QPoint(0, 0)
+        widget = widget.parent()
+        while widget is not self:
+            ret += widget.pos()
+            widget = widget.parent()
+
+        return ret
+
+    def is_pos_in_widget(self, pos, widget):
+        """Return if @pos in @widget geometry.  """
+        if not widget.isVisible():
+            return False
+        return widget.geometry().contains(pos - self.absolute_pos(widget))
+
+    @QtCore.Slot(list)
+    def on_file_dropped(self, files):
+        files = [i for i in files if i.endswith('.nk')]
+        if files:
+            _ = [self.queue.put(i) for i in files]
+            LOGGER.debug('Add %s', files)
+            self.task_table.update_widget()
+        else:
+            QMessageBox.warning(self, '不支持的格式', '目前只支持nk文件')
+
+    def dragEnterEvent(self, event):
+        LOGGER.debug('Drag into %s', self)
+        if event.mimeData().hasUrls():
+            event.accept()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+
+        if self.is_pos_in_widget(event.pos(), self.tableWidget):
+            event.setDropAction(QtCore.Qt.CopyAction)
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        if self.is_pos_in_widget(event.pos(), self.tableWidget):
+            event.setDropAction(QtCore.Qt.CopyAction)
+            event.accept()
+            links = []
+            for url in event.mimeData().urls():
+                links.append(get_unicode(url.toLocalFile()))
+            LOGGER.debug('Dropped files: %s', ', '.join(links))
+            self.file_dropped.emit(links)
+        else:
+            event.ignore()
+
     def __getattr__(self, name):
         return getattr(self._ui, name)
 
@@ -366,7 +426,7 @@ class MainWindow(QMainWindow):
                 edit.setStyleSheet('background:rgb(100%,50%,50%)')
         except UnicodeEncodeError:
             edit.setText(CONFIG['DIR'])
-            QtWidgets.QMessageBox.information(
+            QMessageBox.information(
                 self, path, 'Nuke只支持英文路径')
             return False
         return True
@@ -405,15 +465,15 @@ class MainWindow(QMainWindow):
         """Override qt closeEvent."""
 
         if self.is_rendering:
-            confirm = QtWidgets.QMessageBox.question(
+            confirm = QMessageBox.question(
                 self,
                 '正在渲染中',
                 "停止渲染并退出?",
-                QtWidgets.QMessageBox.Yes |
-                QtWidgets.QMessageBox.No,
-                QtWidgets.QMessageBox.No
+                QMessageBox.Yes |
+                QMessageBox.No,
+                QMessageBox.No
             )
-            if confirm == QtWidgets.QMessageBox.Yes:
+            if confirm == QMessageBox.Yes:
                 self.render_pool.stop()
                 Application.exit()
                 LOGGER.info('渲染途中退出')

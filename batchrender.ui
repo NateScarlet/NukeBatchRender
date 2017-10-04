@@ -230,7 +230,7 @@ p, li { white-space: pre-wrap; }
           </property>
           <item>
            <property name="text">
-            <string>什么都不做</string>
+            <string>等待新任务</string>
            </property>
           </item>
           <item>
@@ -256,6 +256,11 @@ p, li { white-space: pre-wrap; }
           <item>
            <property name="text">
             <string>运行程序</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>什么都不做</string>
            </property>
           </item>
          </widget>

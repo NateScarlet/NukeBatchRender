@@ -103,6 +103,7 @@ class Application(QApplication):
 class MainWindow(QMainWindow):
     """Main GUI window.  """
     render_pool = None
+    auto_start = False
     render_started = QtCore.Signal()
     render_stopped = QtCore.Signal()
     file_dropped = QtCore.Signal(list)
@@ -319,12 +320,13 @@ class MainWindow(QMainWindow):
 
         after_finish = self.comboBoxAfterFinish.currentText()
         actions = {
-            '什么都不做': lambda: LOGGER.info('渲染完成后什么都不做'),
+            '等待新任务': lambda: setattr(self, 'auto_start', True),
             '休眠': hiber,
             '关机': shutdown,
             'Deadline': lambda: webbrowser.open(CONFIG['DEADLINE']),
             '执行命令': lambda: subprocess.Popen(CONFIG['AFTER_FINISH_CMD'], shell=True),
             '运行程序': lambda: webbrowser.open(CONFIG['AFTER_FINISH_PROGRAM']),
+            '什么都不做': lambda: LOGGER.info('渲染完成后什么都不做')
         }
 
         self.pushButtonStop.hide()
@@ -352,6 +354,9 @@ class MainWindow(QMainWindow):
         LOGGER.debug('On task table changed.')
         if self.task_table.queue:
             self.pushButtonStart.setEnabled(True)
+            if self.auto_start:
+                self.auto_start = False
+                self.pushButtonStart.clicked.emit()
         else:
             self.pushButtonStart.setEnabled(False)
 
@@ -363,6 +368,9 @@ class MainWindow(QMainWindow):
 
         def _reset():
             edit.setCurrentIndex(0)
+
+        if text != '等待新任务':
+            self.auto_start = False
 
         if text == 'Deadline':
             if os.path.exists(CONFIG['DEADLINE']):

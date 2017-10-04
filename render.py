@@ -419,7 +419,7 @@ class Files(list):
 
     @staticmethod
     def split_version(f):
-        """Return nuke style _v# (shot, version number) pair.  
+        """Return nuke style _v# (shot, version number) pair.
 
         >>> Files.split_version('sc_001_v20.nk')
         (u'sc_001', 20)

@@ -1,3 +1,4 @@
+#! /usr/bin/env python2
 # -*- coding=UTF-8 -*-
 """Task rendering.  """
 from __future__ import print_function, unicode_literals
@@ -5,8 +6,7 @@ from __future__ import print_function, unicode_literals
 import datetime
 import logging
 import logging.handlers
-import multiprocessing
-import multiprocessing.dummy
+import threading
 import os
 import re
 import shutil
@@ -161,30 +161,20 @@ class Pool(QtCore.QThread):
     task_finished = QtCore.Signal()
     queue_started = QtCore.Signal()
     queue_finished = QtCore.Signal()
+    child_pid = 0
+    current_task = ''
 
     def __init__(self, taskqueue):
         super(Pool, self).__init__()
         assert isinstance(taskqueue, Queue)
         self.queue = taskqueue
-        self._child_pid = multiprocessing.Value('i')
-        self._current_task = multiprocessing.Array('c', 128)
         self.task_started.connect(lambda: self.progress.emit(0))
-
-    @property
-    def child_pid(self):
-        """Child pid value.  """
-        return self._child_pid.value
-
-    @property
-    def current_task(self):
-        """Current task value.  """
-        return get_unicode(self._current_task.value)
 
     def is_current_task(self, name):
         """Return if @name is current task.  """
         if isinstance(name, Task):
             name = name.filename
-        return name[:128] == self.current_task
+        return name == self.current_task
 
     def run(self):
         """Overridde.  """
@@ -286,10 +276,8 @@ class Pool(QtCore.QThread):
                 self.stdout.emit(stylize(line, 'stdout'))
 
             LOGGER.debug('Finished thread: handle_stdout')
-        multiprocessing.dummy.Process(
-            name='handle_stderr', target=_stderr).start()
-        multiprocessing.dummy.Process(
-            name='handle_stdout', target=_stdout).start()
+        threading.Thread(name='handle_stderr', target=_stderr).start()
+        threading.Thread(name='handle_stdout', target=_stdout).start()
 
     def execute_task(self, task):
         """Render the task file.  """
@@ -297,7 +285,7 @@ class Pool(QtCore.QThread):
         assert isinstance(task, Task)
 
         task.is_doing = True
-        self._current_task.value = task.filename
+        self.current_task = task.filename
         self.task_started.emit()
         LOGGER.debug('Executing task: %s', task)
 
@@ -306,7 +294,7 @@ class Pool(QtCore.QThread):
 
         start_time = time.clock()
         proc = self.nuke_process(task.filename)
-        self._child_pid.value = proc.pid
+        self.child_pid = proc.pid
         LOGGER.debug('Started render process: %s', proc.pid)
 
         self.handle_output(proc)

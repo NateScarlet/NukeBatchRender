@@ -620,7 +620,7 @@ class TaskTable(QtCore.QObject):
                     tooltip += '\n剩余时间: {}'.format(
                         render.timef(task.remains_time))
             else:
-                tooltip = ''
+                tooltip = '<无统计数据>'
 
             self[0].setToolTip(tooltip)
 

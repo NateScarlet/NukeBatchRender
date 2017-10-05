@@ -425,7 +425,7 @@ class MainWindow(QMainWindow):
             dir=os.path.dirname(CONFIG['DIR']))
         if path:
             if self.check_dir(path):
-                CONFIG['dir'] = path
+                CONFIG['DIR'] = path
                 self.lineEditDir.setText(path)
             else:
                 self.ask_dir()

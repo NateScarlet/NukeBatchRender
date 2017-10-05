@@ -24,6 +24,10 @@ LOGGER = logging.getLogger('render')
 class Queue(list):
     """Task render quene.  """
 
+    def __init__(self):
+        super(Queue, self).__init__()
+        self.clock = Clock(self)
+
     def __contains__(self, item):
         if isinstance(item, (str, unicode)):
             return any(i for i in self if i.filename == item)
@@ -99,17 +103,15 @@ class Task(object):
     error_count = 0
     priority = 0
     max_retry = 3
-
-    class Clock(object):
-        """Caculate remain time.  """
-        # TODO
-        pass
+    averge_time = 0.0
+    frame_count = 0
+    clocked_count = 0
+    last_time = None
 
     def __init__(self, filename, priority=0):
         self.filename = filename
         self.priority = priority
         self.result_files = []
-        self.clock = self.Clock()
         self._mtime = os.path.getmtime(self.filename)
         self._proc = None
 
@@ -150,6 +152,12 @@ class Task(object):
             return 'doing'
 
         return 'waiting'
+
+    @property
+    def estimate_time(self):
+        """Estimate task time cost.  """
+
+        return self.averge_time * self.frame_count
 
 
 class Pool(QtCore.QThread):
@@ -269,9 +277,11 @@ class Pool(QtCore.QThread):
                     break
                 match = re.match(r'.*?(\d+)\s?of\s?(\d+)', line)
                 if match:
-                    percent = int(match.group(1)) * 100 / int(match.group(2))
+                    total = int(match.group(2))
+                    percent = int(match.group(1)) * 100 / total
                     # LOGGER.debug('Percent %s', percent)
                     self.progress.emit(percent)
+                    self.current_task.frame_count = total
                 line = l10n(line)
                 # with lock:
                 #     line = l10n(line)
@@ -292,7 +302,7 @@ class Pool(QtCore.QThread):
         assert isinstance(task, Task)
 
         task.is_doing = True
-        self.current_task = task.filename
+        self.current_task = task
         self.task_started.emit()
         self.info('执行任务: {0.filename} 优先级:{0.priority}'.format(task))
 
@@ -345,6 +355,67 @@ class Pool(QtCore.QThread):
         return retcode
 
 
+class Clock(QtCore.QObject):
+    """Caculate remain time for a queue.  """
+    averge_time = 0.0
+    clocked_count = 0
+    _averge_frame_count = 0
+    remains_changed = QtCore.Signal(float)
+
+    def __init__(self, queue):
+        super(Clock, self).__init__()
+        assert isinstance(queue, Queue)
+        self.queue = queue
+
+    def start_clock(self, pool):
+        """Start record time information for @pool.  """
+
+        assert isinstance(pool, Pool)
+        pool.progress.connect(
+            lambda value: self.record(pool.current_task, value))
+
+    @property
+    def averge_frame_count(self):
+        """Predicted averge frame count.  """
+
+        counts = [i.frame_count for i in self.queue if i.state in (
+            'doing', 'finished')]
+        counts = [i for i in counts if i]
+        if counts:
+            return reduce(int.__add__, counts) / len(counts)
+        return 100
+
+    def record(self, task, value):
+        """Record time information.  """
+
+        assert isinstance(task, Task)
+        if value == 0:
+            task.last_time = None
+            return
+
+        if task.last_time:
+            frame_time = time.clock() - task.last_time
+            total_time = task.averge_time * task.clocked_count + frame_time
+            self_total_time = self.averge_time * self.clocked_count + frame_time
+            task.clocked_count += 1
+            self.clocked_count += 1
+            task.averge_time = total_time / task.clocked_count
+            self.averge_time = self_total_time / self.clocked_count
+        task.last_time = time.clock()
+
+        self.remains_changed.emit(self.remains())
+
+    def remains(self):
+        """This render remains time.  """
+
+        ret = 0
+        for i in [i for i in self.queue if i.state in ('waiting', 'doing')]:
+            ret += i.estimate_time or self.averge_time * \
+                (i.frame_count or self.averge_frame_count)
+
+        return ret
+
+
 def timef(seconds):
     """Return a nice representation fo given seconds.
 
@@ -364,9 +435,9 @@ def timef(seconds):
     if int(seconds) == seconds:
         seconds = int(seconds)
     if hour:
-        ret += '{}小时'.format(hour)
+        ret += '{:.0f}小时'.format(hour)
     if minute:
-        ret += '{}分'.format(minute)
+        ret += '{:.0f}分'.format(minute)
     ret += '{}秒'.format(seconds)
     return ret
 

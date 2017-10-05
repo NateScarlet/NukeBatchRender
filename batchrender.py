@@ -154,7 +154,7 @@ class MainWindow(QMainWindow):
             """Update title, rotate when rendering.  """
 
             if self.parent.is_rendering:
-                title = self.parent.render_pool.current_task.partition('.nk')[
+                title = self.parent.render_pool.current_task.filename.partition('.nk')[
                     0] or self.default_title
                 self.title_index += 1
                 index = self.title_index % len(title)
@@ -222,6 +222,7 @@ class MainWindow(QMainWindow):
 
         super(MainWindow, self).__init__(parent)
         self.queue = render.Queue()
+        self.queue.clock.remains_changed.connect(self.on_remains_changed)
 
         # ui
         self._ui = QtCompat.loadUi(os.path.abspath(
@@ -411,6 +412,12 @@ class MainWindow(QMainWindow):
         else:
             edit.setToolTip('')
 
+    def on_remains_changed(self, remains):
+        text = '停止'
+        if remains:
+            text = '{}[{}]'.format(text, render.timef(int(remains)))
+        self.pushButtonStop.setText(text)
+
     def ask_dir(self):
         """Show a dialog ask config['DIR'].  """
 
@@ -453,6 +460,8 @@ class MainWindow(QMainWindow):
             self.task_table.queue_changed.emit)
         self.render_pool.task_finished.connect(self.task_table.update_widget)
         self.render_pool.queue_finished.connect(self.render_stopped.emit)
+
+        self.queue.clock.start_clock(self.render_pool)
 
     def start_button_clicked(self):
         """Button clicked action.  """

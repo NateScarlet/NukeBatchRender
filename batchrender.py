@@ -32,6 +32,7 @@ __version__ = '0.8.10'
 
 
 LOGGER = logging.getLogger()
+DEFAULT_DIR = os.path.expanduser('~/.nuke/batchrender')
 
 
 def _set_logger():
@@ -78,7 +79,6 @@ del _set_logger
 
 if getattr(sys, 'frozen', False):
     __file__ = os.path.join(getattr(sys, '_MEIPASS', ''), __file__)
-
 
 if sys.getdefaultencoding() != 'UTF-8':
     reload(sys)
@@ -892,12 +892,6 @@ def call_from_nuke():
             LOGGER.debug('Executable not found in %s', dist_dir)
 
     _file = __file__.rstrip('c')
-    render_dir = CONFIG['DIR']
-    if not os.path.exists(render_dir):
-        render_dir = os.path.expanduser('~/batchrender')
-        if not os.path.exists(render_dir):
-            os.mkdir(render_dir)
-        CONFIG['DIR'] = render_dir
     args = [sys.executable, '--tg', _file]
     if sys.platform == 'win32':
         args = [os.path.join(os.path.dirname(
@@ -907,7 +901,6 @@ def call_from_nuke():
         args = '"{0[0]}" {0[1]} "{0[2]}"'.format(args)
         kwargs = {'shell': True, 'executable': 'bash'}
     subprocess.Popen(args,
-                     cwd=render_dir,
                      **kwargs)
 
 
@@ -915,11 +908,14 @@ def main():
     """Run this script standalone."""
     atexit.register(lambda: LOGGER.debug('Python exit.'))
     try:
-        working_dir = CONFIG['DIR']
-        os.chdir(working_dir)
+        os.chdir(CONFIG['DIR'])
         LOGGER.debug('Change dir: %s', os.getcwd())
     except OSError:
-        LOGGER.warning('Can not change dir to: %s', working_dir)
+        LOGGER.warning('工作目录不可用: %s, 重置为默认位置', CONFIG['DIR'])
+        if not os.path.exists(CONFIG['DIR']):
+            if not os.path.exists(DEFAULT_DIR):
+                os.makedirs(DEFAULT_DIR)
+            CONFIG['DIR'] = DEFAULT_DIR
     app = Application.instance()
     if not app:
         app = Application(sys.argv)

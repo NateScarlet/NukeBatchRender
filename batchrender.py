@@ -691,9 +691,10 @@ class TaskTable(QtCore.QObject):
 
     def update_queue(self):
         """Update queue to match files.  """
+
         # Disable.
         for row in self:
-            if row.task.is_enabled and not os.path.exists(row.task.filename):
+            if row.task.state == 'waiting' and not os.path.exists(row.task.filename):
                 LOGGER.debug('%s not existed in %s anymore.',
                              row.task.filename, os.getcwd())
                 row.task.is_enabled = False

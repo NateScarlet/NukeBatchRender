@@ -103,6 +103,7 @@ class Task(object):
     is_enabled = True
     is_doing = False
     is_finished = False
+    is_changed = False
     error_count = 0
     priority = 0
     max_retry = 3
@@ -139,7 +140,7 @@ class Task(object):
             if mtime != self._mtime:
                 LOGGER.debug(
                     'Found mtime change %s -> %s, %s', mtime, self._mtime, self)
-                self.is_finished = False
+                self.is_changed = True
             self._mtime = mtime
         except OSError as ex:
             LOGGER.debug('Update mtime fail %s: %s', self, ex)
@@ -352,7 +353,7 @@ class Pool(QtCore.QThread):
                             '发现修改日期变更 {} -> {}, 将再次执行任务 {}'.format(
                                 mtime, task.mtime, task.filename))
                         task.mtime = mtime
-                        task.error_count = 0
+                        task.is_changed = True
                 except OSError:
                     self.error('移除文件 {} 失败'.format(task.filename))
 

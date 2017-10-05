@@ -695,11 +695,21 @@ class TaskTable(QtCore.QObject):
 
         # Disable.
         for row in self:
-            if row.task.state == 'waiting' and not os.path.exists(row.task.filename):
-                LOGGER.debug('%s not existed in %s anymore.',
-                             row.task.filename, os.getcwd())
-                row.task.is_enabled = False
+            task = row.task
+            assert isinstance(task, render.Task)
+            if task.is_changed:
+                task.is_enabled = True
+                task.is_finished = False
+                task.is_changed = False
+                task.error_count = 0
                 row.update()
+                self.queue_changed.emit()
+            if task.state == 'waiting' and not os.path.exists(task.filename):
+                LOGGER.debug('%s not existed in %s anymore.',
+                             task.filename, os.getcwd())
+                task.is_enabled = False
+                row.update()
+                self.queue_changed.emit()
 
         # Add.
         render.FILES.update()

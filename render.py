@@ -393,10 +393,10 @@ class Clock(QtCore.QObject):
 
         assert isinstance(task, Task)
         if value == 0:
-            task.last_time = None
+            task.last_time = time.clock()
             return
 
-        if task.last_time:
+        if task.last_time is not None:
             frame_time = time.clock() - task.last_time
             total_time = task.averge_time * task.clocked_count + frame_time
             self_total_time = self.averge_time * self.clocked_count + frame_time
@@ -405,6 +405,7 @@ class Clock(QtCore.QObject):
             task.averge_time = total_time / task.clocked_count
             self.averge_time = self_total_time / self.clocked_count
             task.remains_time = task.estimate_time * (100 - value) / 100
+            # LOGGER.debug('task %s remains %s', task, task.remains_time)
         task.last_time = time.clock()
 
         self.remains_changed.emit(self.remains())
@@ -414,8 +415,11 @@ class Clock(QtCore.QObject):
 
         ret = 0
         for i in [i for i in self.queue if i.state in ('waiting', 'doing')]:
-            ret += i.estimate_time or self.averge_time * \
-                (i.frame_count or self.averge_frame_count)
+            if i.state == 'doing':
+                ret += i.remains_time
+            else:
+                ret += i.estimate_time or self.averge_time * \
+                    (i.frame_count or self.averge_frame_count)
 
         return ret
 

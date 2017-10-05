@@ -610,11 +610,16 @@ class TaskTable(QtCore.QObject):
             _stylize(self[0])
             _stylize(self[1])
 
-            tooltip = '帧数: {} 帧均耗时:{}'.format(
-                task.frame_count, render.timef(task.averge_time))
-            tooltip += '\n预计耗时:{}'.format(render.timef(task.estimate_time))
-            if task.state == 'doing':
-                tooltip += '\n剩余时间{}'.format(render.timef(task.remains_time))
+            if task.last_time is not None:
+                tooltip = '帧数: {}\n帧均耗时:{}'.format(
+                    task.frame_count, render.timef(task.averge_time))
+                tooltip += '\n预计耗时:{}'.format(render.timef(task.estimate_time))
+                if task.state == 'doing':
+                    tooltip += '\n剩余时间: {}'.format(
+                        render.timef(task.remains_time))
+            else:
+                tooltip = ''
+
             self[0].setToolTip(tooltip)
 
             self.updating = False

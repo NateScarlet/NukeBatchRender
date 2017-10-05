@@ -384,8 +384,7 @@ class Clock(QtCore.QObject):
     def averge_frame_count(self):
         """Predicted averge frame count.  """
 
-        counts = [i.frame_count for i in self.queue if i.state in (
-            'doing', 'finished')]
+        counts = [i.frame_count for i in self.queue]
         counts = [i for i in counts if i]
         if counts:
             return reduce(int.__add__, counts) / len(counts)

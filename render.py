@@ -104,6 +104,7 @@ class Task(object):
     priority = 0
     max_retry = 3
     averge_time = 0.0
+    remains_time = 0.0
     frame_count = 0
     clocked_count = 0
     last_time = None
@@ -170,7 +171,7 @@ class Pool(QtCore.QThread):
     queue_started = QtCore.Signal()
     queue_finished = QtCore.Signal()
     child_pid = 0
-    current_task = ''
+    current_task = None
     stopping = False
 
     def __init__(self, taskqueue):
@@ -403,6 +404,7 @@ class Clock(QtCore.QObject):
             self.clocked_count += 1
             task.averge_time = total_time / task.clocked_count
             self.averge_time = self_total_time / self.clocked_count
+            task.remains_time = task.estimate_time * (100 - value) / 100
         task.last_time = time.clock()
 
         self.remains_changed.emit(self.remains())

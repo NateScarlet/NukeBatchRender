@@ -3,7 +3,6 @@
 """
 GUI Batchrender for nuke.
 """
-# TODO: Add task detail to table item tooltip.
 from __future__ import print_function, unicode_literals
 
 import atexit
@@ -153,7 +152,7 @@ class MainWindow(QMainWindow):
         def update(self):
             """Update title, rotate when rendering.  """
 
-            if self.parent.is_rendering:
+            if self.parent.is_rendering and self.parent.render_pool.current_task:
                 title = self.parent.render_pool.current_task.filename.partition('.nk')[
                     0] or self.default_title
                 self.title_index += 1
@@ -417,6 +416,8 @@ class MainWindow(QMainWindow):
             text = '{}[{}]'.format(text, render.timef(int(remains)))
         self.pushButtonStop.setText(text)
 
+        self.task_table[self.render_pool.current_task].update()
+
     def ask_dir(self):
         """Show a dialog ask config['DIR'].  """
 
@@ -581,8 +582,12 @@ class TaskTable(QtCore.QObject):
 
         def update(self):
             """Update row by task."""
-            if not self.task or self.updating:
+
+            task = self.task
+            if not task or self.updating:
                 return
+            assert isinstance(task, render.Task)
+
             self.updating = True
 
             def _stylize(item):
@@ -604,6 +609,13 @@ class TaskTable(QtCore.QObject):
 
             _stylize(self[0])
             _stylize(self[1])
+
+            tooltip = '帧数: {} 帧均耗时:{}'.format(
+                task.frame_count, render.timef(task.averge_time))
+            tooltip += '\n预计耗时:{}'.format(render.timef(task.estimate_time))
+            if task.state == 'doing':
+                tooltip += '\n剩余时间{}'.format(render.timef(task.remains_time))
+            self[0].setToolTip(tooltip)
 
             self.updating = False
 
@@ -636,6 +648,8 @@ class TaskTable(QtCore.QObject):
         _timer.start(1000)
 
     def __getitem__(self, index):
+        if not isinstance(index, int):
+            return [i for i in self._rows if i.task == index][0]
         return self._rows[index]
 
     def __delitem__(self, index):

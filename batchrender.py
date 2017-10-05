@@ -551,7 +551,8 @@ class TaskTable(QtCore.QObject):
                               (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
                                | QtCore.Qt.ItemIsEditable)),
                  'finished': ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled),
-                              (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable))}
+                              (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
+                               | QtCore.Qt.ItemIsEditable))}
         task = None
         updating = False
 

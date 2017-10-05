@@ -85,9 +85,9 @@ class Queue(list):
 
     def enabled_tasks(self):
         """All enabled task in queue. """
+
         self.sort()
-        return [i for i in self
-                if i.is_enabled and not i.is_doing]
+        return [i for i in self if i.state == 'waiting']
 
 
 class Task(object):

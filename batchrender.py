@@ -259,7 +259,7 @@ class MainWindow(QMainWindow):
 
         ret = QtCore.QPoint(0, 0)
         widget = widget.parent()
-        while widget is not self:
+        while widget and widget is not self:
             ret += widget.pos()
             widget = widget.parent()
 
@@ -765,7 +765,8 @@ class TaskTable(QtCore.QObject):
     def on_selection_changed(self):
         """Do work on selection changed.  """
 
-        self.parent.toolButtonRemove.setEnabled(bool(self.current_selected()))
+        tasks = [i for i in self.current_selected() if i.state != 'doing']
+        self.parent.toolButtonRemove.setEnabled(bool(tasks))
 
     def on_queue_changed(self):
         """Do work on queue changed.  """
@@ -845,7 +846,7 @@ class TaskTable(QtCore.QObject):
     def remove_selected(self):
         """Select all item in list widget.  """
 
-        tasks = self.current_selected()
+        tasks = [i for i in self.current_selected() if i.state != 'doing']
 
         for i in tasks:
             self.queue.remove(i)

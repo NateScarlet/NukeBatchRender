@@ -80,6 +80,9 @@ class Queue(list):
         """Archive file, then remove task and file.  """
 
         item = self[item]
+        if item.state == 'doing':
+            LOGGER.error('不能移除正在进行的任务: %s', item.filename)
+            return
         filename = item.filename
         LOGGER.debug('Remove task: %s', item)
 

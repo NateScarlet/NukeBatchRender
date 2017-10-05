@@ -354,7 +354,7 @@ class MainWindow(QMainWindow):
         LOGGER.debug('On task table changed.')
         if self.task_table.queue:
             self.pushButtonStart.setEnabled(True)
-            if self.auto_start:
+            if self.auto_start and not self.render_pool.isRunning():
                 self.auto_start = False
                 self.pushButtonStart.clicked.emit()
                 LOGGER.info('发现新任务, 自动开始渲染')

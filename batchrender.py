@@ -248,6 +248,7 @@ class MainWindow(QMainWindow):
         self.new_render_pool()
 
         _signals()
+        self.task_table.queue_changed.emit()
 
         # XXX: Don't know why tableWidget never trigger drag drop events.
         self.setAcceptDrops(True)

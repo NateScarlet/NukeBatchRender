@@ -877,6 +877,8 @@ def shutdown():
 
 def call_from_nuke():
     """For nuke menu call.  """
+
+    CONFIG.read()
     CONFIG['NUKE'] = sys.executable
 
     if sys.platform == 'win32':

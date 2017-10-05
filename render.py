@@ -229,6 +229,8 @@ class Pool(QtCore.QThread):
                 os.kill(pid, 9)
             except OSError as ex:
                 LOGGER.debug('Kill process fail: %s: %s', pid, ex)
+        if self.isRunning():
+            self.exit(1)
 
     @staticmethod
     def nuke_process(f):
@@ -312,7 +314,7 @@ class Pool(QtCore.QThread):
         start_time = time.clock()
         proc = self.nuke_process(task.filename)
         self.child_pid = proc.pid
-        self.info('开始进程: {}'.format(proc.pid))
+        self.info('开始进程 pid: {}'.format(proc.pid))
 
         self.handle_output(proc)
 

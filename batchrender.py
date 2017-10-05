@@ -345,7 +345,6 @@ class MainWindow(QMainWindow):
         Application.alert(self)
 
         self.new_render_pool()
-        LOGGER.info('渲染结束')
 
         actions.get(after_finish, lambda: LOGGER.error(
             'Not found match action for %s', after_finish))()
@@ -450,6 +449,7 @@ class MainWindow(QMainWindow):
 
     def new_render_pool(self):
         """Switch to new render pool.  """
+
         LOGGER.debug('New render pool.')
         self.render_pool = render.Pool(self.task_table.queue)
         self.render_pool.stdout.connect(self.textBrowser.append)
@@ -476,11 +476,10 @@ class MainWindow(QMainWindow):
 
     def stop_button_clicked(self):
         """Button clicked action.  """
+
         self.comboBoxAfterFinish.setCurrentIndex(0)
 
         self.render_pool.stop()
-
-        self.render_stopped.emit()
 
     def closeEvent(self, event):
         """Override qt closeEvent."""

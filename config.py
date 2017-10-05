@@ -48,6 +48,7 @@ class Config(dict):
         'HIBER': 0,
     }
     path = os.path.expanduser('~/.nuke/.batchrender.json')
+    _log_path = None
     instance = None
 
     def __new__(cls):
@@ -84,11 +85,14 @@ class Config(dict):
     @property
     def log_path(self):
         """Log save path.  """
-        working_dir = self['DIR']
-        if not os.path.exists(working_dir):
-            working_dir = os.getcwd()
 
-        return os.path.join(working_dir, 'Nuke批渲染.log')
+        if not self._log_path:
+            working_dir = self['DIR']
+            if not os.path.isdir(working_dir):
+                working_dir = os.path.expanduser('~/.nuke/batchrender')
+            self._log_path = os.path.join(working_dir, 'Nuke批渲染.log')
+
+        return self._log_path
 
     def update(self, other):
         """Type checked update.  """

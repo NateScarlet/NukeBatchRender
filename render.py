@@ -61,6 +61,7 @@ class Queue(list):
         """Get first task from queue.  """
         while True:
             try:
+                self.sort()
                 ret = self.enabled_tasks()[0]
                 break
             except IndexError:

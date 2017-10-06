@@ -203,6 +203,7 @@ class Pool(QtCore.QThread):
                 self.execute_task(task)
             except Exception:
                 LOGGER.error('Exception during render.', exc_info=True)
+                self.stop()
                 raise
         LOGGER.debug('Render finished.')
 
@@ -352,7 +353,6 @@ class Pool(QtCore.QThread):
                         self.info(
                             '发现修改日期变更 {} -> {}, 将再次执行任务 {}'.format(
                                 mtime, task.mtime, task.filename))
-                        task.mtime = mtime
                         task.is_changed = True
                 except OSError:
                     self.error('移除文件 {} 失败'.format(task.filename))

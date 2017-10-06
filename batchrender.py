@@ -884,7 +884,13 @@ def shutdown():
     """Shutdown this computer.  """
 
     LOGGER.info('关机')
-    subprocess.call('SHUTDOWN /S')
+    if sys.platform == 'win32':
+        subprocess.call('SHUTDOWN /S')
+        QMessageBox.information(None, '关机', '即将关机, 按OK以取消关机')
+        LOGGER.info('用户取消关机')
+        subprocess.call('SHUTDOWN /A')
+    else:
+        subprocess.call('shutdown')
 
 
 def call_from_nuke():

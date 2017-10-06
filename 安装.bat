@@ -1,9 +1,9 @@
 @ECHO off
-SET "TEXT=nuke.pluginAddPath(r'%~dp0')"
+SET "TEXT=nuke.pluginAddPath(r'%~dp0/', addToSysPath=False)"
 SET "FILE=%UserProfile%\.nuke\init.py"
 
 FIND /C /I "%TEXT%" "%FILE%" >nul 2>nul
-IF %ERRORLEVEL% NEQ 0 ECHO.>>"%FILE%" && ECHO %TEXT%>>"%FILE%"
+IF %ERRORLEVEL% NEQ 0 ECHO.>>"%FILE%" && ECHO #batchrender>>"%FILE%" && ECHO %TEXT%>>"%FILE%"
 
 START "" notepad.exe  "%FILE%"
 

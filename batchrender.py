@@ -521,9 +521,10 @@ def open_path(q_url):
 
 def start_error_handler():
     """Start error dialog handle for windows.  """
+
     if sys.platform == 'win32':
         _file = os.path.abspath(os.path.join(__file__, '../error_handler.exe'))
-        proc = subprocess.Popen(_file)
+        proc = subprocess.Popen(_file, close_fds=True)
         atexit.register(proc.terminate)
 
 

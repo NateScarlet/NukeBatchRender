@@ -457,17 +457,20 @@ class MainWindow(QMainWindow):
         """Switch to new render pool.  """
 
         LOGGER.debug('New render pool.')
-        self.render_pool = render.Pool(self.task_table.queue)
-        self.render_pool.stdout.connect(self.textBrowser.append)
-        self.render_pool.stderr.connect(self.textBrowser.append)
-        self.render_pool.progress.connect(self.progressBar.setValue)
-        self.render_pool.task_started.connect(self.task_table.update_widget)
-        self.render_pool.task_finished.connect(
-            self.task_table.queue_changed.emit)
-        self.render_pool.task_finished.connect(self.task_table.update_widget)
-        self.render_pool.queue_finished.connect(self.render_stopped.emit)
+        pool = render.Pool(self.task_table.queue)
 
-        self.queue.clock.start_clock(self.render_pool)
+        pool.stdout.connect(self.textBrowser.append)
+        pool.stderr.connect(self.textBrowser.append)
+        pool.progress.connect(self.progressBar.setValue)
+        pool.task_started.connect(self.task_table.update_widget)
+        pool.task_started.connect(self.task_table.queue_changed.emit)
+        pool.task_finished.connect(self.task_table.update_widget)
+        pool.task_finished.connect(self.task_table.queue_changed.emit)
+        pool.queue_finished.connect(self.render_stopped.emit)
+
+        self.queue.clock.start_clock(pool)
+
+        self.render_pool = pool
 
     def start_button_clicked(self):
         """Button clicked action.  """

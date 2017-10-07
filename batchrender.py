@@ -259,6 +259,29 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
         self.file_dropped.connect(self.on_file_dropped)
 
+        self.tableWidget.installEventFilter(self)
+
+    def eventFilter(self, widget, event):
+        """Qt widget event filter.  """
+
+        if (event.type() == QtCore.QEvent.KeyPress and
+                widget is self.tableWidget):
+            key = event.key()
+
+            if key == QtCore.Qt.Key_Return:
+                selected_task = self.task_table.current_selected()
+                if len(selected_task) <= 1:
+                    return True
+                priority, confirm = QtWidgets.QInputDialog.getInt(
+                    self, '为所选设置优先级', '优先级')
+                if confirm:
+                    for task in selected_task:
+                        task.priority = priority
+                        self.task_table[task].update()
+                    self.task_table.update_queue()
+            return True
+        return super(MainWindow, self).eventFilter(widget, event)
+
     def absolute_pos(self, widget):
         """Return absolute postion for child @widget.  """
 

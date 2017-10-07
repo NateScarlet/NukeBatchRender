@@ -693,6 +693,8 @@ class TaskTable(QtCore.QObject):
     def update_queue(self):
         """Update queue to match files.  """
 
+        changed = False
+
         # Disable.
         for row in self:
             task = row.task
@@ -713,25 +715,26 @@ class TaskTable(QtCore.QObject):
 
         # Add.
         render.FILES.update()
-        changed = False
         for i in render.FILES:
             if i not in self.queue:
                 LOGGER.debug('Add task: %s', i)
                 self.queue.put(i)
                 changed = True
 
+        # Sort.
+        old = list(self.queue)
+        self.queue.sort()
+        if old != self.queue:
+            changed = True
+
         if changed:
             self.update_widget()
+            self.queue_changed.emit()
 
     def update_widget(self):
         """Update table to match task queue.  """
 
         LOGGER.debug('Update task table')
-
-        old = list(self.queue)
-        self.queue.sort()
-        if old != self.queue:
-            self.queue_changed.emit()
 
         self.set_row_count(len(self.queue))
         for index, task in enumerate(self.queue):

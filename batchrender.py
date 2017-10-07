@@ -621,15 +621,19 @@ class TaskTable(QtCore.QObject):
             _stylize(self[1])
 
             if task.last_time is not None:
-                tooltip = '帧数: {}\n帧均耗时: {}'.format(
-                    task.frame_count, render.timef(task.averge_time))
-                tooltip += '\n预计耗时: {}'.format(
-                    render.timef(task.estimate_time))
+                row_format = '<tr><td>{}</td><td align="right">{}</td></tr>'
+                _row = row_format.format
+
+                rows = ['<tr><th colspan=2>{}</th></tr>'.format(task.filename),
+                        _row('帧数', task.frame_count),
+                        _row('帧均耗时', render.timef(task.averge_time)),
+                        _row('预计耗时', render.timef(int(task.estimate_time)))]
                 if task.state == 'doing':
-                    tooltip += '\n剩余时间: {}'.format(
-                        render.timef(task.remains_time))
+                    rows.append(
+                        _row('剩余时间', render.timef(int(task.remains_time))))
+                tooltip = '<table>{}</table>'.format(''.join(rows))
             else:
-                tooltip = '<无统计数据>'
+                tooltip = '<i>无统计数据</i>'
 
             self[0].setToolTip(tooltip)
 

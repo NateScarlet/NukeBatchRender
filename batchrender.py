@@ -255,10 +255,11 @@ class MainWindow(QMainWindow):
         _signals()
         self.task_table.queue_changed.emit()
 
-        # XXX: Don't know why tableWidget never trigger drag drop events.
+        # File drop
         self.setAcceptDrops(True)
         self.file_dropped.connect(self.on_file_dropped)
 
+        # Key pressed
         self.tableWidget.installEventFilter(self)
 
     def eventFilter(self, widget, event):

@@ -346,7 +346,6 @@ class MainWindow(QMainWindow):
         return self.render_pool and self.render_pool.isRunning()
 
     def on_render_stopped(self):
-        """Do work when rendering stop.  """
 
         after_finish = self.comboBoxAfterFinish.currentText()
         actions = {
@@ -362,7 +361,6 @@ class MainWindow(QMainWindow):
         self.pushButtonStop.hide()
         self.progressBar.hide()
         self.pushButtonStart.show()
-        self.pushButtonRemoveOldVersion.setEnabled(True)
 
         for task in self.queue:
             if task.is_doing:
@@ -378,9 +376,7 @@ class MainWindow(QMainWindow):
             'Not found match action for %s', after_finish))()
 
     def on_queue_changed(self):
-        """Do work when task queue changed.  """
-
-        LOGGER.debug('On task table changed.')
+        LOGGER.debug('Mainwindow on queue changed.')
         if self.task_table.queue:
             self.pushButtonStart.setEnabled(True)
             if self.auto_start and not self.render_pool.isRunning():
@@ -391,7 +387,6 @@ class MainWindow(QMainWindow):
             self.pushButtonStart.setEnabled(False)
 
     def on_after_render_changed(self):
-        """Do work when comboBoxAfterFinish changed.  """
         edit = self.comboBoxAfterFinish
         text = edit.currentText()
         LOGGER.debug('After render change to %s', text)
@@ -820,15 +815,17 @@ class TaskTable(QtCore.QObject):
         self.parent.toolButtonRemove.setEnabled(bool(tasks))
 
     def on_queue_changed(self):
-        """Do work on queue changed.  """
-
+        LOGGER.debug('TaskTable on queue changed.')
         render.FILES.update()
+
+        # Button remove old version.
         _old_files = render.FILES.old_version_files()
         _button = self.parent.pushButtonRemoveOldVersion
         _button.setEnabled(bool(_old_files))
         _button.setToolTip('备份后从目录中移除低版本文件\n{}'.format(
             '\n'.join(_old_files) or '<无>'))
 
+        # Button checkall.
         _enabled = any(i for i in self.queue if i.state == 'disabled')
         self.parent.toolButtonCheckAll.setEnabled(_enabled)
 

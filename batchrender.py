@@ -109,7 +109,7 @@ class MainWindow(QMainWindow):
     render_pool = None
     auto_start = False
     render_started = QtCore.Signal()
-    render_stopped = QtCore.Signal()
+    render_finished = QtCore.Signal()
     file_dropped = QtCore.Signal(list)
 
     class Title(object):
@@ -129,12 +129,12 @@ class MainWindow(QMainWindow):
             self._timer.timeout.connect(self.update)
             setattr(self.parent, '_title', self)
 
-            self.parent.render_stopped.connect(self.update_prefix)
+            self.parent.render_finished.connect(self.update_prefix)
             self.parent.task_table.queue_changed.connect(self.update_prefix)
             self.parent.progressBar.valueChanged.connect(self.update_prefix)
 
             self.parent.render_started.connect(self._timer.start)
-            self.parent.render_stopped.connect(self._timer.stop)
+            self.parent.render_finished.connect(self._timer.stop)
 
             self.update()
 
@@ -190,7 +190,7 @@ class MainWindow(QMainWindow):
             self.textBrowser.anchorClicked.connect(open_path)
 
             self.render_started.connect(lambda: self.progressBar.setValue(0))
-            self.render_stopped.connect(self.on_render_stopped)
+            self.render_finished.connect(self.on_render_finished)
 
             self.task_table.queue_changed.connect(self.on_queue_changed)
 
@@ -345,7 +345,7 @@ class MainWindow(QMainWindow):
         """If render runing.  """
         return self.render_pool and self.render_pool.isRunning()
 
-    def on_render_stopped(self):
+    def on_render_finished(self):
 
         after_finish = self.comboBoxAfterFinish.currentText()
         actions = {
@@ -361,19 +361,14 @@ class MainWindow(QMainWindow):
         self.pushButtonStop.hide()
         self.progressBar.hide()
         self.pushButtonStart.show()
-
-        for task in self.queue:
-            if task.is_doing:
-                task.is_doing = False
-                self.task_table[self.queue.index(task)].update()
         self.tabWidget.setCurrentIndex(0)
 
-        Application.alert(self)
+        if not self.render_pool.stopping:
+            Application.alert(self)
+            actions.get(after_finish, lambda: LOGGER.error(
+                'Not found match action for %s', after_finish))()
 
         self.new_render_pool()
-
-        actions.get(after_finish, lambda: LOGGER.error(
-            'Not found match action for %s', after_finish))()
 
     def on_queue_changed(self):
         LOGGER.debug('On queue changed.')
@@ -499,7 +494,7 @@ class MainWindow(QMainWindow):
         pool.task_started.connect(self.task_table.queue_changed.emit)
         pool.task_finished.connect(self.task_table.update_widget)
         pool.task_finished.connect(self.task_table.queue_changed.emit)
-        pool.queue_finished.connect(self.render_stopped.emit)
+        pool.queue_finished.connect(self.render_finished.emit)
 
         self.queue.clock.start_clock(pool)
 

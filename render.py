@@ -332,6 +332,7 @@ class Pool(QtCore.QThread):
             task.filename, time_cost, retcode_str))
 
         if self.stopping:
+            # Stopped by user.
             self.info('中途终止进程 pid: {}'.format(proc.pid))
         elif retcode:
             # Exited with error.

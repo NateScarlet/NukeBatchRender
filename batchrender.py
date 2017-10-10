@@ -49,7 +49,7 @@ def _set_logger():
 
     # Stream handler
     _handler = MultiProcessingHandler(logging.StreamHandler)
-    if logger.getEffectiveLevel() == logging.debug:
+    if logger.getEffectiveLevel() == logging.DEBUG:
         _formatter = logging.Formatter(
             '%(levelname)-6s[%(asctime)s]:%(filename)s:'
             '%(lineno)d:%(funcName)s: %(message)s', '%H:%M:%S')

@@ -376,7 +376,9 @@ class MainWindow(QMainWindow):
             'Not found match action for %s', after_finish))()
 
     def on_queue_changed(self):
-        LOGGER.debug('Mainwindow on queue changed.')
+        LOGGER.debug('On queue changed.')
+
+        # Set start button state & autostart.
         if self.task_table.queue:
             self.pushButtonStart.setEnabled(True)
             if self.auto_start and not self.render_pool.isRunning():
@@ -385,6 +387,18 @@ class MainWindow(QMainWindow):
                 LOGGER.info('发现新任务, 自动开始渲染')
         else:
             self.pushButtonStart.setEnabled(False)
+
+        # Set remove old version button state.
+        render.FILES.update()
+        old_files = render.FILES.old_version_files()
+        button = self.pushButtonRemoveOldVersion
+        button.setEnabled(bool(old_files))
+        button.setToolTip('备份后从目录中移除低版本文件\n{}'.format(
+            '\n'.join(old_files) or '<无>'))
+
+        # Set checkall button state.
+        _enabled = any(i for i in self.queue if i.state == 'disabled')
+        self.toolButtonCheckAll.setEnabled(_enabled)
 
     def on_after_render_changed(self):
         edit = self.comboBoxAfterFinish
@@ -679,8 +693,6 @@ class TaskTable(QtCore.QObject):
         self.widget.cellDoubleClicked.connect(self.on_cell_double_clicked)
         self.widget.cellChanged.connect(self.on_cell_changed)
 
-        self.queue_changed.connect(self.on_queue_changed)
-
         # Timer for widget update
         _timer = QtCore.QTimer(self)
         _timer.timeout.connect(self.update_queue)
@@ -813,21 +825,6 @@ class TaskTable(QtCore.QObject):
 
         tasks = [i for i in self.current_selected() if i.state != 'doing']
         self.parent.toolButtonRemove.setEnabled(bool(tasks))
-
-    def on_queue_changed(self):
-        LOGGER.debug('TaskTable on queue changed.')
-        render.FILES.update()
-
-        # Button remove old version.
-        _old_files = render.FILES.old_version_files()
-        _button = self.parent.pushButtonRemoveOldVersion
-        _button.setEnabled(bool(_old_files))
-        _button.setToolTip('备份后从目录中移除低版本文件\n{}'.format(
-            '\n'.join(_old_files) or '<无>'))
-
-        # Button checkall.
-        _enabled = any(i for i in self.queue if i.state == 'disabled')
-        self.parent.toolButtonCheckAll.setEnabled(_enabled)
 
     @property
     def checked_files(self):

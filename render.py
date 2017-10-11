@@ -249,7 +249,6 @@ class Pool(QtCore.QThread):
                 '-p' if CONFIG['PROXY'] else '-f',
                 '--cont' if CONFIG['CONTINUE'] else '',
                 '--priority low' if CONFIG['LOW_PRIORITY'] else '',
-                '-c 8G' if CONFIG['LOW_PRIORITY'] else '',
                 f]
         args = ' '.join([i for i in args if i])
         if sys.platform != 'win32':

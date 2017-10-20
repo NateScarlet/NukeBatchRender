@@ -28,7 +28,7 @@ try:
 except:
     raise
 
-__version__ = '0.8.10'
+__version__ = '0.9.0'
 
 
 LOGGER = logging.getLogger()

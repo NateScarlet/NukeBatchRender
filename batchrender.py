@@ -12,10 +12,11 @@ import os
 import subprocess
 import sys
 import webbrowser
+import time
 
 import render
 import singleton
-from config import CONFIG
+from config import CONFIG, stylize
 from log import MultiProcessingHandler
 from path import get_unicode
 
@@ -28,8 +29,7 @@ try:
 except:
     raise
 
-__version__ = '0.9.2'
-
+__version__ = '0.9.3'
 
 LOGGER = logging.getLogger()
 DEFAULT_DIR = os.path.expanduser('~/.nuke/batchrender')
@@ -199,6 +199,8 @@ class MainWindow(QMainWindow):
 
             self.task_table.queue_changed.connect(self.on_queue_changed)
 
+            self.progressBar.valueChanged.connect(self.append_timestamp)
+
         def _edits():
             for edit, key in self.edits_key.iteritems():
                 if isinstance(edit, QtWidgets.QLineEdit):
@@ -266,6 +268,11 @@ class MainWindow(QMainWindow):
 
         # Key pressed
         self.tableWidget.installEventFilter(self)
+
+    def append_timestamp(self):
+        """Create timestamp in text browser.  """
+
+        self.textBrowser.append(stylize(time.strftime('[%x %X]'), 'info'))
 
     def eventFilter(self, widget, event):
         """Qt widget event filter.  """

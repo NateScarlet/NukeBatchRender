@@ -28,7 +28,7 @@ try:
 except:
     raise
 
-__version__ = '0.9.1'
+__version__ = '0.9.2'
 
 
 LOGGER = logging.getLogger()
@@ -447,6 +447,11 @@ class MainWindow(QMainWindow):
                 _reset()
         else:
             edit.setToolTip('')
+
+        if text in ('关机', '休眠'):
+            self.checkBoxPriority.setCheckState(QtCore.Qt.Unchecked)
+        else:
+            self.checkBoxPriority.setCheckState(QtCore.Qt.Checked)
 
     def on_remains_changed(self, remains):
         text = '停止'

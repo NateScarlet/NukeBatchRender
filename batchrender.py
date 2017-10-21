@@ -28,7 +28,7 @@ try:
 except:
     raise
 
-__version__ = '0.9.0'
+__version__ = '0.9.1'
 
 
 LOGGER = logging.getLogger()
@@ -64,6 +64,11 @@ def _set_logger():
 
     # File handler
     path = CONFIG.log_path
+    path_dir = os.path.dirname(path)
+    try:
+        os.makedirs(path_dir)
+    except OSError:
+        pass
     _handler = MultiProcessingHandler(
         logging.handlers.RotatingFileHandler,
         args=(path,), kwargs={'backupCount': 5})

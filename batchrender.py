@@ -19,6 +19,7 @@ import singleton
 from config import CONFIG, stylize
 from log import MultiProcessingHandler
 from path import get_unicode
+from __version__ import __version__
 
 if __name__ == '__main__':
     __SINGLETON = singleton.SingleInstance()
@@ -29,7 +30,6 @@ try:
 except:
     raise
 
-__version__ = '0.9.3'
 
 LOGGER = logging.getLogger()
 DEFAULT_DIR = os.path.expanduser('~/.nuke/batchrender')

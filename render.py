@@ -245,7 +245,6 @@ class Pool(QtCore.QThread):
         """Nuke render process for file @f.  """
         f = '"{}"'.format(f.strip('"'))
         nuke = '"{}"'.format(CONFIG['NUKE'].strip('"'))
-        # TODO: add memory limit control
         _memory_limit = CONFIG['MEMORY_LIMIT']
         args = [nuke,
                 '-x',

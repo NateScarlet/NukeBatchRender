@@ -113,6 +113,7 @@ class MainWindow(QMainWindow):
     """Main GUI window.  """
     render_pool = None
     auto_start = False
+    restarting = False
     render_started = QtCore.Signal()
     render_finished = QtCore.Signal()
     file_dropped = QtCore.Signal(list)
@@ -216,6 +217,14 @@ class MainWindow(QMainWindow):
                     edit.setCurrentIndex(CONFIG.get(key, 0))
                     edit.currentIndexChanged.connect(
                         lambda index, k=key: CONFIG.__setitem__(k, index))
+                elif isinstance(edit, QtWidgets.QSpinBox):
+                    edit.setValue(CONFIG.get(key, 0))
+                    edit.valueChanged.connect(
+                        lambda value, k=key: CONFIG.__setitem__(k, value))
+                elif isinstance(edit, QtWidgets.QDoubleSpinBox):
+                    edit.setValue(CONFIG.get(key, 0))
+                    edit.valueChanged.connect(
+                        lambda value, k=key: CONFIG.__setitem__(k, value))
                 else:
                     LOGGER.debug('待处理的控件: %s %s', type(edit), edit)
 
@@ -234,6 +243,7 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__(parent)
         self.queue = render.Queue()
         self.queue.clock.remains_changed.connect(self.on_remains_changed)
+        self.queue.clock.time_out.connect(self.on_task_time_out)
 
         # ui
         self._ui = QtCompat.loadUi(os.path.abspath(
@@ -243,6 +253,7 @@ class MainWindow(QMainWindow):
         self.Title(self)
         self.pushButtonStop.hide()
         self.progressBar.hide()
+        self.frameLowPriority.setVisible(CONFIG['LOW_PRIORITY'])
         self.labelVersion.setText('v{}'.format(__version__))
         _icon()
         self.resize(500, 700)
@@ -254,6 +265,8 @@ class MainWindow(QMainWindow):
             self.checkBoxPriority: 'LOW_PRIORITY',
             self.checkBoxContinue: 'CONTINUE',
             self.comboBoxAfterFinish: 'AFTER_FINISH',
+            self.doubleSpinBoxMemory: 'MEMORY_LIMIT',
+            self.spinBoxTimeOut: 'TIME_OUT'
         }
         _edits()
 
@@ -381,6 +394,9 @@ class MainWindow(QMainWindow):
                 'Not found match action for %s', after_finish))()
 
         self.new_render_pool()
+        if self.restarting:
+            self.restarting = False
+            self.pushButtonStart.clicked.emit()
 
     def on_queue_changed(self):
         LOGGER.debug('On queue changed.')
@@ -514,8 +530,24 @@ class MainWindow(QMainWindow):
         pool.queue_finished.connect(self.render_finished.emit)
 
         self.queue.clock.start_clock(pool)
+        self.queue.clock.time_out_timer.stop()
 
         self.render_pool = pool
+
+    def on_task_time_out(self):
+        """Excute when frame take too long.  """
+
+        if CONFIG['LOW_PRIORITY']:
+            msg = '渲染超时, 关闭低优先级进行重试'
+            LOGGER.info(msg)
+            self.textBrowser.append(stylize(msg, 'error'))
+            self.checkBoxPriority.setCheckState(QtCore.Qt.Unchecked)
+            self.render_pool.stop()
+            self.restarting = True
+        else:
+            msg = '渲染超时'
+            LOGGER.warning(msg)
+            self.textBrowser.append(stylize(msg, 'error'))
 
     def start_button_clicked(self):
         """Button clicked action.  """

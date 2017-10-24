@@ -46,6 +46,8 @@ class Config(dict):
         'LOW_PRIORITY': 2,
         'CONTINUE': 2,
         'HIBER': 0,
+        'MEMORY_LIMIT': 8.0,
+        'TIME_OUT': 120
     }
     path = os.path.expanduser('~/.nuke/.batchrender.json')
     _log_path = None

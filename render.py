@@ -238,6 +238,7 @@ class Pool(QtCore.QThread):
                 LOGGER.debug('Kill process fail: %s: %s', pid, ex)
         if self.isRunning():
             self.exit(1)
+        self.wait()
 
     @staticmethod
     def nuke_process(f):
@@ -245,12 +246,14 @@ class Pool(QtCore.QThread):
         f = '"{}"'.format(f.strip('"'))
         nuke = '"{}"'.format(CONFIG['NUKE'].strip('"'))
         # TODO: add memory limit control
+        _memory_limit = CONFIG['MEMORY_LIMIT']
         args = [nuke,
                 '-x',
                 '-p' if CONFIG['PROXY'] else '-f',
                 '--cont' if CONFIG['CONTINUE'] else '',
                 '--priority low' if CONFIG['LOW_PRIORITY'] else '',
-                '-c 8G' if CONFIG['LOW_PRIORITY'] else '',
+                '-c {}M'.format(
+                    int(_memory_limit * 1024)) if _memory_limit and CONFIG['LOW_PRIORITY'] else '',
                 f]
         args = ' '.join([i for i in args if i])
         if sys.platform != 'win32':
@@ -376,6 +379,9 @@ class Clock(QtCore.QObject):
         super(Clock, self).__init__()
         assert isinstance(queue, Queue)
         self.queue = queue
+        self.time_out_timer = QtCore.QTimer()
+        self.time_out_timer.setSingleShot(True)
+        self.time_out = self.time_out_timer.timeout
 
     def start_clock(self, pool):
         """Start record time information for @pool.  """
@@ -411,10 +417,14 @@ class Clock(QtCore.QObject):
             task.averge_time = total_time / task.clocked_count
             self.averge_time = self_total_time / self.clocked_count
             task.remains_time = task.estimate_time * (100 - value) / 100
-            # LOGGER.debug('task %s remains %s', task, task.remains_time)
+            LOGGER.debug('task %s remains %s', task, task.remains_time)
         task.last_time = time.clock()
 
         self.remains_changed.emit(self.remains())
+
+        self.time_out_timer.stop()
+        if CONFIG['TIME_OUT']:
+            self.time_out_timer.start(CONFIG['TIME_OUT'] * 1000)
 
     def remains(self):
         """This render remains time.  """

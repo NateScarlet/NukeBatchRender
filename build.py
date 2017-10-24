@@ -18,7 +18,8 @@ def main():
     proc = Popen('pyinstaller -F batchrender.spec')
     proc.wait()
     try:
-        os.remove(ouptut)
+        if os.path.exists(ouptut):
+            os.remove(ouptut)
         os.rename('dist/batchrender.exe', ouptut)
     except OSError:
         print('Can not rename to %s' % ouptut)

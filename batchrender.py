@@ -455,7 +455,7 @@ class MainWindow(QMainWindow):
         else:
             edit.setToolTip('')
 
-        if text in ('关机', '休眠'):
+        if text in ('关机', '休眠', 'Deadline'):
             self.checkBoxPriority.setCheckState(QtCore.Qt.Unchecked)
         else:
             self.checkBoxPriority.setCheckState(QtCore.Qt.Checked)

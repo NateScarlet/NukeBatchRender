@@ -13,6 +13,7 @@ import subprocess
 import sys
 import webbrowser
 import time
+from functools import wraps
 
 import render
 import singleton
@@ -372,12 +373,22 @@ class MainWindow(QMainWindow):
 
     def on_render_finished(self):
 
+        def reset_after_render(func):
+            """(Decorator)Reset after render choice before run @func  ."""
+
+            @wraps(func)
+            def _func(*args, **kwargs):
+                self.comboBoxAfterFinish.setCurrentIndex(0)
+                func(*args, **kwargs)
+            return _func
+
         after_finish = self.comboBoxAfterFinish.currentText()
+
         actions = {
             '等待新任务': lambda: setattr(self, 'auto_start', True),
-            '休眠': hiber,
-            '关机': shutdown,
-            'Deadline': lambda: webbrowser.open(CONFIG['DEADLINE']),
+            '休眠': reset_after_render(hiber),
+            '关机': reset_after_render(shutdown),
+            'Deadline': reset_after_render(lambda: webbrowser.open(CONFIG['DEADLINE'])),
             '执行命令': lambda: subprocess.Popen(CONFIG['AFTER_FINISH_CMD'], shell=True),
             '运行程序': lambda: webbrowser.open(CONFIG['AFTER_FINISH_PROGRAM']),
             '什么都不做': lambda: LOGGER.info('渲染完成后什么都不做')

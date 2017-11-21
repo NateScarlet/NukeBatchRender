@@ -20,6 +20,11 @@ from Qt import QtCore
 
 LOGGER = logging.getLogger('render')
 
+# Task state bitmask
+DOING = 1 << 0
+DISABLED = 1 << 1
+FINISHED = 1 << 2
+
 
 class Queue(QtCore.QObject):
     """Task render quene.  """
@@ -37,8 +42,7 @@ class Queue(QtCore.QObject):
         return any(i for i in self.list if i == item)
 
     def __nonzero__(self):
-        ret = bool(self.enabled_tasks())
-        return ret
+        return any(self.enabled_tasks())
 
     def __len__(self):
         return len(self.list)
@@ -62,18 +66,17 @@ class Queue(QtCore.QObject):
     def sort(self):
         """Sort queue.  """
 
-        self.list.sort(key=lambda x: (x.is_finished, -x.priority, x.mtime))
+        self.list.sort(key=lambda x: (not x.state & DOING,
+                                      x.state, -x.priority, x.mtime))
 
     def get(self):
         """Get first task from queue.  """
+
         while True:
             try:
-                ret = self.enabled_tasks()[0]
-                break
-            except IndexError:
+                return self.enabled_tasks().next()
+            except StopIteration:
                 time.sleep(1)
-        LOGGER.debug('Get task from queue: %s', ret)
-        return ret
 
     def put(self, item):
         """Put task to queue.  """
@@ -106,15 +109,14 @@ class Queue(QtCore.QObject):
     def enabled_tasks(self):
         """All enabled task in queue. """
 
-        return [i for i in self if i.state == 'waiting']
+        return (i for i in self if not i.state)
 
 
 class Task(QtCore.QObject):
     """Nuke render task.  """
+
     filename = None
-    is_enabled = True
-    is_doing = False
-    is_finished = False
+    state = 0b0
     error_count = 0
     priority = 0
     max_retry = 3
@@ -147,24 +149,25 @@ class Task(QtCore.QObject):
         return self.filename == other
 
     def __str__(self):
-        return '<Render task:{0.filename}: {0.state}: priority: {0.priority}>'.format(self)
+        return '<{0.priority}: {0.filename}: {0.state:b}>'.format(self)
 
     def __setattr__(self, name, value):
         if value is getattr(self, name, None):
             return
         super(Task, self).__setattr__(name, value)
-        if name == 'is_enabled':
-            if value:
-                self._timer.start()
-            else:
-                self._timer.stop()
-        if name in ('is_doing', 'is_enabled', 'is_finished', 'priority'):
+        if name in ('state', 'priority'):
             self.changed.emit()
 
     def on_changed(self):
         """Send changed signal to queue.  """
 
         LOGGER.debug('Task changed: %s', self)
+
+        if self.state & DISABLED:
+            self._timer.stop()
+        else:
+            self._timer.start()
+
         for i in self.queue:
             assert isinstance(i, Queue)
             i.changed.emit()
@@ -173,7 +176,7 @@ class Task(QtCore.QObject):
     def mtime(self):
         """File modified time.  """
 
-        if self.is_doing or not os.path.exists(self.filename):
+        if self.state & DOING or not os.path.exists(self.filename):
             return self._mtime
 
         try:
@@ -188,19 +191,6 @@ class Task(QtCore.QObject):
         return self._mtime
 
     @property
-    def state(self):
-        """The current state as a string.  """
-
-        if self.is_finished:
-            return 'finished'
-        elif not self.is_enabled:
-            return 'disabled'
-        elif self.is_doing:
-            return 'doing'
-
-        return 'waiting'
-
-    @property
     def estimate_time(self):
         """Estimate task time cost.  """
 
@@ -209,18 +199,17 @@ class Task(QtCore.QObject):
     def update(self):
         """Update task status.  """
 
-        if self.state == 'waiting' and not os.path.exists(self.filename):
+        if not self.state and not os.path.exists(self.filename):
             LOGGER.debug('%s not existed in %s anymore.',
                          self.filename, os.getcwd())
-            self.is_enabled = False
-        if self.state == 'finished':
+            self.state |= DISABLED
+        if self.state & FINISHED:
             _ = self.mtime
 
     def reset(self):
         """Reset this task.  """
 
-        self.is_enabled = True
-        self.is_finished = False
+        self.state &= DOING
         self.error_count = 0
 
 
@@ -286,7 +275,7 @@ class Pool(QtCore.QThread):
         self.stopping = True
         pid = self.child_pid
         for task in self.queue:
-            task.is_doing = False
+            task.state &= ~DOING
         if pid:
             LOGGER.debug('Stoping child: %s', pid)
             try:
@@ -370,7 +359,7 @@ class Pool(QtCore.QThread):
 
         assert isinstance(task, Task)
 
-        task.is_doing = True
+        task.state |= DOING
         self.current_task = task
         self.task_started.emit()
         self.info('执行任务: {0.filename} 优先级:{0.priority}'.format(task))
@@ -401,14 +390,14 @@ class Pool(QtCore.QThread):
             self.error('{}: 渲染出错 第{}次'.format(task.filename, task.error_count))
             if task.error_count >= task.max_retry:
                 self.error('渲染错误达到{}次,不再进行重试。'.format(task.max_retry))
-                task.is_enabled = False
+                task.state |= DISABLED
         else:
             # Normal exit.
             if not CONFIG['PROXY']:
                 try:
                     mtime = os.path.getmtime(task.filename)
                     if mtime == task.mtime:
-                        task.is_finished = True
+                        task.state |= FINISHED
                         self.info('任务完成')
                         Files.remove(task.filename)
                     else:
@@ -418,7 +407,7 @@ class Pool(QtCore.QThread):
                 except OSError:
                     self.error('移除文件 {} 失败'.format(task.filename))
 
-        task.is_doing = False
+        task.state &= ~DOING
         self.task_finished.emit()
         return retcode
 
@@ -485,7 +474,7 @@ class Clock(QtCore.QObject):
         """This render remains time.  """
 
         ret = 0
-        for i in [i for i in self.queue if i.state in ('waiting', 'doing')]:
+        for i in [i for i in self.queue if not i.state & (DISABLED | FINISHED)]:
             if i.state == 'doing':
                 ret += i.remains_time
             else:

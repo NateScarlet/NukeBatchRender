@@ -149,7 +149,7 @@ class MainWindow(QMainWindow):
             """Update title prefix with progress.  """
             prefix = ''
             queue_length = len([
-                i for i in self.parent.queue if i.state == 'waiting'])
+                i for i in self.parent.queue if not i.state])
 
             if queue_length:
                 prefix = '[{}]{}'.format(queue_length, prefix)
@@ -428,7 +428,7 @@ class MainWindow(QMainWindow):
             '\n'.join(old_files) or '<无>'))
 
         # Set checkall button state.
-        _enabled = any(i for i in self.queue if i.state == 'disabled')
+        _enabled = any(i for i in self.queue if i.state & render.DISABLED)
         self.toolButtonCheckAll.setEnabled(_enabled)
 
     def on_after_render_changed(self):
@@ -618,30 +618,30 @@ class TaskTable(QtCore.QObject):
     class Row(QtCore.QObject):
         """Single row."""
         brushes = {
-            'waiting': (QtGui.QBrush(QtGui.QColor(QtCore.Qt.white)),
-                        QtGui.QBrush(QtGui.QColor(QtCore.Qt.black))),
-            'doing': (QtGui.QBrush(QtGui.QColor(30, 40, 45)),
-                      QtGui.QBrush(QtGui.QColor(QtCore.Qt.white))),
-            'disabled': (QtGui.QBrush(QtGui.QColor(QtCore.Qt.gray)),
-                         QtGui.QBrush(QtGui.QColor(QtCore.Qt.black))),
-            'finished': (QtGui.QBrush(QtGui.QColor(QtCore.Qt.white)),
-                         QtGui.QBrush(QtGui.QColor(QtCore.Qt.gray)))
+            None: (QtGui.QBrush(QtGui.QColor(QtCore.Qt.white)),
+                   QtGui.QBrush(QtGui.QColor(QtCore.Qt.black))),
+            render.DOING: (QtGui.QBrush(QtGui.QColor(30, 40, 45)),
+                           QtGui.QBrush(QtGui.QColor(QtCore.Qt.white))),
+            render.DISABLED: (QtGui.QBrush(QtGui.QColor(QtCore.Qt.gray)),
+                              QtGui.QBrush(QtGui.QColor(QtCore.Qt.black))),
+            render.FINISHED: (QtGui.QBrush(QtGui.QColor(QtCore.Qt.white)),
+                              QtGui.QBrush(QtGui.QColor(QtCore.Qt.gray)))
         }
-        flags = {'waiting': ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled
-                              | QtCore.Qt.ItemIsUserCheckable),
-                             (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
-                              | QtCore.Qt.ItemIsEditable)),
-                 'doing': ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled
-                            | QtCore.Qt.ItemIsUserCheckable),
-                           (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
-                            | QtCore.Qt.ItemIsEditable)),
-                 'disabled': ((QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
-                               | QtCore.Qt.ItemIsUserCheckable),
-                              (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
-                               | QtCore.Qt.ItemIsEditable)),
-                 'finished': ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled),
-                              (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
-                               | QtCore.Qt.ItemIsEditable))}
+        flags = {None: ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled
+                         | QtCore.Qt.ItemIsUserCheckable),
+                        (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
+                         | QtCore.Qt.ItemIsEditable)),
+                 render.DOING: ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled
+                                 | QtCore.Qt.ItemIsUserCheckable),
+                                (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
+                                 | QtCore.Qt.ItemIsEditable)),
+                 render.DISABLED: ((QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
+                                    | QtCore.Qt.ItemIsUserCheckable),
+                                   (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
+                                    | QtCore.Qt.ItemIsEditable)),
+                 render.FINISHED: ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled),
+                                   (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
+                                    | QtCore.Qt.ItemIsEditable))}
         _task = None
         updating = False
 
@@ -701,11 +701,20 @@ class TaskTable(QtCore.QObject):
 
             self.updating = True
 
+            def _choice():
+                choice = None
+                for state in (render.FINISHED, render.DOING, render.DISABLED):
+                    if state & self.task.state:
+                        choice = state
+                        break
+                return choice
+
             def _stylize(item):
                 """Set item style. """
 
-                item.setBackground(self.brushes[self.task.state][0])
-                item.setForeground(self.brushes[self.task.state][1])
+                choice = _choice()
+                item.setBackground(self.brushes[choice][0])
+                item.setForeground(self.brushes[choice][1])
 
             # LOGGER.debug('update row: %s', self.task)
             assert all(isinstance(i, QtWidgets.QTableWidgetItem) for i in self)
@@ -714,11 +723,11 @@ class TaskTable(QtCore.QObject):
 
             name.setText(self.task.filename)
             name.setCheckState(QtCore.Qt.CheckState(
-                2 if self.task.is_enabled else 0))
-            name.setFlags(self.flags[self.task.state][0])
+                0 if self.task.state & render.DISABLED else 2))
+            name.setFlags(self.flags[_choice()][0])
 
             priority.setText(str(self.task.priority))
-            priority.setFlags(self.flags[self.task.state][1])
+            priority.setFlags(self.flags[_choice()][1])
 
             _stylize(name)
             _stylize(priority)
@@ -731,7 +740,7 @@ class TaskTable(QtCore.QObject):
                         _row('帧数', task.frame_count),
                         _row('帧均耗时', render.timef(task.averge_time)),
                         _row('预计耗时', render.timef(int(task.estimate_time)))]
-                if task.state == 'doing':
+                if task.state & render.DOING:
                     rows.append(
                         _row('剩余时间', render.timef(int(task.remains_time))))
                 tooltip = '<table>{}</table>'.format(''.join(rows))
@@ -831,15 +840,14 @@ class TaskTable(QtCore.QObject):
         task = self.queue[row]
 
         if column == 0:
-            task.is_enabled = bool(item.checkState())
-            LOGGER.debug('Change enabled: %s', task)
-            self[row].update()
-            self.queue.changed.emit()
+            if item.checkState():
+                task.state &= ~render.DISABLED
+            else:
+                task.state |= render.DISABLED
         elif column == 1:
             try:
                 text = item.text()
                 task.priority = int(text)
-                LOGGER.debug('Change priority: %s', task)
             except ValueError:
                 LOGGER.error('不能识别优先级 %s, 重置为%s', text, task.priority)
                 item.setText(unicode(task.priority))
@@ -857,8 +865,9 @@ class TaskTable(QtCore.QObject):
     def on_selection_changed(self):
         """Do work on selection changed.  """
 
-        tasks = [i for i in self.current_selected() if i.state != 'doing']
-        self.parent.toolButtonRemove.setEnabled(bool(tasks))
+        tasks = (i for i in self.current_selected() if not i.state &
+                 render.DOING)
+        self.parent.toolButtonRemove.setEnabled(any(tasks))
 
     @property
     def checked_files(self):
@@ -885,28 +894,18 @@ class TaskTable(QtCore.QObject):
     def check_all(self):
         """Check all item.  """
 
-        changed = False
         for row in self:
             task = row.task
             assert isinstance(task, render.Task)
-            if task.state == 'disabled':
-                task.is_enabled = True
-                changed = True
-        if changed:
-            self.queue.changed.emit()
+            task.state &= ~render.DISABLED
 
     def reverse_check(self):
         """Reverse checkstate for every item.  """
 
-        changed = False
-        for row in self:
-            task = row.task
+        tasks = [i.task for i in self]
+        for task in tasks:
             assert isinstance(task, render.Task)
-            if task.state in ('waiting', 'disabled'):
-                task.is_enabled = not task.is_enabled
-                changed = True
-        if changed:
-            self.queue.changed.emit()
+            task.state ^= render.DISABLED
 
     def current_selected(self):
         """Current selected tasks.  """
@@ -914,14 +913,15 @@ class TaskTable(QtCore.QObject):
         rows = set()
         _ = [rows.add(i.row()) for i in self.widget.selectedItems()]
         ret = [self[i].task for i in rows]
-        LOGGER.debug('Current selected: %s',
-                     ''.join(['\n{}'.format(i) for i in ret]) or '<None>')
+        LOGGER.debug('\n\tCurrent selected: %s',
+                     ''.join(['\n\t\t{}'.format(i) for i in ret]) or '<None>')
         return ret
 
     def remove_selected(self):
         """Select all item in list widget.  """
 
-        tasks = [i for i in self.current_selected() if i.state != 'doing']
+        tasks = [i for i in self.current_selected() if not i.state &
+                 render.DOING]
 
         for i in tasks:
             self.queue.remove(i)

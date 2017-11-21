@@ -137,7 +137,7 @@ class MainWindow(QMainWindow):
             setattr(self.parent, '_title', self)
 
             self.parent.render_finished.connect(self.update_prefix)
-            self.parent.task_table.queue_changed.connect(self.update_prefix)
+            self.parent.queue.changed.connect(self.update_prefix)
             self.parent.progressBar.valueChanged.connect(self.update_prefix)
 
             self.parent.render_started.connect(self._timer.start)
@@ -199,7 +199,7 @@ class MainWindow(QMainWindow):
             self.render_started.connect(lambda: self.progressBar.setValue(0))
             self.render_finished.connect(self.on_render_finished)
 
-            self.task_table.queue_changed.connect(self.on_queue_changed)
+            self.queue.changed.connect(self.on_queue_changed)
 
             self.progressBar.valueChanged.connect(self.append_timestamp)
 
@@ -274,7 +274,6 @@ class MainWindow(QMainWindow):
         self.new_render_pool()
 
         _signals()
-        self.task_table.queue_changed.emit()
 
         # File drop
         self.setAcceptDrops(True)
@@ -332,7 +331,6 @@ class MainWindow(QMainWindow):
         if files:
             _ = [self.queue.put(i) for i in files]
             LOGGER.debug('Add %s', files)
-            self.task_table.update_widget()
         else:
             QMessageBox.warning(self, '不支持的格式', '目前只支持nk文件')
 
@@ -410,7 +408,6 @@ class MainWindow(QMainWindow):
             self.pushButtonStart.clicked.emit()
 
     def on_queue_changed(self):
-        LOGGER.debug('On queue changed.')
 
         # Set start button state & autostart.
         if self.task_table.queue:
@@ -534,10 +531,6 @@ class MainWindow(QMainWindow):
         pool.stdout.connect(self.textBrowser.append)
         pool.stderr.connect(self.textBrowser.append)
         pool.progress.connect(self.progressBar.setValue)
-        pool.task_started.connect(self.task_table.update_widget)
-        pool.task_started.connect(self.task_table.queue_changed.emit)
-        pool.task_finished.connect(self.task_table.update_widget)
-        pool.task_finished.connect(self.task_table.queue_changed.emit)
         pool.queue_finished.connect(self.render_finished.emit)
 
         self.queue.clock.start_clock(pool)
@@ -621,9 +614,8 @@ def start_error_handler():
 
 class TaskTable(QtCore.QObject):
     """Table widget.  """
-    queue_changed = QtCore.Signal()
 
-    class Row(list):
+    class Row(QtCore.QObject):
         """Single row."""
         brushes = {
             'waiting': (QtGui.QBrush(QtGui.QColor(QtCore.Qt.white)),
@@ -650,18 +642,38 @@ class TaskTable(QtCore.QObject):
                  'finished': ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled),
                               (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
                                | QtCore.Qt.ItemIsEditable))}
-        task = None
+        _task = None
         updating = False
 
         def __init__(self):
-            column = [QtWidgets.QTableWidgetItem() for _ in range(2)]
-            self._add_itemdata_type_check(column[1], int)
-            super(TaskTable.Row, self).__init__(column)
+            super(TaskTable.Row, self).__init__()
+            self.columns = [QtWidgets.QTableWidgetItem() for _ in range(2)]
+            self._add_itemdata_type_check(self.columns[1], int)
 
         def __str__(self):
             ret = ' '.join('({},{})'.format(i.row(), i.column()) for i in self)
             ret = '<Row {}>'.format(ret)
             return ret
+
+        def __getitem__(self, index):
+            return self.columns[index]
+
+        def __len__(self):
+            return len(self.columns)
+
+        @property
+        def task(self):
+            """Task in this row.  """
+            return self._task
+
+        @task.setter
+        def task(self, value):
+            assert isinstance(value, render.Task)
+            if self._task:
+                self._task.changed.disconnect(self.update)
+            value.changed.connect(self.update)
+            self._task = value
+            self.update()
 
         @staticmethod
         def _add_itemdata_type_check(item, data_type):
@@ -678,6 +690,7 @@ class TaskTable(QtCore.QObject):
                     item, index, value)
             item.setData = _set_data
 
+        @QtCore.Slot()
         def update(self):
             """Update row by task."""
 
@@ -694,19 +707,21 @@ class TaskTable(QtCore.QObject):
                 item.setBackground(self.brushes[self.task.state][0])
                 item.setForeground(self.brushes[self.task.state][1])
 
-            LOGGER.debug('update row: %s', self.task)
+            # LOGGER.debug('update row: %s', self.task)
             assert all(isinstance(i, QtWidgets.QTableWidgetItem) for i in self)
+            name = self.columns[0]
+            priority = self.columns[1]
 
-            self[0].setText(self.task.filename)
-            self[0].setCheckState(QtCore.Qt.CheckState(
+            name.setText(self.task.filename)
+            name.setCheckState(QtCore.Qt.CheckState(
                 2 if self.task.is_enabled else 0))
-            self[0].setFlags(self.flags[self.task.state][0])
+            name.setFlags(self.flags[self.task.state][0])
 
-            self[1].setText(str(self.task.priority))
-            self[1].setFlags(self.flags[self.task.state][1])
+            priority.setText(str(self.task.priority))
+            priority.setFlags(self.flags[self.task.state][1])
 
-            _stylize(self[0])
-            _stylize(self[1])
+            _stylize(name)
+            _stylize(priority)
 
             if task.last_time is not None:
                 row_format = '<tr><td>{}</td><td align="right">{}</td></tr>'
@@ -723,7 +738,7 @@ class TaskTable(QtCore.QObject):
             else:
                 tooltip = '<i>无统计数据</i>'
 
-            self[0].setToolTip(tooltip)
+            name.setToolTip(tooltip)
 
             self.updating = False
 
@@ -737,6 +752,7 @@ class TaskTable(QtCore.QObject):
         assert isinstance(self.queue, render.Queue)
 
         self.widget.setColumnWidth(0, 350)
+        self.queue.changed.connect(self.on_queue_changed)
 
         self.parent.pushButtonRemoveOldVersion.clicked.connect(
             self.remove_old_version)
@@ -778,6 +794,7 @@ class TaskTable(QtCore.QObject):
 
     def set_row_count(self, number):
         """Set row count number.  """
+
         change = number - len(self)
         if change > 0:
             self.widget.setRowCount(number)
@@ -786,59 +803,23 @@ class TaskTable(QtCore.QObject):
         elif change < 0:
             self.widget.setRowCount(number)
             del self[number:]
-        if change:
-            self.queue_changed.emit()
 
     def update_queue(self):
         """Update queue to match files.  """
 
-        changed = False
-
-        # Disable.
-        for row in self:
-            task = row.task
-            assert isinstance(task, render.Task)
-            if task.is_changed:
-                task.is_enabled = True
-                task.is_finished = False
-                task.is_changed = False
-                task.error_count = 0
-                changed = True
-            if task.state == 'waiting' and not os.path.exists(task.filename):
-                LOGGER.debug('%s not existed in %s anymore.',
-                             task.filename, os.getcwd())
-                task.is_enabled = False
-                changed = True
-
-        # Add.
         render.FILES.update()
         for i in render.FILES:
             if i not in self.queue:
-                LOGGER.debug('Add task: %s', i)
                 self.queue.put(i)
-                changed = True
 
-        # Sort.
-        old = list(self.queue)
-        self.queue.sort()
-        if old != self.queue:
-            changed = True
-
-        if changed:
-            self.update_widget()
-            self.queue_changed.emit()
-
-    def update_widget(self):
+    def on_queue_changed(self):
         """Update table to match task queue.  """
-
-        LOGGER.debug('Update task table')
 
         self.set_row_count(len(self.queue))
         for index, task in enumerate(self.queue):
             row = self[index]
             assert isinstance(row, self.Row)
             row.task = task
-            row.update()
 
     @QtCore.Slot(int, int)
     def on_cell_changed(self, row, column):
@@ -853,7 +834,7 @@ class TaskTable(QtCore.QObject):
             task.is_enabled = bool(item.checkState())
             LOGGER.debug('Change enabled: %s', task)
             self[row].update()
-            self.queue_changed.emit()
+            self.queue.changed.emit()
         elif column == 1:
             try:
                 text = item.text()
@@ -862,8 +843,6 @@ class TaskTable(QtCore.QObject):
             except ValueError:
                 LOGGER.error('不能识别优先级 %s, 重置为%s', text, task.priority)
                 item.setText(unicode(task.priority))
-            else:
-                self.update_widget()
 
     @QtCore.Slot(int, int)
     def on_cell_double_clicked(self, row, column):
@@ -902,8 +881,6 @@ class TaskTable(QtCore.QObject):
         LOGGER.info('移除较低版本号文件: %s', files)
         for i in files:
             self.queue.remove(i)
-        self.update_widget()
-        self.queue_changed.emit()
 
     def check_all(self):
         """Check all item.  """
@@ -914,10 +891,9 @@ class TaskTable(QtCore.QObject):
             assert isinstance(task, render.Task)
             if task.state == 'disabled':
                 task.is_enabled = True
-                row.update()
                 changed = True
         if changed:
-            self.queue_changed.emit()
+            self.queue.changed.emit()
 
     def reverse_check(self):
         """Reverse checkstate for every item.  """
@@ -928,10 +904,9 @@ class TaskTable(QtCore.QObject):
             assert isinstance(task, render.Task)
             if task.state in ('waiting', 'disabled'):
                 task.is_enabled = not task.is_enabled
-                row.update()
                 changed = True
         if changed:
-            self.queue_changed.emit()
+            self.queue.changed.emit()
 
     def current_selected(self):
         """Current selected tasks.  """
@@ -950,9 +925,6 @@ class TaskTable(QtCore.QObject):
 
         for i in tasks:
             self.queue.remove(i)
-
-        if tasks:
-            self.update_widget()
 
 
 def hiber():

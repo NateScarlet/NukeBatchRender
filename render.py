@@ -21,29 +21,34 @@ from Qt import QtCore
 LOGGER = logging.getLogger('render')
 
 
-class Queue(list):
+class Queue(QtCore.QObject):
     """Task render quene.  """
+    changed = QtCore.Signal()
 
     def __init__(self):
         super(Queue, self).__init__()
         self.clock = Clock(self)
+        self.list = []
+        self.changed.connect(self.sort)
 
     def __contains__(self, item):
         if isinstance(item, (str, unicode)):
-            return any(i for i in self if i.filename == item)
-        return any(i for i in self if i == item)
+            return any(i for i in self.list if i.filename == item)
+        return any(i for i in self.list if i == item)
 
     def __nonzero__(self):
         ret = bool(self.enabled_tasks())
-        LOGGER.debug('Queue bool result: %s', ret)
         return ret
+
+    def __len__(self):
+        return len(self.list)
 
     def __str__(self):
         return '[{}]'.format(',\n'.join(str(i) for i in self))
 
     def __getitem__(self, name):
         if isinstance(name, int):
-            return list.__getitem__(self, name)
+            return self.list[name]
         elif isinstance(name, (str, unicode)):
             try:
                 return [i for i in self if i.filename == name][0]
@@ -55,13 +60,14 @@ class Queue(list):
             raise TypeError('Accept int or str, got %s' % type(name))
 
     def sort(self):
-        list.sort(self, key=lambda x: (x.is_finished, -x.priority, x.mtime))
+        """Sort queue.  """
+
+        self.list.sort(key=lambda x: (x.is_finished, -x.priority, x.mtime))
 
     def get(self):
         """Get first task from queue.  """
         while True:
             try:
-                self.sort()
                 ret = self.enabled_tasks()[0]
                 break
             except IndexError:
@@ -71,16 +77,20 @@ class Queue(list):
 
     def put(self, item):
         """Put task to queue.  """
+
         if not isinstance(item, Task):
             item = Task(item)
         if item not in self:
-            self.append(item)
-        self.sort()
+            item.queue.add(self)
+            self.list.append(item)
+            self.changed.emit()
+        LOGGER.debug('Add task: %s', item)
 
     def remove(self, item):
         """Archive file, then remove task and file.  """
 
         item = self[item]
+        assert isinstance(item, Task)
         if item.state == 'doing':
             LOGGER.error('不能移除正在进行的任务: %s', item.filename)
             return
@@ -89,22 +99,22 @@ class Queue(list):
 
         if os.path.exists(filename):
             FILES.remove(filename)
-        super(Queue, self).remove(item)
+        self.list.remove(item)
+        item.queue.discard(self)
+        self.changed.emit()
 
     def enabled_tasks(self):
         """All enabled task in queue. """
 
-        self.sort()
         return [i for i in self if i.state == 'waiting']
 
 
-class Task(object):
+class Task(QtCore.QObject):
     """Nuke render task.  """
     filename = None
     is_enabled = True
     is_doing = False
     is_finished = False
-    is_changed = False
     error_count = 0
     priority = 0
     max_retry = 3
@@ -113,13 +123,23 @@ class Task(object):
     frame_count = 0
     clocked_count = 0
     last_time = None
+    changed = QtCore.Signal()
 
     def __init__(self, filename, priority=0):
+        super(Task, self).__init__()
         self.filename = filename
         self.priority = priority
+        self.queue = set()
         self.result_files = []
         self._mtime = os.path.getmtime(self.filename)
         self._proc = None
+        self.changed.connect(self.on_changed)
+
+        # Update timer
+        self._timer = QtCore.QTimer()
+        self._timer.setInterval(1000)
+        self._timer.timeout.connect(self.update)
+        self._timer.start()
 
     def __eq__(self, other):
         if isinstance(other, Task):
@@ -128,6 +148,26 @@ class Task(object):
 
     def __str__(self):
         return '<Render task:{0.filename}: {0.state}: priority: {0.priority}>'.format(self)
+
+    def __setattr__(self, name, value):
+        if value is getattr(self, name, None):
+            return
+        super(Task, self).__setattr__(name, value)
+        if name == 'is_enabled':
+            if value:
+                self._timer.start()
+            else:
+                self._timer.stop()
+        if name in ('is_doing', 'is_enabled', 'is_finished', 'priority'):
+            self.changed.emit()
+
+    def on_changed(self):
+        """Send changed signal to queue.  """
+
+        LOGGER.debug('Task changed: %s', self)
+        for i in self.queue:
+            assert isinstance(i, Queue)
+            i.changed.emit()
 
     @property
     def mtime(self):
@@ -141,7 +181,7 @@ class Task(object):
             if mtime != self._mtime:
                 LOGGER.debug(
                     'Found mtime change %s -> %s, %s', mtime, self._mtime, self)
-                self.is_changed = True
+                self.reset()
             self._mtime = mtime
         except OSError as ex:
             LOGGER.debug('Update mtime fail %s: %s', self, ex)
@@ -150,6 +190,7 @@ class Task(object):
     @property
     def state(self):
         """The current state as a string.  """
+
         if self.is_finished:
             return 'finished'
         elif not self.is_enabled:
@@ -164,6 +205,23 @@ class Task(object):
         """Estimate task time cost.  """
 
         return self.averge_time * self.frame_count
+
+    def update(self):
+        """Update task status.  """
+
+        if self.state == 'waiting' and not os.path.exists(self.filename):
+            LOGGER.debug('%s not existed in %s anymore.',
+                         self.filename, os.getcwd())
+            self.is_enabled = False
+        if self.state == 'finished':
+            _ = self.mtime
+
+    def reset(self):
+        """Reset this task.  """
+
+        self.is_enabled = True
+        self.is_finished = False
+        self.error_count = 0
 
 
 class Pool(QtCore.QThread):
@@ -194,11 +252,10 @@ class Pool(QtCore.QThread):
     def run(self):
         """Overridde.  """
         LOGGER.debug('Render start')
-        LOGGER.debug('Task queue:\n %s', self.queue)
         self.queue_started.emit()
 
         while not self.stopping and self.queue:
-            LOGGER.debug('Rendering:\n%s', self.queue)
+            LOGGER.debug('Rendering queue:\n%s', self.queue)
             task = self.queue.get()
             try:
                 self.execute_task(task)
@@ -206,7 +263,7 @@ class Pool(QtCore.QThread):
                 LOGGER.error('Exception during render.', exc_info=True)
                 self.stop()
                 raise
-        LOGGER.debug('Render finished.')
+        LOGGER.debug('Render finished:\n%s', self.queue)
 
         self.queue_finished.emit()
         self.info('渲染结束')
@@ -358,7 +415,6 @@ class Pool(QtCore.QThread):
                         self.info(
                             '发现修改日期变更 {} -> {}, 将再次执行任务 {}'.format(
                                 mtime, task.mtime, task.filename))
-                        task.is_changed = True
                 except OSError:
                     self.error('移除文件 {} 失败'.format(task.filename))
 
@@ -416,7 +472,7 @@ class Clock(QtCore.QObject):
             task.averge_time = total_time / task.clocked_count
             self.averge_time = self_total_time / self.clocked_count
             task.remains_time = task.estimate_time * (100 - value) / 100
-            LOGGER.debug('task %s remains %s', task, task.remains_time)
+            # LOGGER.debug('task %s remains %s', task, task.remains_time)
         task.last_time = time.clock()
 
         self.remains_changed.emit(self.remains())

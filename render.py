@@ -94,7 +94,7 @@ class Queue(QtCore.QObject):
 
         item = self[item]
         assert isinstance(item, Task)
-        if item.state == 'doing':
+        if item.state & DOING:
             LOGGER.error('不能移除正在进行的任务: %s', item.filename)
             return
         filename = item.filename
@@ -483,7 +483,7 @@ class Clock(QtCore.QObject):
 
         ret = 0
         for i in [i for i in self.queue if not i.state & (DISABLED | FINISHED)]:
-            if i.state == 'doing':
+            if i.state & DOING:
                 ret += i.remains_time
             else:
                 ret += i.estimate_time or self.averge_time * \

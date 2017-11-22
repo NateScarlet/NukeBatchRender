@@ -172,22 +172,31 @@ class Task(QtCore.QObject):
             assert isinstance(i, Queue)
             i.changed.emit()
 
+    def update_mtime(self):
+        """Updatge file mtime info.  """
+
+        if os.path.exists(self.filename):
+            try:
+                old_mtime = self._mtime
+                mtime = os.path.getmtime(self.filename)
+                self._mtime = mtime
+
+                if mtime != old_mtime:
+                    LOGGER.debug(
+                        'Found mtime change %s -> %s, %s', old_mtime, mtime, self)
+                    self.reset()
+                    return True
+            except OSError as ex:
+                LOGGER.debug('Update mtime fail %s: %s', self, ex)
+
+        return False
+
     @property
     def mtime(self):
         """File modified time.  """
 
-        if self.state & DOING or not os.path.exists(self.filename):
-            return self._mtime
-
-        try:
-            mtime = os.path.getmtime(self.filename)
-            if mtime != self._mtime:
-                LOGGER.debug(
-                    'Found mtime change %s -> %s, %s', mtime, self._mtime, self)
-                self.reset()
-            self._mtime = mtime
-        except OSError as ex:
-            LOGGER.debug('Update mtime fail %s: %s', self, ex)
+        if not self.state & DOING:
+            self.update_mtime()
         return self._mtime
 
     @property
@@ -203,8 +212,8 @@ class Task(QtCore.QObject):
             LOGGER.debug('%s not existed in %s anymore.',
                          self.filename, os.getcwd())
             self.state |= DISABLED
-        if self.state & FINISHED:
-            _ = self.mtime
+        if not self.state & DOING:
+            self.update_mtime()
 
     def reset(self):
         """Reset this task.  """
@@ -367,6 +376,7 @@ class Pool(QtCore.QThread):
         # task.filename = Files.lock(task.filename)
         Files.archive(task.filename)
 
+        task.update_mtime()
         start_time = time.clock()
         proc = self.nuke_process(task.filename)
         self.child_pid = proc.pid
@@ -393,17 +403,15 @@ class Pool(QtCore.QThread):
                 task.state |= DISABLED
         else:
             # Normal exit.
-            if not CONFIG['PROXY']:
+            if task.update_mtime():
+                self.info('发现修改日期变更, 将再次执行任务 {}'.format(task))
+            elif CONFIG['PROXY']:
+                task.state |= DISABLED
+            else:
+                task.state |= FINISHED
+                self.info('任务完成')
                 try:
-                    mtime = os.path.getmtime(task.filename)
-                    if mtime == task.mtime:
-                        task.state |= FINISHED
-                        self.info('任务完成')
-                        Files.remove(task.filename)
-                    else:
-                        self.info(
-                            '发现修改日期变更 {} -> {}, 将再次执行任务 {}'.format(
-                                mtime, task.mtime, task.filename))
+                    Files.remove(task.filename)
                 except OSError:
                     self.error('移除文件 {} 失败'.format(task.filename))
 

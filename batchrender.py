@@ -28,6 +28,7 @@ if __name__ == '__main__':
 try:
     from Qt import QtCompat, QtCore, QtWidgets, QtGui
     from Qt.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBox
+    from actions import hiber, shutdown
 except:
     raise
 
@@ -925,31 +926,6 @@ class TaskTable(QtCore.QObject):
 
         for i in tasks:
             self.queue.remove(i)
-
-
-def hiber():
-    """Hibernate this computer.  """
-
-    LOGGER.info('休眠')
-    proc = subprocess.Popen('SHUTDOWN /H', stderr=subprocess.PIPE)
-    stderr = get_unicode(proc.communicate()[1])
-    LOGGER.error(stderr)
-    if '没有启用休眠' in stderr:
-        LOGGER.info('没有启用休眠, 转为使用关机')
-        shutdown()
-
-
-def shutdown():
-    """Shutdown this computer.  """
-
-    LOGGER.info('关机')
-    if sys.platform == 'win32':
-        subprocess.call('SHUTDOWN /S')
-        QMessageBox.information(None, '关机', '即将关机, 按OK以取消关机')
-        LOGGER.info('用户取消关机')
-        subprocess.call('SHUTDOWN /A')
-    else:
-        subprocess.call('shutdown')
 
 
 def call_from_nuke():

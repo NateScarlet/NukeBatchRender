@@ -3,7 +3,7 @@
 block_cipher = None
 
 
-a = Analysis(['batchrender.py'],
+a = Analysis(['main.py'],
              pathex=[
                  ''],
              binaries=[],

@@ -15,22 +15,20 @@ import webbrowser
 import time
 from functools import wraps
 
+
+from Qt import QtCompat
+from Qt.QtCore import Signal, Slot, QTimer, Qt, QEvent, QPoint, QUrl
+from Qt.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBox,\
+    QLineEdit, QCheckBox, QComboBox, QDoubleSpinBox, QSpinBox,\
+    QStyle, QInputDialog
+from tasktable import TaskTable
+
 import render
-import singleton
 from config import CONFIG, stylize
 from log import MultiProcessingHandler
 from path import get_unicode
 from __version__ import __version__
-
-if __name__ == '__main__':
-    __SINGLETON = singleton.SingleInstance()
-
-try:
-    from Qt import QtCompat, QtCore, QtWidgets, QtGui
-    from Qt.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBox
-    from actions import hiber, shutdown
-except:
-    raise
+from actions import hiber, shutdown
 
 
 LOGGER = logging.getLogger()
@@ -97,28 +95,14 @@ if sys.getdefaultencoding() != 'UTF-8':
     sys.setdefaultencoding('UTF-8')
 
 
-class Application(QApplication):
-    """QApplication subclass. """
-
-    def notify(self, reciever, event):
-        """(Overrride)  """
-
-        try:
-            return super(Application, self).notify(reciever, event)
-        except Exception as ex:
-            LOGGER.error(ex)
-            raise
-        return False
-
-
 class MainWindow(QMainWindow):
     """Main GUI window.  """
     render_pool = None
     _auto_start = False
     restarting = False
-    render_started = QtCore.Signal()
-    render_finished = QtCore.Signal()
-    file_dropped = QtCore.Signal(list)
+    render_started = Signal()
+    render_finished = Signal()
+    file_dropped = Signal(list)
 
     class Title(object):
         """Window title.  """
@@ -132,7 +116,7 @@ class MainWindow(QMainWindow):
                 parent, MainWindow), 'Need a Mainwindow as parent.'
             self.parent = parent
 
-            self._timer = QtCore.QTimer()
+            self._timer = QTimer()
             self._timer.setInterval(300)
             self._timer.timeout.connect(self.update)
             setattr(self.parent, '_title', self)
@@ -206,24 +190,24 @@ class MainWindow(QMainWindow):
 
         def _edits():
             for edit, key in self.edits_key.iteritems():
-                if isinstance(edit, QtWidgets.QLineEdit):
+                if isinstance(edit, QLineEdit):
                     edit.setText(CONFIG.get(key, ''))
                     edit.editingFinished.connect(
                         lambda edit=edit, k=key: CONFIG.__setitem__(k, edit.text()))
-                elif isinstance(edit, QtWidgets.QCheckBox):
+                elif isinstance(edit, QCheckBox):
                     edit.setCheckState(
-                        QtCore.Qt.CheckState(CONFIG.get(key, 0)))
+                        Qt.CheckState(CONFIG.get(key, 0)))
                     edit.stateChanged.connect(
                         lambda state, k=key: CONFIG.__setitem__(k, state))
-                elif isinstance(edit, QtWidgets.QComboBox):
+                elif isinstance(edit, QComboBox):
                     edit.setCurrentIndex(CONFIG.get(key, 0))
                     edit.currentIndexChanged.connect(
                         lambda index, k=key: CONFIG.__setitem__(k, index))
-                elif isinstance(edit, QtWidgets.QSpinBox):
+                elif isinstance(edit, QSpinBox):
                     edit.setValue(CONFIG.get(key, 0))
                     edit.valueChanged.connect(
                         lambda value, k=key: CONFIG.__setitem__(k, value))
-                elif isinstance(edit, QtWidgets.QDoubleSpinBox):
+                elif isinstance(edit, QDoubleSpinBox):
                     edit.setValue(CONFIG.get(key, 0))
                     edit.valueChanged.connect(
                         lambda value, k=key: CONFIG.__setitem__(k, value))
@@ -233,13 +217,13 @@ class MainWindow(QMainWindow):
         def _icon():
             _stdicon = self.style().standardIcon
 
-            _icon = _stdicon(QtWidgets.QStyle.SP_MediaPlay)
+            _icon = _stdicon(QStyle.SP_MediaPlay)
             self.setWindowIcon(_icon)
 
-            _icon = _stdicon(QtWidgets.QStyle.SP_DirOpenIcon)
+            _icon = _stdicon(QStyle.SP_DirOpenIcon)
             self.toolButtonOpenDir.setIcon(_icon)
 
-            _icon = _stdicon(QtWidgets.QStyle.SP_DialogOpenButton)
+            _icon = _stdicon(QStyle.SP_DialogOpenButton)
             self.toolButtonAskDir.setIcon(_icon)
 
         super(MainWindow, self).__init__(parent)
@@ -249,7 +233,7 @@ class MainWindow(QMainWindow):
 
         # ui
         self._ui = QtCompat.loadUi(os.path.abspath(
-            os.path.join(__file__, '../batchrender.ui')))
+            os.path.join(__file__, '../mainwindow.ui')))
         self.setCentralWidget(self._ui)
         self.task_table = TaskTable(self.tableWidget, self)
         self.Title(self)
@@ -291,15 +275,15 @@ class MainWindow(QMainWindow):
     def eventFilter(self, widget, event):
         """Qt widget event filter.  """
 
-        if (event.type() == QtCore.QEvent.KeyPress and
+        if (event.type() == QEvent.KeyPress and
                 widget is self.tableWidget):
             key = event.key()
 
-            if key == QtCore.Qt.Key_Return:
+            if key == Qt.Key_Return:
                 selected_task = self.task_table.current_selected()
                 if len(selected_task) <= 1:
                     return True
-                priority, confirm = QtWidgets.QInputDialog.getInt(
+                priority, confirm = QInputDialog.getInt(
                     self, '为所选设置优先级', '优先级')
                 if confirm:
                     for task in selected_task:
@@ -312,7 +296,7 @@ class MainWindow(QMainWindow):
     def absolute_pos(self, widget):
         """Return absolute postion for child @widget.  """
 
-        ret = QtCore.QPoint(0, 0)
+        ret = QPoint(0, 0)
         widget = widget.parent()
         while widget and widget is not self:
             ret += widget.pos()
@@ -326,7 +310,7 @@ class MainWindow(QMainWindow):
             return False
         return widget.geometry().contains(pos - self.absolute_pos(widget))
 
-    @QtCore.Slot(list)
+    @Slot(list)
     def on_file_dropped(self, files):
         files = [i for i in files if i.endswith('.nk')]
         if files:
@@ -345,14 +329,14 @@ class MainWindow(QMainWindow):
     def dragMoveEvent(self, event):
 
         if self.is_pos_in_widget(event.pos(), self.tableWidget):
-            event.setDropAction(QtCore.Qt.CopyAction)
+            event.setDropAction(Qt.CopyAction)
             event.accept()
         else:
             event.ignore()
 
     def dropEvent(self, event):
         if self.is_pos_in_widget(event.pos(), self.tableWidget):
-            event.setDropAction(QtCore.Qt.CopyAction)
+            event.setDropAction(Qt.CopyAction)
             event.accept()
             links = []
             for url in event.mimeData().urls():
@@ -399,7 +383,7 @@ class MainWindow(QMainWindow):
         self.tabWidget.setCurrentIndex(0)
 
         if not self.render_pool.stopping:
-            Application.alert(self)
+            QApplication.alert(self)
             actions.get(after_finish, lambda: LOGGER.error(
                 'Not found match action for %s', after_finish))()
 
@@ -466,7 +450,7 @@ class MainWindow(QMainWindow):
             else:
                 _reset()
         elif text == '执行命令':
-            cmd, confirm = QtWidgets.QInputDialog.getText(
+            cmd, confirm = QInputDialog.getText(
                 self, '执行命令', '命令内容', text=CONFIG['AFTER_FINISH_CMD'])
             if confirm and cmd:
                 CONFIG['AFTER_FINISH_CMD'] = cmd
@@ -487,9 +471,9 @@ class MainWindow(QMainWindow):
             edit.setToolTip('')
 
         if text in ('关机', '休眠', 'Deadline'):
-            self.checkBoxPriority.setCheckState(QtCore.Qt.Unchecked)
+            self.checkBoxPriority.setCheckState(Qt.Unchecked)
         else:
-            self.checkBoxPriority.setCheckState(QtCore.Qt.Checked)
+            self.checkBoxPriority.setCheckState(Qt.Checked)
 
     def on_remains_changed(self, remains):
         text = '停止'
@@ -552,7 +536,7 @@ class MainWindow(QMainWindow):
             msg = '渲染超时, 关闭低优先级进行重试'
             LOGGER.info(msg)
             self.textBrowser.append(stylize(msg, 'error'))
-            self.checkBoxPriority.setCheckState(QtCore.Qt.Unchecked)
+            self.checkBoxPriority.setCheckState(Qt.Unchecked)
             self.render_pool.stop()
             self.restarting = True
         else:
@@ -592,16 +576,16 @@ class MainWindow(QMainWindow):
             )
             if confirm == QMessageBox.Yes:
                 self.render_pool.stop()
-                Application.exit()
+                QApplication.exit()
                 LOGGER.info('渲染途中退出')
             else:
                 event.ignore()
         else:
-            Application.exit()
+            QApplication.exit()
             LOGGER.info('退出')
 
 
-@QtCore.Slot(QtCore.QUrl)
+@Slot(QUrl)
 def open_path(q_url):
     """Open file in console.  """
     path = q_url.toString()
@@ -617,381 +601,3 @@ def start_error_handler():
         _file = os.path.abspath(os.path.join(__file__, '../error_handler.exe'))
         proc = subprocess.Popen(_file, close_fds=True)
         atexit.register(proc.terminate)
-
-
-class TaskTable(QtCore.QObject):
-    """Table widget.  """
-
-    class Row(QtCore.QObject):
-        """Single row."""
-        brushes = {
-            None: (QtGui.QBrush(QtGui.QColor(QtCore.Qt.white)),
-                   QtGui.QBrush(QtGui.QColor(QtCore.Qt.black))),
-            render.DOING: (QtGui.QBrush(QtGui.QColor(30, 40, 45)),
-                           QtGui.QBrush(QtGui.QColor(QtCore.Qt.white))),
-            render.DISABLED: (QtGui.QBrush(QtGui.QColor(QtCore.Qt.gray)),
-                              QtGui.QBrush(QtGui.QColor(QtCore.Qt.black))),
-            render.FINISHED: (QtGui.QBrush(QtGui.QColor(QtCore.Qt.white)),
-                              QtGui.QBrush(QtGui.QColor(QtCore.Qt.gray)))
-        }
-        flags = {None: ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled
-                         | QtCore.Qt.ItemIsUserCheckable),
-                        (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
-                         | QtCore.Qt.ItemIsEditable)),
-                 render.DOING: ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled
-                                 | QtCore.Qt.ItemIsUserCheckable),
-                                (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
-                                 | QtCore.Qt.ItemIsEditable)),
-                 render.DISABLED: ((QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
-                                    | QtCore.Qt.ItemIsUserCheckable),
-                                   (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
-                                    | QtCore.Qt.ItemIsEditable)),
-                 render.FINISHED: ((QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled),
-                                   (QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
-                                    | QtCore.Qt.ItemIsEditable))}
-        _task = None
-        updating = False
-
-        def __init__(self):
-            super(TaskTable.Row, self).__init__()
-            self.columns = [QtWidgets.QTableWidgetItem() for _ in range(2)]
-            self._add_itemdata_type_check(self.columns[1], int)
-
-        def __str__(self):
-            ret = ' '.join('({},{})'.format(i.row(), i.column()) for i in self)
-            ret = '<Row {}>'.format(ret)
-            return ret
-
-        def __getitem__(self, index):
-            return self.columns[index]
-
-        def __len__(self):
-            return len(self.columns)
-
-        @property
-        def task(self):
-            """Task in this row.  """
-            return self._task
-
-        @task.setter
-        def task(self, value):
-            assert isinstance(value, render.Task)
-            if self._task:
-                self._task.changed.disconnect(self.update)
-            value.changed.connect(self.update)
-            self._task = value
-            self.update()
-
-        @staticmethod
-        def _add_itemdata_type_check(item, data_type):
-            assert isinstance(item, QtWidgets.QTableWidgetItem)
-
-            def _set_data(index, value):
-                if index == 2:
-                    try:
-                        data_type(value)
-                    except ValueError:
-                        LOGGER.debug('invaild value: %s', value)
-                        return
-                QtWidgets.QTableWidgetItem.setData(
-                    item, index, value)
-            item.setData = _set_data
-
-        @QtCore.Slot()
-        def update(self):
-            """Update row by task."""
-
-            task = self.task
-            if not task or self.updating:
-                return
-            assert isinstance(task, render.Task)
-
-            self.updating = True
-
-            def _choice():
-                choice = None
-                for state in (render.FINISHED, render.DOING, render.DISABLED):
-                    if state & self.task.state:
-                        choice = state
-                        break
-                return choice
-
-            def _stylize(item):
-                """Set item style. """
-
-                choice = _choice()
-                item.setBackground(self.brushes[choice][0])
-                item.setForeground(self.brushes[choice][1])
-
-            # LOGGER.debug('update row: %s', self.task)
-            assert all(isinstance(i, QtWidgets.QTableWidgetItem) for i in self)
-            name = self.columns[0]
-            priority = self.columns[1]
-
-            name.setText(self.task.filename)
-            name.setCheckState(QtCore.Qt.CheckState(
-                0 if self.task.state & render.DISABLED else 2))
-            name.setFlags(self.flags[_choice()][0])
-
-            priority.setText(str(self.task.priority))
-            priority.setFlags(self.flags[_choice()][1])
-
-            _stylize(name)
-            _stylize(priority)
-
-            if task.last_time is not None:
-                row_format = '<tr><td>{}</td><td align="right">{}</td></tr>'
-                _row = row_format.format
-
-                rows = ['<tr><th colspan=2>{}</th></tr>'.format(task.filename),
-                        _row('帧数', task.frame_count),
-                        _row('帧均耗时', render.timef(task.averge_time)),
-                        _row('预计耗时', render.timef(int(task.estimate_time)))]
-                if task.state & render.DOING:
-                    rows.append(
-                        _row('剩余时间', render.timef(int(task.remains_time))))
-                tooltip = '<table>{}</table>'.format(''.join(rows))
-            else:
-                tooltip = '<i>无统计数据</i>'
-
-            name.setToolTip(tooltip)
-
-            self.updating = False
-
-    def __init__(self, widget, parent):
-        super(TaskTable, self).__init__(parent)
-        self._rows = []
-        self.widget = widget
-        assert isinstance(parent, MainWindow)
-        self.parent = parent
-        self.queue = self.parent.queue
-        assert isinstance(self.queue, render.Queue)
-
-        self.widget.setColumnWidth(0, 350)
-        self.queue.changed.connect(self.on_queue_changed)
-
-        self.parent.pushButtonRemoveOldVersion.clicked.connect(
-            self.remove_old_version)
-        self.parent.toolButtonCheckAll.clicked.connect(self.check_all)
-        self.parent.toolButtonReverseCheck.clicked.connect(self.reverse_check)
-        self.parent.toolButtonRemove.clicked.connect(self.remove_selected)
-
-        self.widget.itemSelectionChanged.connect(self.on_selection_changed)
-        self.widget.cellDoubleClicked.connect(self.on_cell_double_clicked)
-        self.widget.cellChanged.connect(self.on_cell_changed)
-
-        # Timer for widget update
-        _timer = QtCore.QTimer(self)
-        _timer.timeout.connect(self.update_queue)
-        _timer.start(1000)
-
-    def __getitem__(self, index):
-        if not isinstance(index, int):
-            return [i for i in self._rows if i.task == index][0]
-        return self._rows[index]
-
-    def __delitem__(self, index):
-        del self._rows[index]
-
-    def __len__(self):
-        return len(self._rows)
-
-    def append(self, row):
-        """Add row to last.  """
-        assert isinstance(row, self.Row)
-        row.updating = True
-
-        index = len(self._rows)
-        self._rows.append(row)
-        for column, item in enumerate(row):
-            self.widget.setItem(index, column, item)
-
-        row.updating = False
-
-    def set_row_count(self, number):
-        """Set row count number.  """
-
-        change = number - len(self)
-        if change > 0:
-            self.widget.setRowCount(number)
-            for _ in range(change):
-                self.append(self.Row())
-        elif change < 0:
-            self.widget.setRowCount(number)
-            del self[number:]
-
-    def update_queue(self):
-        """Update queue to match files.  """
-
-        render.FILES.update()
-        for i in render.FILES:
-            if i not in self.queue:
-                self.queue.put(i)
-
-    def on_queue_changed(self):
-        """Update table to match task queue.  """
-
-        self.set_row_count(len(self.queue))
-        for index, task in enumerate(self.queue):
-            row = self[index]
-            assert isinstance(row, self.Row)
-            row.task = task
-
-    @QtCore.Slot(int, int)
-    def on_cell_changed(self, row, column):
-        """Callback on cell changed.  """
-        if self[row].updating:
-            return
-
-        item = self.widget.item(row, column)
-        task = self.queue[row]
-
-        if column == 0:
-            if item.checkState():
-                task.state &= ~render.DISABLED
-            else:
-                task.state |= render.DISABLED
-        elif column == 1:
-            try:
-                text = item.text()
-                task.priority = int(text)
-            except ValueError:
-                LOGGER.error('不能识别优先级 %s, 重置为%s', text, task.priority)
-                item.setText(unicode(task.priority))
-
-    @QtCore.Slot(int, int)
-    def on_cell_double_clicked(self, row, column):
-        if column != 0:
-            return
-
-        task = self[row].task
-        path = os.path.dirname(task.filename) or '.'
-        LOGGER.debug('User clicked: %s', task)
-        webbrowser.open(path)
-
-    def on_selection_changed(self):
-        """Do work on selection changed.  """
-
-        tasks = (i for i in self.current_selected() if not i.state &
-                 render.DOING)
-        self.parent.toolButtonRemove.setEnabled(any(tasks))
-
-    @property
-    def checked_files(self):
-        """Return files checked in listwidget.  """
-        return (i.text() for i in self.items() if i.checkState())
-
-    def items(self):
-        """Item in list widget -> list."""
-
-        widget = self.widget
-        return list(widget.item(i, 0) for i in xrange(widget.rowCount()))
-
-    def remove_old_version(self):
-        """Remove all old version nk files.  """
-
-        files = render.FILES.old_version_files()
-        if not files:
-            return
-
-        LOGGER.info('移除较低版本号文件: %s', files)
-        for i in files:
-            self.queue.remove(i)
-
-    def check_all(self):
-        """Check all item.  """
-
-        for row in self:
-            task = row.task
-            assert isinstance(task, render.Task)
-            task.state &= ~render.DISABLED
-
-    def reverse_check(self):
-        """Reverse checkstate for every item.  """
-
-        tasks = [i.task for i in self]
-        for task in tasks:
-            assert isinstance(task, render.Task)
-            task.state ^= render.DISABLED
-
-    def current_selected(self):
-        """Current selected tasks.  """
-
-        rows = set()
-        _ = [rows.add(i.row()) for i in self.widget.selectedItems()]
-        ret = [self[i].task for i in rows]
-        LOGGER.debug('\n\tCurrent selected: %s',
-                     ''.join(['\n\t\t{}'.format(i) for i in ret]) or '<None>')
-        return ret
-
-    def remove_selected(self):
-        """Select all item in list widget.  """
-
-        tasks = [i for i in self.current_selected() if not i.state &
-                 render.DOING]
-
-        for i in tasks:
-            self.queue.remove(i)
-
-
-def call_from_nuke():
-    """For nuke menu call.  """
-
-    CONFIG.read()
-    CONFIG['NUKE'] = sys.executable
-
-    if sys.platform == 'win32':
-        # Try use built executable
-        try:
-            dist_dir = os.path.join(os.path.dirname(__file__), 'dist')
-            exe_path = sorted([os.path.join(dist_dir, i)
-                               for i in os.listdir(dist_dir)
-                               if i.endswith('.exe') and i.startswith('batchrender')],
-                              key=os.path.getmtime, reverse=True)[0]
-            webbrowser.open(exe_path)
-            return
-        except (IndexError, OSError):
-            LOGGER.debug('Executable not found in %s', dist_dir)
-
-    _file = __file__.rstrip('c')
-    args = [sys.executable, '--tg', _file]
-    if sys.platform == 'win32':
-        args = [os.path.join(os.path.dirname(
-            sys.executable), 'python.exe'), _file]
-        kwargs = {'creationflags': subprocess.CREATE_NEW_CONSOLE}
-    else:
-        args = '"{0[0]}" {0[1]} "{0[2]}"'.format(args)
-        kwargs = {'shell': True, 'executable': 'bash'}
-    subprocess.Popen(args,
-                     **kwargs)
-
-
-def main():
-    """Run this script standalone."""
-    atexit.register(lambda: LOGGER.debug('Python exit.'))
-    try:
-        os.chdir(CONFIG['DIR'])
-        LOGGER.debug('Change dir: %s', os.getcwd())
-    except OSError:
-        LOGGER.warning('工作目录不可用: %s, 重置为默认位置', CONFIG['DIR'])
-        if not os.path.exists(CONFIG['DIR']):
-            if not os.path.exists(DEFAULT_DIR):
-                os.makedirs(DEFAULT_DIR)
-            CONFIG['DIR'] = DEFAULT_DIR
-    app = Application.instance()
-    if not app:
-        app = Application(sys.argv)
-    frame = MainWindow()
-    frame.show()
-    sys.exit(app.exec_())
-    LOGGER.debug('Exit')
-
-
-if __name__ == '__main__':
-    try:
-        main()
-    except SystemExit:
-        pass
-    except:
-        LOGGER.error('Uncaught exception.', exc_info=True)
-        raise

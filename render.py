@@ -72,7 +72,11 @@ class Queue(QtCore.QObject):
     def get(self):
         """Get first task from queue.  """
 
-        return self.enabled_tasks().next()
+        try:
+            return self.enabled_tasks().next()
+        except StopIteration:
+            time.sleep(1)
+            return self.get()
 
     def put(self, item):
         """Put task to queue.  """
@@ -364,7 +368,7 @@ class Pool(QtCore.QThread):
     def execute_task(self, task):
         """Render the task file.  """
 
-        assert isinstance(task, Task)
+        assert isinstance(task, Task), repr(task)
 
         task.state |= DOING
         self.current_task = task

@@ -33,26 +33,26 @@ class Queue(QtCore.QObject):
     def __init__(self):
         super(Queue, self).__init__()
         self.clock = Clock(self)
-        self.list = []
+        self._list = []
         self.changed.connect(self.sort)
 
     def __contains__(self, item):
         if isinstance(item, (str, unicode)):
-            return any(i for i in self.list if i.filename == item)
-        return any(i for i in self.list if i == item)
+            return any(i for i in self if i.filename == item)
+        return any(i for i in self if i == item)
 
     def __nonzero__(self):
         return any(self.enabled_tasks())
 
     def __len__(self):
-        return len(self.list)
+        return self._list.__len__()
 
     def __str__(self):
-        return '[{}]'.format(',\n'.join(str(i) for i in self))
+        return '[{}]'.format(',\n'.join(str(i) for i in self._list))
 
     def __getitem__(self, name):
         if isinstance(name, int):
-            return self.list[name]
+            return self._list.__getitem__(name)
         elif isinstance(name, (str, unicode)):
             try:
                 return [i for i in self if i.filename == name][0]
@@ -66,17 +66,13 @@ class Queue(QtCore.QObject):
     def sort(self):
         """Sort queue.  """
 
-        self.list.sort(key=lambda x: (not x.state & DOING,
-                                      x.state, -x.priority, x.mtime))
+        self._list.sort(key=lambda x: (not x.state & DOING,
+                                       x.state, -x.priority, x.mtime))
 
     def get(self):
         """Get first task from queue.  """
 
-        while True:
-            try:
-                return self.enabled_tasks().next()
-            except StopIteration:
-                time.sleep(1)
+        return self.enabled_tasks().next()
 
     def put(self, item):
         """Put task to queue.  """
@@ -85,7 +81,7 @@ class Queue(QtCore.QObject):
             item = Task(item)
         if item not in self:
             item.queue.add(self)
-            self.list.append(item)
+            self._list.append(item)
             self.changed.emit()
         LOGGER.debug('Add task: %s', item)
 
@@ -102,7 +98,7 @@ class Queue(QtCore.QObject):
 
         if os.path.exists(filename):
             FILES.remove(filename)
-        self.list.remove(item)
+        self._list.remove(item)
         item.queue.discard(self)
         self.changed.emit()
 
@@ -298,6 +294,8 @@ class Pool(QtCore.QThread):
     @staticmethod
     def nuke_process(f):
         """Nuke render process for file @f.  """
+
+        # return subprocess.Popen('cmd /c echo 1', stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         f = '"{}"'.format(f.strip('"'))
         nuke = '"{}"'.format(CONFIG['NUKE'].strip('"'))
         _memory_limit = CONFIG['MEMORY_LIMIT']

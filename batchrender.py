@@ -114,7 +114,7 @@ class Application(QApplication):
 class MainWindow(QMainWindow):
     """Main GUI window.  """
     render_pool = None
-    auto_start = False
+    _auto_start = False
     restarting = False
     render_started = QtCore.Signal()
     render_finished = QtCore.Signal()
@@ -378,13 +378,13 @@ class MainWindow(QMainWindow):
             @wraps(func)
             def _func(*args, **kwargs):
                 self.comboBoxAfterFinish.setCurrentIndex(0)
-                func(*args, **kwargs)
+                return func(*args, **kwargs)
             return _func
 
         after_finish = self.comboBoxAfterFinish.currentText()
 
         actions = {
-            '等待新任务': lambda: setattr(self, 'auto_start', True),
+            '等待新任务': lambda: setattr(self, '_auto_start', True),
             '休眠': reset_after_render(hiber),
             '关机': reset_after_render(shutdown),
             'Deadline': reset_after_render(lambda: webbrowser.open(CONFIG['DEADLINE'])),
@@ -408,19 +408,23 @@ class MainWindow(QMainWindow):
             self.restarting = False
             self.pushButtonStart.clicked.emit()
 
+    def autostart(self):
+        """Auto start rendering depend on setting.  """
+
+        if self._auto_start and not self.render_pool.isRunning():
+            self._auto_start = False
+            self.pushButtonStart.clicked.emit()
+            LOGGER.info('发现新任务, 自动开始渲染')
+
     def on_queue_changed(self):
 
-        # Set start button state & autostart.
+        # Set button: start button.
         if self.task_table.queue:
             self.pushButtonStart.setEnabled(True)
-            if self.auto_start and not self.render_pool.isRunning():
-                self.auto_start = False
-                self.pushButtonStart.clicked.emit()
-                LOGGER.info('发现新任务, 自动开始渲染')
         else:
             self.pushButtonStart.setEnabled(False)
 
-        # Set remove old version button state.
+        # Set button: emove old version.
         render.FILES.update()
         old_files = render.FILES.old_version_files()
         button = self.pushButtonRemoveOldVersion
@@ -428,9 +432,11 @@ class MainWindow(QMainWindow):
         button.setToolTip('备份后从目录中移除低版本文件\n{}'.format(
             '\n'.join(old_files) or '<无>'))
 
-        # Set checkall button state.
+        # Set button: checkall.
         _enabled = any(i for i in self.queue if i.state & render.DISABLED)
         self.toolButtonCheckAll.setEnabled(_enabled)
+
+        self.autostart()
 
     def on_after_render_changed(self):
         edit = self.comboBoxAfterFinish
@@ -441,7 +447,7 @@ class MainWindow(QMainWindow):
             edit.setCurrentIndex(0)
 
         if text != '等待新任务':
-            self.auto_start = False
+            self._auto_start = False
 
         if text == 'Deadline':
             if os.path.exists(CONFIG['DEADLINE']):

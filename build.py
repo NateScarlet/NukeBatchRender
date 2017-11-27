@@ -15,7 +15,7 @@ def main():
 
     print('Building {}\n'.format(ouptut))
 
-    proc = Popen('pyinstaller -F batchrender.spec')
+    proc = Popen('pyinstaller -F main.spec')
     proc.wait()
     try:
         if os.path.exists(ouptut):

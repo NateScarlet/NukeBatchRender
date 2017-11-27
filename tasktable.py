@@ -1,8 +1,7 @@
 #! /usr/bin/env python2
 # -*- coding=UTF-8 -*-
-"""
-GUI Batchrender for nuke.
-"""
+"""GUI tasktable.  """
+
 from __future__ import print_function, unicode_literals
 
 import os
@@ -18,144 +17,146 @@ import render
 LOGGER = logging.getLogger()
 
 
+class Row(QObject):
+    """Single row."""
+
+    brushes = {
+        None: (QBrush(QColor(Qt.white)),
+               QBrush(QColor(Qt.black))),
+        render.DOING: (QBrush(QColor(30, 40, 45)),
+                       QBrush(QColor(Qt.white))),
+        render.DISABLED: (QBrush(QColor(Qt.gray)),
+                          QBrush(QColor(Qt.black))),
+        render.FINISHED: (QBrush(QColor(Qt.white)),
+                          QBrush(QColor(Qt.gray)))
+    }
+    flags = {None: ((Qt.ItemIsSelectable | Qt.ItemIsEnabled
+                     | Qt.ItemIsUserCheckable),
+                    (Qt.ItemIsEnabled | Qt.ItemIsSelectable
+                     | Qt.ItemIsEditable)),
+             render.DOING: ((Qt.ItemIsSelectable | Qt.ItemIsEnabled
+                             | Qt.ItemIsUserCheckable),
+                            (Qt.ItemIsEnabled | Qt.ItemIsSelectable
+                             | Qt.ItemIsEditable)),
+             render.DISABLED: ((Qt.ItemIsEnabled | Qt.ItemIsSelectable
+                                | Qt.ItemIsUserCheckable),
+                               (Qt.ItemIsEnabled | Qt.ItemIsSelectable
+                                | Qt.ItemIsEditable)),
+             render.FINISHED: ((Qt.ItemIsSelectable | Qt.ItemIsEnabled),
+                               (Qt.ItemIsEnabled | Qt.ItemIsSelectable
+                                | Qt.ItemIsEditable))}
+    _task = None
+    updating = False
+
+    def __init__(self):
+        super(Row, self).__init__()
+        self.columns = [QTableWidgetItem() for _ in range(2)]
+        self._add_itemdata_type_check(self.columns[1], int)
+
+    def __str__(self):
+        ret = ' '.join('({},{})'.format(i.row(), i.column()) for i in self)
+        ret = '<Row {}>'.format(ret)
+        return ret
+
+    def __getitem__(self, index):
+        return self.columns[index]
+
+    def __len__(self):
+        return len(self.columns)
+
+    @property
+    def task(self):
+        """Task in this row.  """
+        return self._task
+
+    @task.setter
+    def task(self, value):
+        assert isinstance(value, render.Task)
+        if self._task:
+            self._task.changed.disconnect(self.update)
+        value.changed.connect(self.update)
+        self._task = value
+        self.update()
+
+    @staticmethod
+    def _add_itemdata_type_check(item, data_type):
+        assert isinstance(item, QTableWidgetItem)
+
+        def _set_data(index, value):
+            if index == 2:
+                try:
+                    data_type(value)
+                except ValueError:
+                    LOGGER.debug('invaild value: %s', value)
+                    return
+            QTableWidgetItem.setData(
+                item, index, value)
+        item.setData = _set_data
+
+    @Slot()
+    def update(self):
+        """Update row by task."""
+
+        task = self.task
+        if not task or self.updating:
+            return
+        assert isinstance(task, render.Task)
+
+        self.updating = True
+
+        def _choice():
+            choice = None
+            for state in (render.FINISHED, render.DOING, render.DISABLED):
+                if state & self.task.state:
+                    choice = state
+                    break
+            return choice
+
+        def _stylize(item):
+            """Set item style. """
+
+            choice = _choice()
+            item.setBackground(self.brushes[choice][0])
+            item.setForeground(self.brushes[choice][1])
+
+        # LOGGER.debug('update row: %s', self.task)
+        assert all(isinstance(i, QTableWidgetItem) for i in self)
+        name = self.columns[0]
+        priority = self.columns[1]
+
+        name.setText(self.task.filename)
+        name.setCheckState(Qt.CheckState(
+            0 if self.task.state & render.DISABLED else 2))
+        name.setFlags(self.flags[_choice()][0])
+
+        priority.setText(str(self.task.priority))
+        priority.setFlags(self.flags[_choice()][1])
+
+        _stylize(name)
+        _stylize(priority)
+
+        if task.last_time is not None:
+            row_format = '<tr><td>{}</td><td align="right">{}</td></tr>'
+            _row = row_format.format
+
+            rows = ['<tr><th colspan=2>{}</th></tr>'.format(task.filename),
+                    _row('帧数', task.frame_count),
+                    _row('帧均耗时', render.timef(task.averge_time)),
+                    _row('预计耗时', render.timef(int(task.estimate_time)))]
+            if task.state & render.DOING:
+                rows.append(
+                    _row('剩余时间', render.timef(int(task.remains_time))))
+            tooltip = '<table>{}</table>'.format(''.join(rows))
+        else:
+            tooltip = '<i>无统计数据</i>'
+
+        name.setToolTip(tooltip)
+
+        self.updating = False
+
+
 class TaskTable(QObject):
     """Table widget.  """
-
-    class Row(QObject):
-        """Single row."""
-        brushes = {
-            None: (QBrush(QColor(Qt.white)),
-                   QBrush(QColor(Qt.black))),
-            render.DOING: (QBrush(QColor(30, 40, 45)),
-                           QBrush(QColor(Qt.white))),
-            render.DISABLED: (QBrush(QColor(Qt.gray)),
-                              QBrush(QColor(Qt.black))),
-            render.FINISHED: (QBrush(QColor(Qt.white)),
-                              QBrush(QColor(Qt.gray)))
-        }
-        flags = {None: ((Qt.ItemIsSelectable | Qt.ItemIsEnabled
-                         | Qt.ItemIsUserCheckable),
-                        (Qt.ItemIsEnabled | Qt.ItemIsSelectable
-                         | Qt.ItemIsEditable)),
-                 render.DOING: ((Qt.ItemIsSelectable | Qt.ItemIsEnabled
-                                 | Qt.ItemIsUserCheckable),
-                                (Qt.ItemIsEnabled | Qt.ItemIsSelectable
-                                 | Qt.ItemIsEditable)),
-                 render.DISABLED: ((Qt.ItemIsEnabled | Qt.ItemIsSelectable
-                                    | Qt.ItemIsUserCheckable),
-                                   (Qt.ItemIsEnabled | Qt.ItemIsSelectable
-                                    | Qt.ItemIsEditable)),
-                 render.FINISHED: ((Qt.ItemIsSelectable | Qt.ItemIsEnabled),
-                                   (Qt.ItemIsEnabled | Qt.ItemIsSelectable
-                                    | Qt.ItemIsEditable))}
-        _task = None
-        updating = False
-
-        def __init__(self):
-            super(TaskTable.Row, self).__init__()
-            self.columns = [QTableWidgetItem() for _ in range(2)]
-            self._add_itemdata_type_check(self.columns[1], int)
-
-        def __str__(self):
-            ret = ' '.join('({},{})'.format(i.row(), i.column()) for i in self)
-            ret = '<Row {}>'.format(ret)
-            return ret
-
-        def __getitem__(self, index):
-            return self.columns[index]
-
-        def __len__(self):
-            return len(self.columns)
-
-        @property
-        def task(self):
-            """Task in this row.  """
-            return self._task
-
-        @task.setter
-        def task(self, value):
-            assert isinstance(value, render.Task)
-            if self._task:
-                self._task.changed.disconnect(self.update)
-            value.changed.connect(self.update)
-            self._task = value
-            self.update()
-
-        @staticmethod
-        def _add_itemdata_type_check(item, data_type):
-            assert isinstance(item, QTableWidgetItem)
-
-            def _set_data(index, value):
-                if index == 2:
-                    try:
-                        data_type(value)
-                    except ValueError:
-                        LOGGER.debug('invaild value: %s', value)
-                        return
-                QTableWidgetItem.setData(
-                    item, index, value)
-            item.setData = _set_data
-
-        @Slot()
-        def update(self):
-            """Update row by task."""
-
-            task = self.task
-            if not task or self.updating:
-                return
-            assert isinstance(task, render.Task)
-
-            self.updating = True
-
-            def _choice():
-                choice = None
-                for state in (render.FINISHED, render.DOING, render.DISABLED):
-                    if state & self.task.state:
-                        choice = state
-                        break
-                return choice
-
-            def _stylize(item):
-                """Set item style. """
-
-                choice = _choice()
-                item.setBackground(self.brushes[choice][0])
-                item.setForeground(self.brushes[choice][1])
-
-            # LOGGER.debug('update row: %s', self.task)
-            assert all(isinstance(i, QTableWidgetItem) for i in self)
-            name = self.columns[0]
-            priority = self.columns[1]
-
-            name.setText(self.task.filename)
-            name.setCheckState(Qt.CheckState(
-                0 if self.task.state & render.DISABLED else 2))
-            name.setFlags(self.flags[_choice()][0])
-
-            priority.setText(str(self.task.priority))
-            priority.setFlags(self.flags[_choice()][1])
-
-            _stylize(name)
-            _stylize(priority)
-
-            if task.last_time is not None:
-                row_format = '<tr><td>{}</td><td align="right">{}</td></tr>'
-                _row = row_format.format
-
-                rows = ['<tr><th colspan=2>{}</th></tr>'.format(task.filename),
-                        _row('帧数', task.frame_count),
-                        _row('帧均耗时', render.timef(task.averge_time)),
-                        _row('预计耗时', render.timef(int(task.estimate_time)))]
-                if task.state & render.DOING:
-                    rows.append(
-                        _row('剩余时间', render.timef(int(task.remains_time))))
-                tooltip = '<table>{}</table>'.format(''.join(rows))
-            else:
-                tooltip = '<i>无统计数据</i>'
-
-            name.setToolTip(tooltip)
-
-            self.updating = False
 
     def __init__(self, widget, parent):
         super(TaskTable, self).__init__(parent)
@@ -196,7 +197,7 @@ class TaskTable(QObject):
 
     def append(self, row):
         """Add row to last.  """
-        assert isinstance(row, self.Row)
+        assert isinstance(row, Row)
         row.updating = True
 
         index = len(self._rows)
@@ -212,8 +213,8 @@ class TaskTable(QObject):
         change = number - len(self)
         if change > 0:
             self.widget.setRowCount(number)
-            for _ in range(change):
-                self.append(self.Row())
+            for _ in xrange(change):
+                self.append(Row())
         elif change < 0:
             self.widget.setRowCount(number)
             del self[number:]
@@ -232,7 +233,7 @@ class TaskTable(QObject):
         self.set_row_count(len(self.queue))
         for index, task in enumerate(self.queue):
             row = self[index]
-            assert isinstance(row, self.Row)
+            assert isinstance(row, Row)
             row.task = task
 
     @Slot(int, int)

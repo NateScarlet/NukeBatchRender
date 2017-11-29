@@ -253,9 +253,9 @@ class Pool(QtCore.QThread):
         self.queue_started.emit()
 
         while not self.stopping and self.queue:
-            LOGGER.debug('Rendering queue:\n%s', self.queue)
-            task = self.queue.get()
             try:
+                LOGGER.debug('Rendering queue:\n%s', self.queue)
+                task = self.queue.get()
                 self.execute_task(task)
             except Exception:
                 LOGGER.error('Exception during render.', exc_info=True)

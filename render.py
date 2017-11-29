@@ -290,7 +290,8 @@ class Pool(QtCore.QThread):
             try:
                 os.kill(pid, 9)
             except OSError as ex:
-                LOGGER.debug('Kill process fail: %s: %s', pid, ex)
+                LOGGER.debug('Kill process fail: %s: %s',
+                             pid, os.strerror(ex.errno))
         if self.isRunning():
             self.exit(1)
         self.wait()

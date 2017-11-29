@@ -228,7 +228,8 @@ class MainWindow(QMainWindow):
     def autostart(self):
         """Auto start rendering depend on setting.  """
 
-        if self._auto_start and not self.is_rendering:
+        if self._auto_start and not self.is_rendering \
+                and self.queue:
             self._auto_start = False
             self.pushButtonStart.clicked.emit()
             LOGGER.info('发现新任务, 自动开始渲染')
@@ -273,11 +274,14 @@ class MainWindow(QMainWindow):
         pool.stderr.connect(self.textBrowser.append)
         pool.progress.connect(self.progressBar.setValue)
         pool.queue_finished.connect(self.render_finished.emit)
+        pool.queue_started.connect(self.render_started.emit)
 
         self.queue.clock.start_clock(pool)
         self.queue.clock.time_out_timer.stop()
 
         self.render_pool = pool
+
+        self.autostart()
 
     # Slots.
 
@@ -299,7 +303,7 @@ class MainWindow(QMainWindow):
         else:
             self.pushButtonStart.setEnabled(False)
 
-        # Set button: emove old version.
+        # Set button: Remove old version.
         render.FILES.update()
         old_files = render.FILES.old_version_files()
         button = self.pushButtonRemoveOldVersion
@@ -404,17 +408,12 @@ class MainWindow(QMainWindow):
     @Slot()
     def on_start_button_clicked(self):
         self.tabWidget.setCurrentIndex(1)
-        self.pushButtonRemoveOldVersion.setEnabled(False)
 
         start_error_handler()
         self.render_pool.start()
 
-        self.render_started.emit()
-
     @Slot()
     def on_stop_button_clicked(self):
-        """Button clicked action.  """
-
         self.comboBoxAfterFinish.setCurrentIndex(0)
 
         self.render_pool.stop()
@@ -457,6 +456,7 @@ class MainWindow(QMainWindow):
         if self.restarting:
             self.restarting = False
             self.pushButtonStart.clicked.emit()
+        self.autostart()
 
     # Events.
     def dragEnterEvent(self, event):

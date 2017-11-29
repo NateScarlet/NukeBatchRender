@@ -1,6 +1,8 @@
 # -*- coding=UTF-8 -*-
-"""Task rendering.  """
+"""Logging.  """
 from __future__ import print_function, unicode_literals
+
+import os
 
 import multiprocessing
 import sys
@@ -8,6 +10,57 @@ import threading
 import traceback
 
 import logging
+from config import CONFIG
+
+LOGGER = logging.getLogger('log')
+
+
+def _set_logger():
+    logger = logging.getLogger()
+    logger.propagate = False
+
+    # Loglevel
+    loglevel = os.getenv('LOGLEVEL', logging.INFO)
+    try:
+        logger.setLevel(int(loglevel))
+    except TypeError:
+        logger.warning(
+            'Can not recognize env:LOGLEVEL %s, expect a int', loglevel)
+
+    # Stream handler
+    _handler = MultiProcessingHandler(logging.StreamHandler)
+    if logger.getEffectiveLevel() == logging.DEBUG:
+        _formatter = logging.Formatter(
+            '%(levelname)-6s[%(asctime)s]:%(filename)s:'
+            '%(lineno)d:%(funcName)s: %(message)s', '%H:%M:%S')
+    else:
+        _formatter = logging.Formatter(
+            '%(levelname)-6s[%(asctime)s]:'
+            '%(name)s: %(message)s', '%H:%M:%S')
+
+    _handler.setFormatter(_formatter)
+    logger.addHandler(_handler)
+    logger.debug('Added stream handler.  ')
+
+    # File handler
+    path = CONFIG.log_path
+    path_dir = os.path.dirname(path)
+    try:
+        os.makedirs(path_dir)
+    except OSError:
+        pass
+    _handler = MultiProcessingHandler(
+        logging.handlers.RotatingFileHandler,
+        args=(path,), kwargs={'backupCount': 5})
+    _formatter = logging.Formatter(
+        '%(levelname)-6s[%(asctime)s]:%(name)s: %(message)s', '%x %X')
+    _handler.setFormatter(_formatter)
+    logger.addHandler(_handler)
+    if os.stat(path).st_size > 10000:
+        try:
+            _handler.doRollover()
+        except OSError:
+            LOGGER.debug('Rollover log file failed.')
 
 
 class MultiProcessingHandler(logging.Handler):

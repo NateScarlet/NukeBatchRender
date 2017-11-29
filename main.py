@@ -10,6 +10,8 @@ import sys
 import logging
 
 import singleton
+from mainwindow import QApplication, MainWindow, DEFAULT_DIR, CONFIG
+from log import _set_logger
 
 LOGGER = logging.getLogger()
 if __name__ == '__main__':
@@ -17,7 +19,7 @@ if __name__ == '__main__':
 
 
 def main():
-    from mainwindow import QApplication, MainWindow, DEFAULT_DIR, CONFIG
+    _set_logger()
 
     atexit.register(lambda: LOGGER.debug('Python exit.'))
     try:

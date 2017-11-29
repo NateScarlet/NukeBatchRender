@@ -15,7 +15,7 @@ from functools import wraps
 
 
 from Qt import QtCompat
-from Qt.QtCore import Signal, Slot, QTimer, Qt, QEvent, QPoint, QUrl
+from Qt.QtCore import Signal, Slot, QTimer, Qt, QEvent, QUrl
 from Qt.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBox,\
     QLineEdit, QCheckBox, QComboBox, QDoubleSpinBox, QSpinBox,\
     QStyle, QInputDialog
@@ -23,7 +23,6 @@ from tasktable import TaskTable
 
 import render
 from config import CONFIG, stylize
-from log import MultiProcessingHandler
 from path import get_unicode
 from __version__ import __version__
 from actions import hiber, shutdown
@@ -32,58 +31,6 @@ from actions import hiber, shutdown
 LOGGER = logging.getLogger()
 DEFAULT_DIR = os.path.expanduser('~/.nuke/batchrender')
 
-
-def _set_logger():
-    logger = logging.getLogger()
-    logger.propagate = False
-
-    # Loglevel
-    loglevel = os.getenv('LOGLEVEL', logging.INFO)
-    try:
-        logger.setLevel(int(loglevel))
-    except TypeError:
-        logger.warning(
-            'Can not recognize env:LOGLEVEL %s, expect a int', loglevel)
-
-    # Stream handler
-    _handler = MultiProcessingHandler(logging.StreamHandler)
-    if logger.getEffectiveLevel() == logging.DEBUG:
-        _formatter = logging.Formatter(
-            '%(levelname)-6s[%(asctime)s]:%(filename)s:'
-            '%(lineno)d:%(funcName)s: %(message)s', '%H:%M:%S')
-    else:
-        _formatter = logging.Formatter(
-            '%(levelname)-6s[%(asctime)s]:'
-            '%(name)s: %(message)s', '%H:%M:%S')
-
-    _handler.setFormatter(_formatter)
-    logger.addHandler(_handler)
-    logger.debug('Added stream handler.  ')
-
-    # File handler
-    path = CONFIG.log_path
-    path_dir = os.path.dirname(path)
-    try:
-        os.makedirs(path_dir)
-    except OSError:
-        pass
-    _handler = MultiProcessingHandler(
-        logging.handlers.RotatingFileHandler,
-        args=(path,), kwargs={'backupCount': 5})
-    _formatter = logging.Formatter(
-        '%(levelname)-6s[%(asctime)s]:%(name)s: %(message)s', '%x %X')
-    _handler.setFormatter(_formatter)
-    logger.addHandler(_handler)
-    if os.stat(path).st_size > 10000:
-        try:
-            _handler.doRollover()
-        except OSError:
-            LOGGER.debug('Rollover log file failed.')
-
-
-if __name__ == '__main__':
-    _set_logger()
-del _set_logger
 
 if getattr(sys, 'frozen', False):
     __file__ = os.path.join(getattr(sys, '_MEIPASS', ''), __file__)

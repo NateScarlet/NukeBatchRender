@@ -8,10 +8,13 @@ import atexit
 import os
 import sys
 import logging
+from subprocess import call
+from path import get_encoded
 
 import singleton
 from mainwindow import QApplication, MainWindow, DEFAULT_DIR, CONFIG
 from log import _set_logger
+from __version__ import __version__
 
 LOGGER = logging.getLogger()
 if __name__ == '__main__':
@@ -34,6 +37,10 @@ def main():
     app = QApplication.instance()
     if not app:
         app = QApplication(sys.argv)
+
+    if sys.platform == 'win32':
+        call(get_encoded('TITLE 批渲染控制台 v{}'.format(__version__)), shell=True)
+
     frame = MainWindow()
     frame.show()
     sys.exit(app.exec_())

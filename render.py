@@ -87,7 +87,10 @@ class Queue(QtCore.QObject):
             item.queue.add(self)
             self._list.append(item)
             self.changed.emit()
-        LOGGER.debug('Add task: %s', item)
+            LOGGER.debug('Add task: %s', item)
+        else:
+            item = self[item]
+            item.update()
 
     def remove(self, item):
         """Archive file, then remove task and file.  """

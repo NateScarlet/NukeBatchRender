@@ -223,9 +223,7 @@ class TaskTable(QObject):
         """Update queue to match files.  """
 
         render.FILES.update()
-        for i in render.FILES:
-            if i not in self.queue:
-                self.queue.put(i)
+        map(self.queue.put, render.FILES)
 
     def on_queue_changed(self):
         """Update table to match task queue.  """

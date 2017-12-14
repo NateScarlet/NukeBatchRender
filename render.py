@@ -206,13 +206,13 @@ class Queue(RenderObject):
     @property
     def remains(self):
         ret = 0
-        for i in list(self.enabled_tasks()):
+        for i in list(i for i in self if not i.state or i.state & DOING):
             assert isinstance(i, Task)
             if i.state & DOING:
-                ret += i.remains
+                ret += (i.remains
+                        or i.estimate_time)
             else:
-                ret += i.estimate_time or self.averge_time * \
-                    (i.frame_count or self.averge_frame_count)
+                ret += i.estimate_time
 
         return ret
 
@@ -230,6 +230,7 @@ class Task(RenderObject):
     max_retry = 3
     _mtime = None
     proc = None
+    updating = False
 
     def __init__(self, filename):
         super(Task, self).__init__()
@@ -273,8 +274,6 @@ class Task(RenderObject):
 
     def on_progressed(self, value):
         self._remains = (100 - value) * self.estimate_time / 100.0
-        for i in self.queue:
-            i.progressed.emit(value)
 
     def on_stdout(self, msg):
         for i in self.queue:
@@ -357,14 +356,19 @@ class Task(RenderObject):
 
     def update(self):
         """Update task status.  """
+        if self.updating:
+            return
+
+        self.updating = True
 
         if not self.state and not os.path.exists(self.filename):
             LOGGER.debug('%s not existed in %s anymore.',
                          self.filename, os.getcwd())
             self.state |= DISABLED
-            self._update_timer.stop()
         if not self.state & DOING:
             self.update_mtime()
+
+        self.updating = False
 
     def reset(self):
         """Reset this task.  """

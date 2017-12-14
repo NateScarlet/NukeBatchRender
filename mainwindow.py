@@ -136,13 +136,14 @@ class MainWindow(QMainWindow):
         self.textBrowser.anchorClicked.connect(open_path)
 
         self.queue.changed.connect(self.on_queue_changed)
-        self.queue.progressed.connect(self.progressBar.setValue)
         self.queue.stdout.connect(self.textBrowser.append)
         self.queue.stderr.connect(self.textBrowser.append)
 
-        self.slave.stopped.connect(self.on_render_stopped)
-        self.slave.finished.connect(self.on_render_finished)
+        self.slave.progressed.connect(self.progressBar.setValue)
+        self.slave.stopped.connect(self.on_slave_stopped)
+        self.slave.finished.connect(self.on_slave_finished)
         self.slave.time_out.connect(self.on_slave_time_out)
+        self.slave.progressed.connect(self.update_remains)
 
         self.progressBar.valueChanged.connect(self.append_timestamp)
 
@@ -294,14 +295,17 @@ class MainWindow(QMainWindow):
         _enabled = any(i for i in self.queue if i.state & render.DISABLED)
         self.toolButtonCheckAll.setEnabled(_enabled)
 
-        # Set button: start, stop.
+        self.update_remains()
+        self.autostart()
+
+    @Slot()
+    def update_remains(self):
+        """Set remains info on button: start, stop."""
         remains = self.queue.remains
         text = ('[{}]'.format(render.timef(int(remains)))
                 if remains else '')
         self.pushButtonStart.setText('启动' + text)
         self.pushButtonStop.setText('停止' + text)
-
-        self.autostart()
 
     @Slot()
     def on_after_render_changed(self):
@@ -391,7 +395,7 @@ class MainWindow(QMainWindow):
         self.slave.stop()
 
     @Slot()
-    def on_render_stopped(self):
+    def on_slave_stopped(self):
         self.pushButtonStop.hide()
         self.progressBar.hide()
         self.pushButtonStart.show()
@@ -399,7 +403,7 @@ class MainWindow(QMainWindow):
         QApplication.alert(self)
 
     @Slot()
-    def on_render_finished(self):
+    def on_slave_finished(self):
 
         def reset_after_render(func):
             """(Decorator)Reset after render choice before run @func  ."""

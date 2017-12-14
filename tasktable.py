@@ -75,7 +75,9 @@ class Row(QObject):
         assert isinstance(value, render.Task)
         if self._task:
             self._task.changed.disconnect(self.update)
+            self._task.progressed.disconnect(self.update)
         value.changed.connect(self.update)
+        value.progressed.connect(self.update)
         self._task = value
         self.update()
 

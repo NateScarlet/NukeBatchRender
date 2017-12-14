@@ -362,6 +362,7 @@ class Task(RenderObject):
             LOGGER.debug('%s not existed in %s anymore.',
                          self.filename, os.getcwd())
             self.state |= DISABLED
+            self._update_timer.stop()
         if not self.state & DOING:
             self.update_mtime()
 

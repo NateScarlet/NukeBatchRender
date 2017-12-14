@@ -43,11 +43,7 @@ if sys.getdefaultencoding() != 'UTF-8':
 class MainWindow(QMainWindow):
     """Main GUI window.  """
 
-    render_pool = None
     _auto_start = False
-    restarting = False
-    render_started = Signal()
-    render_finished = Signal()
     file_dropped = Signal(list)
 
     def __init__(self, parent=None):
@@ -90,16 +86,11 @@ class MainWindow(QMainWindow):
             self.toolButtonAskDir.setIcon(_icon)
 
         super(MainWindow, self).__init__(parent)
-        self.queue = render.Queue()
-        self.queue.clock.remains_changed.connect(self.on_remains_changed)
-        self.queue.clock.time_out.connect(self.on_task_time_out)
 
         # ui
         self._ui = QtCompat.loadUi(os.path.abspath(
             os.path.join(__file__, '../mainwindow.ui')))
         self.setCentralWidget(self._ui)
-        self.task_table = TaskTable(self.tableWidget, self)
-        self.Title(self)
         self.pushButtonStop.hide()
         self.progressBar.hide()
         self.frameLowPriority.setVisible(CONFIG['LOW_PRIORITY'])
@@ -119,9 +110,16 @@ class MainWindow(QMainWindow):
         }
         _edits(edits_key)
 
-        self.new_render_pool()
+        # Initiate render object.
+        self.queue = render.Queue()
+        self.on_queue_changed()
+        self.slave = render.Slave()
 
-        # Connect signals.
+        # Custom ui with render object.
+        self.task_table = TaskTable(self.tableWidget, self)
+        self.Title(self)
+
+        # Signals.
         self.lineEditDir.textChanged.connect(self.check_dir)
         self.comboBoxAfterFinish.currentIndexChanged.connect(
             self.on_after_render_changed)
@@ -137,10 +135,14 @@ class MainWindow(QMainWindow):
 
         self.textBrowser.anchorClicked.connect(open_path)
 
-        self.render_started.connect(lambda: self.progressBar.setValue(0))
-        self.render_finished.connect(self.on_render_finished)
-
         self.queue.changed.connect(self.on_queue_changed)
+        self.queue.progress.connect(self.progressBar.setValue)
+        self.queue.time_out.connect(self.on_task_time_out)
+        self.queue.stdout.connect(self.textBrowser.append)
+        self.queue.stderr.connect(self.textBrowser.append)
+
+        self.slave.stopped.connect(self.on_render_stopped)
+        self.slave.finished.connect(self.on_render_finished)
 
         self.progressBar.valueChanged.connect(self.append_timestamp)
 
@@ -171,24 +173,23 @@ class MainWindow(QMainWindow):
             self._timer.timeout.connect(self.update)
             setattr(self.parent, '_title', self)
 
-            self.parent.render_finished.connect(self.update_prefix)
             self.parent.queue.changed.connect(self.update_prefix)
             self.parent.progressBar.valueChanged.connect(self.update_prefix)
 
-            self.parent.render_started.connect(self._timer.start)
-            self.parent.render_finished.connect(self._timer.stop)
+            self.parent.slave.started.connect(self._timer.start)
+            self.parent.slave.finished.connect(self._timer.stop)
 
             self.update()
 
         def update_prefix(self):
             """Update title prefix with progress.  """
+
             prefix = ''
-            queue_length = len([
-                i for i in self.parent.queue if not i.state])
+            queue_length = len(list(self.parent.queue.enabled_tasks()))
 
             if queue_length:
                 prefix = '[{}]{}'.format(queue_length, prefix)
-            if self.parent.is_rendering:
+            if self.parent.slave.rendering:
                 prefix = '{}%{}'.format(
                     self.parent.progressBar.value(), prefix)
 
@@ -199,9 +200,11 @@ class MainWindow(QMainWindow):
         def update(self):
             """Update title, rotate when rendering.  """
 
-            if self.parent.is_rendering and self.parent.render_pool.current_task:
-                title = self.parent.render_pool.current_task.filename.partition('.nk')[
-                    0] or self.default_title
+            slave = self.parent.slave
+            if slave.rendering:
+                task = slave.task
+                assert isinstance(task, render.Task)
+                title = task.filename.partition('.nk')[0] or self.default_title
                 self.title_index += 1
                 index = self.title_index % len(title)
             else:
@@ -219,17 +222,12 @@ class MainWindow(QMainWindow):
 
         self.textBrowser.append(stylize(time.strftime('[%x %X]'), 'info'))
 
-    @property
-    def is_rendering(self):
-        """If render runing.  """
-
-        return self.render_pool and self.render_pool.isRunning()
-
     def autostart(self):
         """Auto start rendering depend on setting.  """
 
-        if self._auto_start and not self.is_rendering \
-                and self.queue:
+        if (self._auto_start
+                and not self.slave.rendering
+                and self.queue):
             self._auto_start = False
             self.pushButtonStart.clicked.emit()
             LOGGER.info('发现新任务, 自动开始渲染')
@@ -264,25 +262,6 @@ class MainWindow(QMainWindow):
             return False
         return True
 
-    def new_render_pool(self):
-        """Switch to new render pool.  """
-
-        LOGGER.debug('New render pool.')
-        pool = render.Pool(self.task_table.queue)
-
-        pool.stdout.connect(self.textBrowser.append)
-        pool.stderr.connect(self.textBrowser.append)
-        pool.progress.connect(self.progressBar.setValue)
-        pool.queue_finished.connect(self.render_finished.emit)
-        pool.queue_started.connect(self.render_started.emit)
-
-        self.queue.clock.start_clock(pool)
-        self.queue.clock.time_out_timer.stop()
-
-        self.render_pool = pool
-
-        self.autostart()
-
     # Slots.
 
     @Slot(list)
@@ -298,7 +277,7 @@ class MainWindow(QMainWindow):
     def on_queue_changed(self):
 
         # Set button: start button.
-        if self.task_table.queue:
+        if self.queue:
             self.pushButtonStart.setEnabled(True)
         else:
             self.pushButtonStart.setEnabled(False)
@@ -314,6 +293,13 @@ class MainWindow(QMainWindow):
         # Set button: checkall.
         _enabled = any(i for i in self.queue if i.state & render.DISABLED)
         self.toolButtonCheckAll.setEnabled(_enabled)
+
+        # Set button: start, stop.
+        remains = self.queue.remains
+        text = ('[{}]'.format(render.timef(int(remains)))
+                if remains else '')
+        self.pushButtonStart.setText('启动' + text)
+        self.pushButtonStop.setText('停止' + text)
 
         self.autostart()
 
@@ -380,43 +366,36 @@ class MainWindow(QMainWindow):
         else:
             self.checkBoxPriority.setCheckState(Qt.Checked)
 
-    @Slot(float)
-    def on_remains_changed(self, remains):
-        text = '停止'
-        if remains:
-            text = '{}[{}]'.format(text, render.timef(int(remains)))
-        self.pushButtonStop.setText(text)
-
-        self.task_table[self.render_pool.current_task].update()
-
     @Slot()
     def on_task_time_out(self):
         """Excute when frame take too long.  """
 
         if CONFIG['LOW_PRIORITY']:
-            msg = '渲染超时, 关闭低优先级进行重试'
+            msg = '渲染超时, 关闭低优先级。'
             LOGGER.info(msg)
             self.textBrowser.append(stylize(msg, 'error'))
             self.checkBoxPriority.setCheckState(Qt.Unchecked)
-            self.render_pool.stop()
-            self.restarting = True
-        else:
-            msg = '渲染超时'
-            LOGGER.warning(msg)
-            self.textBrowser.append(stylize(msg, 'error'))
 
     @Slot()
     def on_start_button_clicked(self):
         self.tabWidget.setCurrentIndex(1)
 
         start_error_handler()
-        self.render_pool.start()
+        self.slave.start(self.queue)
 
     @Slot()
     def on_stop_button_clicked(self):
         self.comboBoxAfterFinish.setCurrentIndex(0)
 
-        self.render_pool.stop()
+        self.slave.stop()
+
+    @Slot()
+    def on_render_stopped(self):
+        self.pushButtonStop.hide()
+        self.progressBar.hide()
+        self.pushButtonStart.show()
+        self.tabWidget.setCurrentIndex(0)
+        QApplication.alert(self)
 
     @Slot()
     def on_render_finished(self):
@@ -442,21 +421,8 @@ class MainWindow(QMainWindow):
             '什么都不做': lambda: LOGGER.info('渲染完成后什么都不做')
         }
 
-        self.pushButtonStop.hide()
-        self.progressBar.hide()
-        self.pushButtonStart.show()
-        self.tabWidget.setCurrentIndex(0)
-
-        if not self.render_pool.stopping:
-            QApplication.alert(self)
-            actions.get(after_finish, lambda: LOGGER.error(
-                'Not found match action for %s', after_finish))()
-
-        self.new_render_pool()
-        if self.restarting:
-            self.restarting = False
-            self.pushButtonStart.clicked.emit()
-        self.autostart()
+        actions.get(after_finish,
+                    lambda: LOGGER.error('Not found match action for %s', after_finish))()
 
     # Events.
     def dragEnterEvent(self, event):
@@ -484,7 +450,7 @@ class MainWindow(QMainWindow):
         self.file_dropped.emit(links)
 
     def closeEvent(self, event):
-        if self.is_rendering:
+        if self.slave.rendering:
             confirm = QMessageBox.question(
                 self,
                 '正在渲染中',
@@ -494,9 +460,12 @@ class MainWindow(QMainWindow):
                 QMessageBox.No
             )
             if confirm == QMessageBox.Yes:
-                self.render_pool.stop()
-                QApplication.exit()
-                LOGGER.info('渲染途中退出')
+                self.slave.stop()
+
+                def _on_stopped():
+                    QApplication.exit()
+                    LOGGER.info('渲染途中退出')
+                self.slave.stopped.connect(_on_stopped)
             else:
                 event.ignore()
         else:

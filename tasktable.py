@@ -13,6 +13,7 @@ from Qt.QtCore import Slot, QTimer, Qt, QObject
 from Qt.QtWidgets import QTableWidgetItem
 
 import render
+from database import DATABASE
 
 LOGGER = logging.getLogger()
 
@@ -135,20 +136,18 @@ class Row(QObject):
         _stylize(name)
         _stylize(priority)
 
-        if task.last_time is not None:
-            row_format = '<tr><td>{}</td><td align="right">{}</td></tr>'
-            _row = row_format.format
-
-            rows = ['<tr><th colspan=2>{}</th></tr>'.format(task.filename),
-                    _row('帧数', task.frame_count),
-                    _row('帧均耗时', render.timef(task.averge_time)),
-                    _row('预计耗时', render.timef(int(task.estimate_time)))]
-            if task.state & render.DOING:
-                rows.append(
-                    _row('剩余时间', render.timef(int(task.remains_time))))
-            tooltip = '<table>{}</table>'.format(''.join(rows))
-        else:
-            tooltip = '<i>无统计数据</i>'
+        row_format = '<tr><td>{}</td><td align="right">{}</td></tr>'
+        _row = row_format.format
+        avg = DATABASE.get_averge_time(task.filename)
+        none_str = '<i>无统计数据</i>'
+        rows = ['<tr><th colspan=2>{}</th></tr>'.format(task.filename),
+                _row('帧数', task.frames or none_str),
+                _row('帧均耗时', render.timef(int(avg)) if avg else none_str),
+                _row('预计耗时', render.timef(int(task.estimate_time)))]
+        if task.state & render.DOING and task.remains:
+            rows.append(
+                _row('剩余时间', render.timef(int(task.remains))))
+        tooltip = '<table>{}</table>'.format(''.join(rows))
 
         name.setToolTip(tooltip)
 
@@ -317,8 +316,8 @@ class TaskTable(QObject):
         rows = set()
         _ = [rows.add(i.row()) for i in self.widget.selectedItems()]
         ret = [self[i].task for i in rows]
-        LOGGER.debug('\n\tCurrent selected: %s',
-                     ''.join(['\n\t\t{}'.format(i) for i in ret]) or '<None>')
+        # LOGGER.debug('\n\tCurrent selected: %s',
+        #              ''.join(['\n\t\t{}'.format(i) for i in ret]) or '<None>')
         return ret
 
     def remove_selected(self):

@@ -2,6 +2,7 @@
 """Add menu to nuke.  """
 
 import os
+from os.path import join, abspath, dirname
 import sys
 import webbrowser
 import subprocess
@@ -9,16 +10,16 @@ import logging
 
 import nuke
 
-
 LOGGER = logging.getLogger('batchrender')
+__folder__ = dirname(abspath(__file__))
 
 
 def _add_menu():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.insert(0, current_dir)
-
-    from main import __file__ as filename
     from config import CONFIG
+
+    filename = join(__folder__, 'main.py')
 
     def batchrender():
         """For nuke menu call.  """

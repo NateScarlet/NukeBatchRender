@@ -1,24 +1,27 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python
 # -*- coding=UTF-8 -*-
 """Task rendering.  """
-from __future__ import print_function, unicode_literals
 
-import datetime
 import logging
-import logging.handlers
-import threading
 import os
+
 import re
-import shutil
-import subprocess
 import sys
+import threading
 import time
+from functools import wraps
+from subprocess import Popen, PIPE
+from abc import abstractmethod
+
+from Qt.QtCore import QObject, QTimer, Signal
 
 from config import CONFIG, l10n, stylize
-from path import get_unicode, get_encoded, version_filter
-from Qt import QtCore
+from files import FILES
+from database import DATABASE
+
 
 LOGGER = logging.getLogger('render')
+
 
 # Task state bitmask
 DOING = 1 << 0
@@ -26,13 +29,97 @@ DISABLED = 1 << 1
 FINISHED = 1 << 2
 
 
-class Queue(QtCore.QObject):
+def run_async(func):
+    """Run func in thread.  """
+
+    @wraps(func)
+    def _func(*args, **kwargs):
+        thread = threading.Thread(target=func, args=args, kwargs=kwargs)
+        thread.start()
+        return thread
+    return _func
+
+
+class RenderObject(QObject):
+    """Base render object.  """
+
+    stopping = False
+    _remains = None
+
+    # Signals.
+    changed = Signal()
+    started = Signal()
+    stopped = Signal()
+    finished = Signal()
+    time_out = Signal()
+    progress = Signal(int)
+    stdout = Signal(str)
+    stderr = Signal(str)
+
+    def __init__(self):
+        super(RenderObject, self).__init__()
+
+        # Singals.
+        self.changed.connect(self.on_changed)
+        self.progress.connect(self.on_progress)
+        self.started.connect(lambda: self.progress.emit(0))
+        self.stopped.connect(self.on_stopped)
+        self.finished.connect(self.on_finished)
+        self.stdout.connect(self.on_stdout)
+        self.stderr.connect(self.on_stderr)
+
+    def info(self, text):
+        """Send info to stdout.  """
+
+        LOGGER.info('%s: %s', self, text)
+        self.stdout.emit(stylize(text, 'info'))
+
+    def error(self, text):
+        """Send error to stderr.  """
+
+        LOGGER.error('%s: %s', self, text)
+        self.stderr.emit(stylize(text, 'error'))
+
+    @property
+    def remains(self):
+        """Time remains of this.  """
+
+        return self._remains
+
+    @abstractmethod
+    def on_changed(self):
+        pass
+
+    @abstractmethod
+    def on_stopped(self):
+        pass
+
+    @abstractmethod
+    def on_finished(self):
+        pass
+
+    @abstractmethod
+    def on_time_out(self):
+        pass
+
+    @abstractmethod
+    def on_progress(self, value):
+        pass
+
+    @abstractmethod
+    def on_stdout(self, msg):
+        pass
+
+    @abstractmethod
+    def on_stderr(self, msg):
+        pass
+
+
+class Queue(RenderObject):
     """Task render quene.  """
-    changed = QtCore.Signal()
 
     def __init__(self):
         super(Queue, self).__init__()
-        self.clock = Clock(self)
         self._list = []
         self.changed.connect(self.sort)
 
@@ -112,39 +199,51 @@ class Queue(QtCore.QObject):
     def enabled_tasks(self):
         """All enabled task in queue. """
 
+        self.sort()
         return (i for i in self if not i.state)
 
+    @property
+    def remains(self):
+        ret = 0
+        for i in list(self.enabled_tasks()):
+            assert isinstance(i, Task)
+            if i.state & DOING:
+                ret += i.remains
+            else:
+                ret += i.estimate_time or self.averge_time * \
+                    (i.frame_count or self.averge_frame_count)
 
-class Task(QtCore.QObject):
+        return ret
+
+    def on_changed(self):
+        self.sort()
+
+
+class Task(RenderObject):
     """Nuke render task.  """
 
+    _priority = 0
+    _state = 0b0
     filename = None
-    state = 0b0
     error_count = 0
-    priority = 0
     max_retry = 3
-    averge_time = 0.0
-    remains_time = 0.0
-    frame_count = 0
-    clocked_count = 0
-    last_time = None
-    changed = QtCore.Signal()
+    _mtime = None
+    proc = None
 
-    def __init__(self, filename, priority=0):
+    def __init__(self, filename):
         super(Task, self).__init__()
-        self.filename = filename
-        self.priority = priority
-        self.queue = set()
-        self.result_files = []
-        self._mtime = os.path.getmtime(self.filename)
-        self._proc = None
-        self.changed.connect(self.on_changed)
 
-        # Update timer
-        self._timer = QtCore.QTimer()
-        self._timer.setInterval(1000)
-        self._timer.timeout.connect(self.update)
-        self._timer.start()
+        self.filename = filename
+        self.frames = DATABASE.get_task_frames(filename)
+        self.queue = set()
+        self._mtime = os.path.getmtime(self.filename)
+
+        # Update timer.
+        timer = QTimer()
+        timer.setInterval(1000)
+        timer.timeout.connect(self.update)
+        timer.start()
+        self._update_timer = timer
 
     def __eq__(self, other):
         if isinstance(other, Task):
@@ -154,12 +253,8 @@ class Task(QtCore.QObject):
     def __str__(self):
         return '<{0.priority}: {0.filename}: {0.state:b}>'.format(self)
 
-    def __setattr__(self, name, value):
-        if value is getattr(self, name, None):
-            return
-        super(Task, self).__setattr__(name, value)
-        if name in ('state', 'priority'):
-            self.changed.emit()
+    def __unicode(self):
+        return '<任务 {0.filename}: 优先级 {0.priority}, 状态 {0.state:b}>'.format(self)
 
     def on_changed(self):
         """Send changed signal to queue.  """
@@ -167,13 +262,26 @@ class Task(QtCore.QObject):
         LOGGER.debug('Task changed: %s', self)
 
         if self.state & DISABLED:
-            self._timer.stop()
+            self._update_timer.stop()
         else:
-            self._timer.start()
+            self._update_timer.start()
 
         for i in self.queue:
             assert isinstance(i, Queue)
             i.changed.emit()
+
+    def on_progress(self, value):
+        self._remains = (100 - value) * self.estimate_time / 100.0
+        for i in self.queue:
+            i.progress.emit(value)
+
+    def on_stdout(self, msg):
+        for i in self.queue:
+            i.stdout.emit(msg)
+
+    def on_stderr(self, msg):
+        for i in self.queue:
+            i.stderr.emit(msg)
 
     def update_mtime(self):
         """Updatge file mtime info.  """
@@ -203,10 +311,48 @@ class Task(QtCore.QObject):
         return self._mtime
 
     @property
+    def state(self):
+        """Task state.  """
+
+        return self._state
+
+    @state.setter
+    def state(self, value):
+        if value != self._state:
+            self._state = value
+            self.changed.emit()
+
+    @property
+    def priority(self):
+        """Task priority.  """
+
+        return self._priority
+
+    @priority.setter
+    def priority(self, value):
+        if value != self._priority:
+            self._priority = value
+            LOGGER.debug(value)
+            self.changed.emit()
+
+    @property
     def estimate_time(self):
         """Estimate task time cost.  """
 
-        return self.averge_time * self.frame_count
+        return (DATABASE.get_task_cost(self.filename)
+                or ((DATABASE.get_averge_time(self.filename) or 20)
+                    * (self.frames or 100)))
+
+    def stop(self):
+        """Stop rendering.  """
+
+        self.stopping = True
+        self.state &= ~DOING
+        proc = self.proc
+        if proc is not None:
+            assert isinstance(proc, Popen)
+            proc.terminate()
+            proc.wait()
 
     def update(self):
         """Update task status.  """
@@ -224,278 +370,205 @@ class Task(QtCore.QObject):
         self.state &= DOING
         self.error_count = 0
 
-
-class Pool(QtCore.QThread):
-    """Single thread render pool.  """
-    stdout = QtCore.Signal(unicode)
-    stderr = QtCore.Signal(unicode)
-    progress = QtCore.Signal(int)
-    task_started = QtCore.Signal()
-    task_finished = QtCore.Signal()
-    queue_started = QtCore.Signal()
-    queue_finished = QtCore.Signal()
-    child_pid = 0
-    current_task = None
-    stopping = False
-
-    def __init__(self, taskqueue):
-        super(Pool, self).__init__()
-        assert isinstance(taskqueue, Queue)
-        self.queue = taskqueue
-        self.task_started.connect(lambda: self.progress.emit(0))
-
-    def is_current_task(self, name):
-        """Return if @name is current task.  """
-        if isinstance(name, Task):
-            name = name.filename
-        return name == self.current_task
-
-    def run(self):
-        """Overridde.  """
-        LOGGER.debug('Render start')
-        self.queue_started.emit()
-
-        while not self.stopping and self.queue:
-            try:
-                LOGGER.debug('Rendering queue:\n%s', self.queue)
-                task = self.queue.get()
-                self.execute_task(task)
-            except Exception:
-                LOGGER.error('Exception during render.', exc_info=True)
-                self.stop()
-                raise
-        LOGGER.debug('Render finished:\n%s', self.queue)
-
-        self.queue_finished.emit()
-        self.info('渲染结束')
-
-    def info(self, text):
-        """Send info to stdout.  """
-
-        LOGGER.info(text)
-        self.stdout.emit(stylize(text, 'info'))
-
-    def error(self, text):
-        """Send error to stderr.  """
-
-        LOGGER.error(text)
-        self.stderr.emit(stylize(text, 'error'))
-
-    def stop(self):
-        """Stop rendering.  """
-
-        self.stopping = True
-        pid = self.child_pid
-        for task in self.queue:
-            task.state &= ~DOING
-        if pid:
-            LOGGER.debug('Stoping child: %s', pid)
-            try:
-                os.kill(pid, 9)
-            except OSError as ex:
-                LOGGER.debug('Kill process fail: %s: %s',
-                             pid, os.strerror(ex.errno))
-        if self.isRunning():
-            self.exit(1)
-        self.wait()
-
-    @staticmethod
-    def nuke_process(f):
-        """Nuke render process for file @f.  """
-
-        # return subprocess.Popen('cmd /c echo 1', stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-        f = '"{}"'.format(f.strip('"'))
-        nuke = '"{}"'.format(CONFIG['NUKE'].strip('"'))
-        _memory_limit = CONFIG['MEMORY_LIMIT']
-        args = [nuke,
-                '-x',
-                '-p' if CONFIG['PROXY'] else '-f',
-                '--cont' if CONFIG['CONTINUE'] else '',
-                '--priority low' if CONFIG['LOW_PRIORITY'] else '',
-                '-c {}M'.format(
-                    int(_memory_limit * 1024)) if _memory_limit and CONFIG['LOW_PRIORITY'] else '',
-                f]
-        args = ' '.join([i for i in args if i])
-        if sys.platform != 'win32':
-            kwargs = {
-                'shell': True
-            }
-        else:
-            kwargs = {}
-        LOGGER.debug('Popen: %s', args)
-        proc = subprocess.Popen(
-            args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=CONFIG['DIR'], **kwargs)
-        return proc
-
     def handle_output(self, proc):
         """handle process output."""
 
         def _stderr():
-            while True:
+            while self.state & DOING:
                 line = proc.stderr.readline()
                 if not line:
                     break
                 line = l10n(line)
                 msg = 'STDERR: {}\n'.format(line)
-                sys.stderr.write(msg)
                 with open(CONFIG.log_path, 'a') as f:
                     f.write(msg)
                 self.stderr.emit(stylize(line, 'stderr'))
             LOGGER.debug('Finished thread: handle_stderr')
 
         def _stdout():
-            while True:
+            start_time = time.clock()
+            last_frame_time = start_time
+            while self.state & DOING:
                 line = proc.stdout.readline()
                 if not line:
                     break
                 match = re.match(r'.*?(\d+)\s?of\s?(\d+)', line)
+
+                # Record rendering time.
                 if match:
+                    now = time.clock()
                     total = int(match.group(2))
-                    percent = int(match.group(1)) * 100 / total
-                    # LOGGER.debug('Percent %s', percent)
-                    self.progress.emit(percent)
-                    self.current_task.frame_count = total
+                    current = int(match.group(1))
+                    cost = now - last_frame_time
+                    last_frame_time = now
+
+                    DATABASE.set_frame_time(self.filename, current, cost)
+                    if self.frames != total:
+                        self.frames = total
+                        DATABASE.set_task(self.filename, total)
+                        self.changed.emit()
+                    self.progress.emit(current * 100 / total)
+
                 line = l10n(line)
-                # with lock:
-                #     line = l10n(line)
-                #     msg = 'STDOUT: {}\n'.format(line)
-                #     if LOGGER.getEffectiveLevel() == logging.DEBUG:
-                #         sys.stdout.write(msg)
-                #     with open(CONFIG.log_path, 'a') as f:
-                #         f.write(msg)
                 self.stdout.emit(stylize(line, 'stdout'))
 
+            DATABASE.set_task(self.filename, self.frames,
+                              time.clock() - start_time)
             LOGGER.debug('Finished thread: handle_stdout')
+
         threading.Thread(name='handle_stderr', target=_stderr).start()
         threading.Thread(name='handle_stdout', target=_stdout).start()
 
-    def execute_task(self, task):
-        """Render the task file.  """
+    def run(self):
+        """(Override)"""
 
-        assert isinstance(task, Task), repr(task)
+        def nuke_process(f):
+            """Nuke render process for file @f.  """
 
-        task.state |= DOING
-        self.current_task = task
-        self.task_started.emit()
-        self.info('执行任务: {0.filename} 优先级:{0.priority}'.format(task))
+            # return subprocess.Popen('cmd /c echo 1',
+            #  stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+            f = '"{}"'.format(f.strip('"'))
+            nuke = '"{}"'.format(CONFIG['NUKE'].strip('"'))
+            _memory_limit = CONFIG['MEMORY_LIMIT']
+            args = [nuke,
+                    '-x',
+                    '-p' if CONFIG['PROXY'] else '-f',
+                    '--cont' if CONFIG['CONTINUE'] else '',
+                    '--priority low' if CONFIG['LOW_PRIORITY'] else '',
+                    '-c {}M'.format(int(_memory_limit * 1024))
+                    if _memory_limit and CONFIG['LOW_PRIORITY']
+                    else '',
+                    f]
+            args = ' '.join([i for i in args if i])
+            if sys.platform != 'win32':
+                kwargs = {
+                    'shell': True
+                }
+            else:
+                kwargs = {}
+            LOGGER.debug('Popen: %s', args)
+            proc = Popen(args, stdout=PIPE, stderr=PIPE,
+                         cwd=CONFIG['DIR'], **kwargs)
+            return proc
 
-        # task.filename = Files.lock(task.filename)
-        Files.archive(task.filename)
+        self.state |= DOING
+        self.started.emit()
+        self.info('执行任务: {0.filename} 优先级:{0.priority}'.format(self))
 
-        task.update_mtime()
+        FILES.archive(self.filename)
+
+        self.update_mtime()
         start_time = time.clock()
-        proc = self.nuke_process(task.filename)
-        self.child_pid = proc.pid
-        self.info('开始进程 pid: {}'.format(proc.pid))
-
+        proc = nuke_process(self.filename)
         self.handle_output(proc)
+        self.proc = proc
+        self.info('开始进程 pid: {}'.format(proc.pid))
 
         retcode = proc.wait()
         time_cost = timef(time.clock() - start_time)
         retcode_str = '退出码: {}'.format(retcode) if retcode else '正常退出'
         self.info('{}: 结束渲染 耗时 {} {}'.format(
-            task.filename, time_cost, retcode_str))
+            self.filename, time_cost, retcode_str))
 
         if self.stopping:
             # Stopped by user.
             self.info('中途终止进程 pid: {}'.format(proc.pid))
+            self.stopping = False
         elif retcode:
             # Exited with error.
-            task.error_count += 1
-            task.priority -= 1
-            self.error('{}: 渲染出错 第{}次'.format(task.filename, task.error_count))
-            if task.error_count >= task.max_retry:
-                self.error('渲染错误达到{}次,不再进行重试。'.format(task.max_retry))
-                task.state |= DISABLED
+            self.error_count += 1
+            self.priority -= 1
+            self.error('{}: 渲染出错 第{}次'.format(self.filename, self.error_count))
+            if self.error_count >= self.max_retry:
+                self.error('渲染错误达到{}次,不再进行重试。'.format(self.max_retry))
+                self.state |= DISABLED
         else:
             # Normal exit.
-            if task.update_mtime():
-                self.info('发现修改日期变更, 将再次执行任务 {}'.format(task))
+            if self.update_mtime():
+                self.info('发现修改日期变更, 将再次执行任务。')
             elif CONFIG['PROXY']:
-                task.state |= DISABLED
+                self.state |= DISABLED
             else:
-                task.state |= FINISHED
+                self.state |= FINISHED
                 self.info('任务完成')
                 try:
-                    Files.remove(task.filename)
+                    FILES.remove(self.filename)
                 except OSError:
-                    self.error('移除文件 {} 失败'.format(task.filename))
+                    self.error('移除文件 {} 失败'.format(self.filename))
 
-        task.state &= ~DOING
-        self.task_finished.emit()
+        self.state &= ~DOING
+        self.finished.emit()
         return retcode
 
 
-class Clock(QtCore.QObject):
-    """Caculate remain time for a queue.  """
-    averge_time = 0.0
-    clocked_count = 0
-    _averge_frame_count = 0
-    remains_changed = QtCore.Signal(float)
+class Slave(RenderObject):
+    """Render slave.  """
 
-    def __init__(self, queue):
-        super(Clock, self).__init__()
-        assert isinstance(queue, Queue)
-        self.queue = queue
-        self.time_out_timer = QtCore.QTimer()
-        self.time_out_timer.setSingleShot(True)
-        self.time_out = self.time_out_timer.timeout
+    task = None
+    rendering = False
 
-    def start_clock(self, pool):
-        """Start record time information for @pool.  """
+    def __init__(self):
+        super(Slave, self).__init__()
 
-        assert isinstance(pool, Pool)
-        pool.progress.connect(
-            lambda value: self.record(pool.current_task, value))
+        # Time out timer.
+        timer = QTimer()
+        timer.setSingleShot(True)
+        timer.timeout.connect(self.time_out)
+        self._time_out_timer = timer
 
-    @property
-    def averge_frame_count(self):
-        """Predicted averge frame count.  """
+    @run_async
+    def start(self, queue, timeout=None):
+        """Overridde.  """
 
-        counts = [i.frame_count for i in self.queue]
-        counts = [i for i in counts if i]
-        if counts:
-            return reduce(int.__add__, counts) / len(counts)
-        return 100
-
-    def record(self, task, value):
-        """Record time information.  """
-
-        assert isinstance(task, Task)
-        if value == 0:
-            task.last_time = time.clock()
+        if self.rendering or self.stopping:
             return
 
-        if task.last_time is not None:
-            frame_time = time.clock() - task.last_time
-            total_time = task.averge_time * task.clocked_count + frame_time
-            self_total_time = self.averge_time * self.clocked_count + frame_time
-            task.clocked_count += 1
-            self.clocked_count += 1
-            task.averge_time = total_time / task.clocked_count
-            self.averge_time = self_total_time / self.clocked_count
-            task.remains_time = task.estimate_time * (100 - value) / 100
-            # LOGGER.debug('task %s remains %s', task, task.remains_time)
-        task.last_time = time.clock()
+        self.rendering = True
 
-        self.remains_changed.emit(self.remains())
+        LOGGER.debug('Render start')
+        self.started.emit()
+        if timeout:
+            self._time_out_timer.start(timeout)
 
-        self.time_out_timer.stop()
-        if CONFIG['TIME_OUT']:
-            self.time_out_timer.start(CONFIG['TIME_OUT'] * 1000)
+        while queue and not self.stopping:
+            try:
+                LOGGER.debug('Rendering queue:\n%s', queue)
+                task = queue.get()
+                assert isinstance(task, Task)
+                self.task = task
+                task.run()
+            except Exception:
+                LOGGER.error('Exception during render.', exc_info=True)
+                raise
 
-    def remains(self):
-        """This render remains time.  """
+        if not self.stopping:
+            self.finished.emit()
+        self.stopped.emit()
 
-        ret = 0
-        for i in [i for i in self.queue if not i.state & (DISABLED | FINISHED)]:
-            if i.state & DOING:
-                ret += i.remains_time
-            else:
-                ret += i.estimate_time or self.averge_time * \
-                    (i.frame_count or self.averge_frame_count)
+    def stop(self):
+        """Stop rendering.  """
 
-        return ret
+        self.stopping = True
+        task = self.task
+        if isinstance(task, Task):
+            task.stop()
+
+    def on_stopped(self):
+        LOGGER.debug('Render stopped.')
+        self._time_out_timer.stop()
+        self.rendering = False
+        self.stopping = False
+        self.task = None
+
+    def on_finished(self):
+        LOGGER.debug('Render finished.')
+
+    def on_time_out(self):
+        task = self.task
+        self.error(u'{}: 渲染超时'.format(task))
+        if isinstance(task, Task):
+            task.priority -= 1
+            task.stop()
 
 
 def timef(seconds):
@@ -510,6 +583,7 @@ def timef(seconds):
     >>> print(timef(1.23456789))
     1.235秒
     """
+
     ret = ''
     hour = seconds // 3600
     minute = seconds % 3600 // 60
@@ -521,108 +595,4 @@ def timef(seconds):
     if minute:
         ret += '{:.0f}分'.format(minute)
     ret += '{}秒'.format(seconds)
-    return ret
-
-
-class Files(list):
-    """(Single instance)Files that need to be render.  """
-    instance = None
-
-    def __new__(cls):
-        if not cls.instance:
-            cls.instance = super(Files, cls).__new__(cls)
-        return cls.instance
-
-    def __init__(self):
-        super(Files, self).__init__()
-        self.update()
-
-    def update(self):
-        """Update self from renderable files in dir.  """
-
-        del self[:]
-        _files = sorted([get_unicode(i) for i in os.listdir(os.getcwd())
-                         if get_unicode(i).endswith(('.nk', '.nk.lock'))],
-                        key=os.path.getmtime,
-                        reverse=False)
-        self.extend(_files)
-        self.all_locked = self and all(bool(i.endswith('.lock')) for i in self)
-
-    @staticmethod
-    def archive(f, dest='文件备份'):
-        """Archive file in a folder with time struture.  """
-        LOGGER.debug('Archiving file: %s -> %s', f, dest)
-        now = datetime.datetime.now()
-        dest = os.path.join(
-            dest,
-            get_unicode(now.strftime(
-                get_encoded('%y-%m-%d_%A/%H时%M分/'))))
-
-        copy(f, dest)
-
-    def old_version_files(self):
-        """Files that already has higher version.  """
-
-        newest = version_filter(self)
-        ret = [i for i in self if i not in newest]
-        return ret
-
-    @classmethod
-    def remove(cls, f):
-        """Archive file then remove it.  """
-
-        cls.archive(f)
-        if not os.path.isabs(f):
-            os.remove(get_encoded(f))
-
-    @staticmethod
-    def split_version(f):
-        """Return nuke style _v# (shot, version number) pair.
-
-        >>> Files.split_version('sc_001_v20.nk')
-        (u'sc_001', 20)
-        >>> Files.split_version('hello world')
-        (u'hello world', None)
-        >>> Files.split_version('sc_001_v-1.nk')
-        (u'sc_001_v-1', None)
-        >>> Files.split_version('sc001V1.jpg')
-        (u'sc001', 1)
-        >>> Files.split_version('sc001V1_no_bg.jpg')
-        (u'sc001', 1)
-        >>> Files.split_version('suv2005_v2_m.jpg')
-        (u'suv2005', 2)
-        """
-
-        f = os.path.splitext(f)[0]
-        match = re.match(r'(.+)v(\d+)', f, flags=re.I)
-        if not match:
-            return (f, None)
-        shot, version = match.groups()
-        return (shot.rstrip('_'), int(version))
-
-
-FILES = Files()
-
-
-def copy(src, dst):
-    """Copy src to dst."""
-    src, dst = get_unicode(src), get_unicode(dst)
-    LOGGER.info('\n复制:\n\t%s\n->\t%s', src, dst)
-    if not os.path.exists(src):
-        return
-    dst_dir = os.path.dirname(dst)
-    if not os.path.exists(dst_dir):
-        LOGGER.debug('创建目录: %s', dst_dir)
-        os.makedirs(dst_dir)
-    try:
-        shutil.copy2(src, dst)
-    except OSError:
-        if sys.platform == 'win32':
-            subprocess.call('XCOPY /V /Y "{}" "{}"'.format(src, dst))
-        else:
-            raise
-    if os.path.isdir(dst):
-        ret = os.path.join(dst, os.path.basename(src))
-    else:
-        ret = dst
     return ret

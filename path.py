@@ -1,7 +1,9 @@
 
 # -*- coding=UTF-8 -*-
 """Path handling.  """
+
 from __future__ import print_function, unicode_literals
+
 import locale
 import os
 import re
@@ -35,18 +37,23 @@ def version_filter(iterable):
     >>> version_filter(('sc_001_v1', 'sc_001_v2', 'sc002_v3', 'thumbs.db'))
     [u'sc002_v3', u'sc_001_v2', u'thumbs.db']
     """
+    def _num(version):
+        return version or -1
+
     shots = {}
     iterable = sorted(
-        iterable, key=lambda x: split_version(x)[1], reverse=True)
+        iterable, key=lambda x: _num(split_version(x)[1]), reverse=True)
     for i in iterable:
         shot, version = split_version(i)
+        version = _num(version)
         shot = shot.lower()
         shots.setdefault(shot, {})
         shots[shot].setdefault('path_list', [])
-        if version > shots[shot].get('version'):
+        max_version = _num(shots[shot].get('version'))
+        if version > max_version:
             shots[shot]['path_list'] = [i]
             shots[shot]['version'] = version
-        elif version == shots[shot].get(version):
+        elif version == max_version:
             shots[shot]['path_list'].append(i)
 
     for shot in shots:
@@ -62,17 +69,17 @@ def split_version(f):
     """Return nuke style _v# (shot, version number) pair.
 
     >>> split_version('sc_001_v20.nk')
-    ('sc_001', 20)
+    (u'sc_001', 20)
     >>> split_version('hello world')
-    ('hello world', None)
+    (u'hello world', None)
     >>> split_version('sc_001_v-1.nk')
-    ('sc_001_v-1', None)
+    (u'sc_001_v-1', None)
     >>> split_version('sc001V1.jpg')
-    ('sc001', 1)
+    (u'sc001', 1)
     >>> split_version('sc001V1_no_bg.jpg')
-    ('sc001', 1)
+    (u'sc001', 1)
     >>> split_version('suv2005_v2_m.jpg')
-    ('suv2005', 2)
+    (u'suv2005', 2)
     """
 
     match = re.match(r'(.+)v(\d+)', f, flags=re.I)

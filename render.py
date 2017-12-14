@@ -598,7 +598,6 @@ class Slave(RenderObject):
             timer.stop()
             if time_out > 0:
                 timer.start(time_out)
-                LOGGER.debug('START')
 
 
 def timef(seconds):

@@ -378,6 +378,7 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def on_start_button_clicked(self):
+        self.textBrowser.clear()
         self.tabWidget.setCurrentIndex(1)
 
         start_error_handler()

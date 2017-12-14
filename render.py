@@ -169,16 +169,14 @@ class Queue(RenderObject):
     def put(self, item):
         """Put task to queue.  """
 
-        if not isinstance(item, Task):
+        if item in self:
+            return
+        elif not isinstance(item, Task):
             item = Task(item)
-        if item not in self:
-            item.queue.add(self)
-            self._list.append(item)
-            self.changed.emit()
-            LOGGER.debug('Add task: %s', item)
-        else:
-            item = self[item]
-            item.update()
+        item.queue.add(self)
+        self._list.append(item)
+        self.changed.emit()
+        LOGGER.debug('Add task: %s', item)
 
     def remove(self, item):
         """Archive file, then remove task and file.  """
@@ -228,7 +226,7 @@ class Task(RenderObject):
     filename = None
     error_count = 0
     max_retry = 3
-    _mtime = None
+    mtime = None
     proc = None
     updating = False
 
@@ -238,7 +236,7 @@ class Task(RenderObject):
         self.filename = filename
         self.frames = DATABASE.get_task_frames(filename)
         self.queue = set()
-        self._mtime = os.path.getmtime(self.filename)
+        self.update_mtime()
 
         # Update timer.
         timer = QTimer()
@@ -263,11 +261,6 @@ class Task(RenderObject):
 
         LOGGER.debug('Task changed: %s', self)
 
-        if self.state & DISABLED:
-            self._update_timer.stop()
-        else:
-            self._update_timer.start()
-
         for i in self.queue:
             assert isinstance(i, Queue)
             i.changed.emit()
@@ -288,27 +281,19 @@ class Task(RenderObject):
 
         if os.path.exists(self.filename):
             try:
-                old_mtime = self._mtime
-                mtime = os.path.getmtime(self.filename)
-                self._mtime = mtime
+                old = self.mtime
+                current = os.path.getmtime(self.filename)
+                self.mtime = current
 
-                if mtime != old_mtime:
+                if old and current != old:
                     LOGGER.debug(
-                        'Found mtime change %s -> %s, %s', old_mtime, mtime, self)
+                        'Found mtime change %s -> %s, %s', old, current, self)
                     self.reset()
                     return True
             except OSError as ex:
                 LOGGER.debug('Update mtime fail %s: %s', self, ex)
 
         return False
-
-    @property
-    def mtime(self):
-        """File modified time.  """
-
-        if not self.state & DOING:
-            self.update_mtime()
-        return self._mtime
 
     @property
     def state(self):
@@ -319,6 +304,10 @@ class Task(RenderObject):
     @state.setter
     def state(self, value):
         if value != self._state:
+            if value & DISABLED:
+                self._update_timer.stop()
+            else:
+                self._update_timer.start()
             self._state = value
             self.changed.emit()
 
@@ -356,6 +345,7 @@ class Task(RenderObject):
 
     def update(self):
         """Update task status.  """
+
         if self.updating:
             return
 

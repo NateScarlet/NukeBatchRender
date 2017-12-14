@@ -2,7 +2,7 @@
 """History task info database.  """
 
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from logging import getLogger
 from multiprocessing import Lock
 from os.path import expanduser
@@ -28,6 +28,11 @@ class Database(object):
             for table, fileds in tables.items():
                 try:
                     c.execute("SELECT {} FROM {}".format(fileds, table))
+                    # Drop old records.
+                    c.execute(
+                        "DELETE FROM ? where timestamp < ? ",
+                        (table, datetime.now() - timedelta(days=30),))
+                    conn.commit()
                 except sqlite3.OperationalError:
                     try:
                         LOGGER.warning(

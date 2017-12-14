@@ -136,13 +136,13 @@ class MainWindow(QMainWindow):
         self.textBrowser.anchorClicked.connect(open_path)
 
         self.queue.changed.connect(self.on_queue_changed)
-        self.queue.progress.connect(self.progressBar.setValue)
-        self.queue.time_out.connect(self.on_task_time_out)
+        self.queue.progressed.connect(self.progressBar.setValue)
         self.queue.stdout.connect(self.textBrowser.append)
         self.queue.stderr.connect(self.textBrowser.append)
 
         self.slave.stopped.connect(self.on_render_stopped)
         self.slave.finished.connect(self.on_render_finished)
+        self.slave.time_out.connect(self.on_slave_time_out)
 
         self.progressBar.valueChanged.connect(self.append_timestamp)
 
@@ -367,8 +367,8 @@ class MainWindow(QMainWindow):
             self.checkBoxPriority.setCheckState(Qt.Checked)
 
     @Slot()
-    def on_task_time_out(self):
-        """Excute when frame take too long.  """
+    def on_slave_time_out(self):
+        """Wiil be excuted when frame take too long.  """
 
         if CONFIG['LOW_PRIORITY']:
             msg = '渲染超时, 关闭低优先级。'
@@ -426,7 +426,7 @@ class MainWindow(QMainWindow):
 
     # Events.
     def dragEnterEvent(self, event):
-        LOGGER.debug('Drag into %s', self)
+        # LOGGER.debug('Drag into %s', self)
         if event.mimeData().hasUrls():
             event.accept()
         else:

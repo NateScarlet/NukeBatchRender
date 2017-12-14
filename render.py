@@ -52,7 +52,7 @@ class RenderObject(QObject):
     stopped = Signal()
     finished = Signal()
     time_out = Signal()
-    progress = Signal(int)
+    progressed = Signal(int)
     stdout = Signal(str)
     stderr = Signal(str)
 
@@ -61,8 +61,9 @@ class RenderObject(QObject):
 
         # Singals.
         self.changed.connect(self.on_changed)
-        self.progress.connect(self.on_progress)
-        self.started.connect(lambda: self.progress.emit(0))
+        self.progressed.connect(self.on_progressed)
+        self.time_out.connect(self.on_time_out)
+        self.started.connect(lambda: self.progressed.emit(0))
         self.stopped.connect(self.on_stopped)
         self.finished.connect(self.on_finished)
         self.stdout.connect(self.on_stdout)
@@ -103,7 +104,7 @@ class RenderObject(QObject):
         pass
 
     @abstractmethod
-    def on_progress(self, value):
+    def on_progressed(self, value):
         pass
 
     @abstractmethod
@@ -270,10 +271,10 @@ class Task(RenderObject):
             assert isinstance(i, Queue)
             i.changed.emit()
 
-    def on_progress(self, value):
+    def on_progressed(self, value):
         self._remains = (100 - value) * self.estimate_time / 100.0
         for i in self.queue:
-            i.progress.emit(value)
+            i.progressed.emit(value)
 
     def on_stdout(self, msg):
         for i in self.queue:
@@ -388,6 +389,7 @@ class Task(RenderObject):
         def _stdout():
             start_time = time.clock()
             last_frame_time = start_time
+
             while self.state & DOING:
                 line = proc.stdout.readline()
                 if not line:
@@ -407,13 +409,14 @@ class Task(RenderObject):
                         self.frames = total
                         DATABASE.set_task(self.filename, total)
                         self.changed.emit()
-                    self.progress.emit(current * 100 / total)
+                    self.progressed.emit(current * 100 / total)
 
                 line = l10n(line)
                 self.stdout.emit(stylize(line, 'stdout'))
 
-            DATABASE.set_task(self.filename, self.frames,
-                              time.clock() - start_time)
+            if not self.stopping:
+                DATABASE.set_task(self.filename, self.frames,
+                                  time.clock() - start_time)
             LOGGER.debug('Finished thread: handle_stdout')
 
         threading.Thread(name='handle_stderr', target=_stderr).start()
@@ -451,18 +454,18 @@ class Task(RenderObject):
                          cwd=CONFIG['DIR'], **kwargs)
             return proc
 
-        self.state |= DOING
-        self.started.emit()
-        self.info('执行任务: {0.filename} 优先级:{0.priority}'.format(self))
-
-        FILES.archive(self.filename)
-
         self.update_mtime()
         start_time = time.clock()
+        self.state |= DOING
+
+        FILES.archive(self.filename)
         proc = nuke_process(self.filename)
-        self.handle_output(proc)
         self.proc = proc
-        self.info('开始进程 pid: {}'.format(proc.pid))
+        self.handle_output(proc)
+
+        self.info(
+            '执行任务: {0.filename} 优先级:{0.priority} pid: {1}'.format(self, proc.pid))
+        self.started.emit()
 
         retcode = proc.wait()
         time_cost = timef(time.clock() - start_time)
@@ -504,7 +507,7 @@ class Task(RenderObject):
 class Slave(RenderObject):
     """Render slave.  """
 
-    task = None
+    _task = None
     rendering = False
 
     def __init__(self):
@@ -516,8 +519,25 @@ class Slave(RenderObject):
         timer.timeout.connect(self.time_out)
         self._time_out_timer = timer
 
+    @property
+    def task(self):
+        """Current render task.  """
+
+        return self._task
+
+    @task.setter
+    def task(self, value):
+        assert value is None or isinstance(value, Task), value
+
+        old = self._task
+        if isinstance(old, Task):
+            old.progressed.disconnect(self.progressed)
+        if isinstance(value, Task):
+            value.progressed.connect(self.progressed)
+        self._task = value
+
     @run_async
-    def start(self, queue, timeout=None):
+    def start(self, queue):
         """Overridde.  """
 
         if self.rendering or self.stopping:
@@ -527,12 +547,10 @@ class Slave(RenderObject):
 
         LOGGER.debug('Render start')
         self.started.emit()
-        if timeout:
-            self._time_out_timer.start(timeout)
 
         while queue and not self.stopping:
+            LOGGER.debug('Rendering queue:\n%s', queue)
             try:
-                LOGGER.debug('Rendering queue:\n%s', queue)
                 task = queue.get()
                 assert isinstance(task, Task)
                 self.task = task
@@ -569,6 +587,17 @@ class Slave(RenderObject):
         if isinstance(task, Task):
             task.priority -= 1
             task.stop()
+
+    def on_progressed(self, value):
+        if CONFIG['LOW_PRIORITY']:
+            # Restart timeout timer.
+            timer = self._time_out_timer
+            time_out = CONFIG['TIME_OUT'] * 1000
+
+            timer.stop()
+            if time_out > 0:
+                timer.start(time_out)
+                LOGGER.debug('START')
 
 
 def timef(seconds):

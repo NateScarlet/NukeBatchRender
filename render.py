@@ -329,8 +329,7 @@ class Task(RenderObject):
         """Estimate task time cost.  """
 
         return (DATABASE.get_task_cost(self.filename)
-                or ((DATABASE.get_averge_time(self.filename) or 20)
-                    * (self.frames or 100)))
+                or DATABASE.averge_task_cost)
 
     def stop(self):
         """Stop rendering.  """

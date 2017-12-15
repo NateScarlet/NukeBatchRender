@@ -54,7 +54,7 @@ class Database(object):
                 c.execute("SELECT avg(cost) "
                           "FROM tasks")
                 ret = c.fetchone()[0]
-            return ret[0] if ret is not None else 60 * 20
+            return ret or 60 * 20.0
 
     def connection(self):
         """Return connection object for this.  """

@@ -47,11 +47,13 @@ class TestOnDisk(TestCase):
             case.append(gauss(20, 20))
         filename = tempfile.mktemp()
         avg = reduce(float.__add__, case) / times
+        self.assertIsInstance(database.averge_task_cost, float)
 
         for i in case:
             database.set_frame_time(filename, 1, i)
             self.assertEqual(database.get_frame_time(filename, 1), i)
 
+        self.assertIsInstance(database.averge_task_cost, float)
         self.assertEqual(self.database.get_averge_time(filename), avg)
 
     def test_error(self):

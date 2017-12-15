@@ -170,6 +170,7 @@ class Queue(RenderObject):
         """Put task to queue.  """
 
         if item in self:
+            self[item].update()
             return
         elif not isinstance(item, Task):
             item = Task(item)

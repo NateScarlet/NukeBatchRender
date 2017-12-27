@@ -169,7 +169,7 @@ class Queue(RenderObject):
     def put(self, item):
         """Put task to queue.  """
 
-        if item in self:
+        if item in tuple(self):
             self[item].update()
             return
         elif not isinstance(item, Task):
@@ -200,12 +200,12 @@ class Queue(RenderObject):
         """All enabled task in queue. """
 
         self.sort()
-        return (i for i in self if not i.state)
+        return (i for i in tuple(self) if not i.state)
 
     @property
     def remains(self):
         ret = 0
-        for i in list(i for i in self if not i.state or i.state & DOING):
+        for i in (i for i in tuple(self) if not i.state or i.state & DOING):
             assert isinstance(i, Task)
             if i.state & DOING:
                 ret += (i.remains
@@ -329,7 +329,9 @@ class Task(RenderObject):
     def estimate_time(self):
         """Estimate task time cost.  """
 
-        return (DATABASE.get_task_cost(self.filename)
+        return (DATABASE.get_averge_time(self.filename) * self.frames
+                if self.frames and self.state & DOING
+                else DATABASE.get_task_cost(self.filename)
                 or DATABASE.averge_task_cost)
 
     def stop(self):

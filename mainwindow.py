@@ -29,7 +29,6 @@ from actions import hiber, shutdown
 
 
 LOGGER = logging.getLogger()
-DEFAULT_DIR = os.path.expanduser('~/.nuke/batchrender')
 
 
 if getattr(sys, 'frozen', False):

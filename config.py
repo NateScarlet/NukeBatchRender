@@ -38,7 +38,7 @@ class Config(dict):
     default = {
         'NUKE': r'C:\Program Files\Nuke10.0v4\Nuke10.0.exe',
         'DEADLINE': r'C:\Program Files\Thinkbox\Deadline7\bin\deadlineslave.exe',
-        'DIR': r'E:\batchrender',
+        'DIR': os.path.expanduser('~/.nuke/batchrender'),
         'AFTER_FINISH': 0,
         'AFTER_FINISH_CMD': '',
         'AFTER_FINISH_PROGRAM': '',
@@ -66,8 +66,6 @@ class Config(dict):
 
     def __setitem__(self, key, value):
         LOGGER.debug('%s = %s', key, value)
-        if key == 'DIR' and value != self.get('DIR') and os.path.isdir(value):
-            change_dir(value)
         dict.__setitem__(self, key, value)
         self.write()
 
@@ -112,16 +110,6 @@ class Config(dict):
 
 
 CONFIG = Config()
-
-
-def change_dir(dir_):
-    """Try change currunt working directory."""
-
-    try:
-        os.chdir(dir_)
-    except OSError:
-        LOGGER.error(sys.exc_info()[2])
-    LOGGER.info('工作目录改为: %s', os.getcwd())
 
 
 def l10n(text):

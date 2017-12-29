@@ -66,7 +66,7 @@ class Files(list):
 
         self.archive(f)
         if normcase(f).startswith(normcase(CONFIG['DIR'])):
-            os.remove(get_encoded(self[f]))
+            os.remove(get_encoded(f))
 
 
 FILES = Files()

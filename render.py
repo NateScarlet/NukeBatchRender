@@ -591,7 +591,7 @@ class Slave(RenderObject):
             time_out = CONFIG['TIME_OUT'] * 1000
 
             timer.stop()
-            if time_out > 0:
+            if time_out > 0 and value < 100:
                 timer.start(time_out)
 
 

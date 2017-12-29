@@ -354,8 +354,7 @@ class Task(RenderObject):
         self.updating = True
 
         if not self.state and not os.path.exists(self.filename):
-            LOGGER.debug('%s not existed in %s anymore.',
-                         self.filename, os.getcwd())
+            LOGGER.debug('%s not existed anymore.', self.filename)
             self.state |= DISABLED
         if not self.state & DOING:
             self.update_mtime()

@@ -7,7 +7,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 import datetime
 import logging
 import os
-from os.path import basename, isabs, join
+from os.path import normcase, join
 import shutil
 import subprocess
 import sys
@@ -65,7 +65,7 @@ class Files(list):
         """Archive file then remove it.  """
 
         self.archive(f)
-        if not isabs(f):
+        if normcase(f).startswith(normcase(CONFIG['DIR'])):
             os.remove(get_encoded(self[f]))
 
 

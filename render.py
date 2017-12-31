@@ -585,12 +585,13 @@ class Slave(RenderObject):
             task.stop()
 
     def on_progressed(self, value):
+        timer = self._time_out_timer
+        timer.stop()
+        
         if CONFIG['LOW_PRIORITY']:
             # Restart timeout timer.
-            timer = self._time_out_timer
             time_out = CONFIG['TIME_OUT'] * 1000
 
-            timer.stop()
             if time_out > 0 and value < 100:
                 timer.start(time_out)
 

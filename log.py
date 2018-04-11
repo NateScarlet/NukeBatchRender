@@ -21,12 +21,10 @@ def _set_logger():
     logger.propagate = False
 
     # Loglevel
-    loglevel = os.getenv('LOGLEVEL', logging.INFO)
     try:
-        logger.setLevel(int(loglevel))
-    except TypeError:
-        logger.warning(
-            'Can not recognize env:LOGLEVEL %s, expect a int', loglevel)
+        logger.setLevel(os.getenv('LOGLEVEL'))
+    except (TypeError, ValueError):
+        logger.setLevel(logging.INFO)
 
     # Stream handler
     _handler = MultiProcessingHandler(logging.StreamHandler)

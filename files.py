@@ -39,11 +39,14 @@ class Files(list):
 
         del self[:]
         path = get_unicode(CONFIG['DIR'])
-        _files = sorted([join(path, get_unicode(i)) for i in os.listdir(get_encoded(path))
-                         if get_unicode(i).endswith('.nk')],
-                        key=os.path.getmtime,
-                        reverse=False)
-        self.extend(_files)
+        try:
+            _files = sorted([join(path, get_unicode(i)) for i in os.listdir(get_encoded(path))
+                             if get_unicode(i).endswith('.nk')],
+                            key=os.path.getmtime,
+                            reverse=False)
+            self.extend(_files)
+        except OSError:
+            LOGGER.error('Can not update files.', exc_info=True)
 
     def archive(self, f, dest='文件备份'):
         """Archive file in a folder with time struture.  """

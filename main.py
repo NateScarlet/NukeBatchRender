@@ -7,6 +7,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 import atexit
 import logging
 import sys
+import os
 from subprocess import call
 
 import singleton
@@ -20,6 +21,9 @@ if __name__ == '__main__':
 
 def main():
     _set_logger()
+
+    if getattr(sys, 'frozen', False):
+        os.environ['QT_PREFERRED_BINDING'] = 'PySide'
 
     from __version__ import __version__
     from mainwindow import QApplication, MainWindow

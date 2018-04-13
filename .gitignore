@@ -8,3 +8,5 @@ PySide/
 
 # vscode
 .vscode/
+
+*.exe

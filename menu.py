@@ -17,7 +17,7 @@ __folder__ = dirname(abspath(__file__))
 def _add_menu():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.insert(0, current_dir)
-    from config import CONFIG
+    from batchrender.config import CONFIG
 
     filename = join(__folder__, 'main.py')
 

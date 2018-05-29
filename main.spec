@@ -3,15 +3,14 @@
 block_cipher = None
 
 
-a = Analysis(['main.py'],
+a = Analysis(['launch.py'],
              pathex=[
                  ''],
              binaries=[],
-             datas=[('console.css', '.'),
-                    ('error_handler.exe', '.'),
+             datas=[('lib/batchrender/console.css', 'lib/batchrender/'),
                     ('active_pid.exe', '.'),
-                    ('mainwindow.ui', '.'),
-                    ('batchrender.zh_CN.json', '.')],
+                    ('lib/batchrender/mainwindow.ui', 'lib/batchrender/'),
+                    ('lib/batchrender/batchrender.zh_CN.json', 'lib/batchrender/')],
              hiddenimports=['PySide.QtUiTools',
                             'PySide.QtCore',
                             'PySide.QtGui',

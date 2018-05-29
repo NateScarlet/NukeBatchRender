@@ -1,9 +1,9 @@
 # -*- coding=UTF-8 -*-
 """GUI mainwindow.  """
 
-from __future__ import print_function, unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
-import atexit
 import logging
 import logging.handlers
 import os
@@ -13,20 +13,19 @@ import webbrowser
 import time
 from functools import wraps
 
-
 from Qt import QtCompat
-from Qt.QtCore import Signal, Slot, QTimer, Qt, QEvent, QUrl
+from Qt.QtCore import Signal, Slot, Qt, QEvent, QUrl
 from Qt.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBox,\
     QLineEdit, QCheckBox, QComboBox, QDoubleSpinBox, QSpinBox,\
     QStyle, QInputDialog
-from tasktable import TaskTable
-
-import render
-from config import CONFIG, stylize
-from path import get_unicode
-from __version__ import __version__
-from actions import hiber, shutdown
-
+from ..control import Controller
+from .. import render
+from ..config import CONFIG, stylize
+from ..path import get_unicode
+from ..__about__ import __version__
+from ..actions import hiber, shutdown
+from ..files import FILES
+from .title import Title
 
 LOGGER = logging.getLogger()
 
@@ -34,9 +33,32 @@ LOGGER = logging.getLogger()
 if getattr(sys, 'frozen', False):
     __file__ = os.path.join(getattr(sys, '_MEIPASS', ''), __file__)
 
-if sys.getdefaultencoding() != 'UTF-8':
-    reload(sys)
-    sys.setdefaultencoding('UTF-8')
+
+def _link_edits_to_config(edits_key):
+    for edit, key in edits_key.iteritems():
+        if isinstance(edit, QLineEdit):
+            edit.setText(CONFIG.get(key, ''))
+            edit.editingFinished.connect(
+                lambda edit=edit, k=key: CONFIG.__setitem__(k, edit.text()))
+        elif isinstance(edit, QCheckBox):
+            edit.setCheckState(
+                Qt.CheckState(CONFIG.get(key, 0)))
+            edit.stateChanged.connect(
+                lambda state, k=key: CONFIG.__setitem__(k, state))
+        elif isinstance(edit, QComboBox):
+            edit.setCurrentIndex(CONFIG.get(key, 0))
+            edit.currentIndexChanged.connect(
+                lambda index, k=key: CONFIG.__setitem__(k, index))
+        elif isinstance(edit, QSpinBox):
+            edit.setValue(CONFIG.get(key, 0))
+            edit.valueChanged.connect(
+                lambda value, k=key: CONFIG.__setitem__(k, value))
+        elif isinstance(edit, QDoubleSpinBox):
+            edit.setValue(CONFIG.get(key, 0))
+            edit.valueChanged.connect(
+                lambda value, k=key: CONFIG.__setitem__(k, value))
+        else:
+            LOGGER.debug('待处理的控件: %s %s', type(edit), edit)
 
 
 class MainWindow(QMainWindow):
@@ -45,80 +67,35 @@ class MainWindow(QMainWindow):
     _auto_start = False
     file_dropped = Signal(list)
 
-    def __init__(self, parent=None):
-        def _edits(edits_key):
-            for edit, key in edits_key.iteritems():
-                if isinstance(edit, QLineEdit):
-                    edit.setText(CONFIG.get(key, ''))
-                    edit.editingFinished.connect(
-                        lambda edit=edit, k=key: CONFIG.__setitem__(k, edit.text()))
-                elif isinstance(edit, QCheckBox):
-                    edit.setCheckState(
-                        Qt.CheckState(CONFIG.get(key, 0)))
-                    edit.stateChanged.connect(
-                        lambda state, k=key: CONFIG.__setitem__(k, state))
-                elif isinstance(edit, QComboBox):
-                    edit.setCurrentIndex(CONFIG.get(key, 0))
-                    edit.currentIndexChanged.connect(
-                        lambda index, k=key: CONFIG.__setitem__(k, index))
-                elif isinstance(edit, QSpinBox):
-                    edit.setValue(CONFIG.get(key, 0))
-                    edit.valueChanged.connect(
-                        lambda value, k=key: CONFIG.__setitem__(k, value))
-                elif isinstance(edit, QDoubleSpinBox):
-                    edit.setValue(CONFIG.get(key, 0))
-                    edit.valueChanged.connect(
-                        lambda value, k=key: CONFIG.__setitem__(k, value))
-                else:
-                    LOGGER.debug('待处理的控件: %s %s', type(edit), edit)
+    def _setup_icon(self):
+        _stdicon = self.style().standardIcon
 
-        def _icon():
-            _stdicon = self.style().standardIcon
+        _icon = _stdicon(QStyle.SP_MediaPlay)
+        self.setWindowIcon(_icon)
 
-            _icon = _stdicon(QStyle.SP_MediaPlay)
-            self.setWindowIcon(_icon)
+        _icon = _stdicon(QStyle.SP_DirOpenIcon)
+        self.toolButtonOpenDir.setIcon(_icon)
 
-            _icon = _stdicon(QStyle.SP_DirOpenIcon)
-            self.toolButtonOpenDir.setIcon(_icon)
+        _icon = _stdicon(QStyle.SP_DialogOpenButton)
+        self.toolButtonAskDir.setIcon(_icon)
 
-            _icon = _stdicon(QStyle.SP_DialogOpenButton)
-            self.toolButtonAskDir.setIcon(_icon)
-
-        super(MainWindow, self).__init__(parent)
-
-        # ui
+    def _setup_ui(self):
         self._ui = QtCompat.loadUi(os.path.abspath(
             os.path.join(__file__, '../mainwindow.ui')))
         self.setCentralWidget(self._ui)
         self.pushButtonStop.hide()
         self.progressBar.hide()
-        self.frameLowPriority.setVisible(CONFIG['LOW_PRIORITY'])
         self.labelVersion.setText('v{}'.format(__version__))
-        _icon()
         self.resize(500, 700)
-
-        # Connect edit to config
-        edits_key = {
-            self.lineEditDir: 'DIR',
-            self.checkBoxProxy: 'PROXY',
-            self.checkBoxPriority: 'LOW_PRIORITY',
-            self.checkBoxContinue: 'CONTINUE',
-            self.comboBoxAfterFinish: 'AFTER_FINISH',
-            self.doubleSpinBoxMemory: 'MEMORY_LIMIT',
-            self.spinBoxTimeOut: 'TIME_OUT'
-        }
-        _edits(edits_key)
-
-        # Initiate render object.
-        self.queue = render.Queue()
+        self._setup_icon()
+        self.tableView.setModel(self.control.model)
+        self.tableView.setColumnWidth(0, 290)
+        self.tableView.setColumnWidth(1, 80)
+        self.tableView.setColumnWidth(2, 80)
+        self.title = Title(self)
         self.on_queue_changed()
-        self.slave = render.Slave()
 
-        # Custom ui with render object.
-        self.task_table = TaskTable(self.tableWidget, self)
-        self.Title(self)
-
-        # Signals.
+    def _setup_signals(self):
         self.lineEditDir.textChanged.connect(self.check_dir)
         self.comboBoxAfterFinish.currentIndexChanged.connect(
             self.on_after_render_changed)
@@ -134,100 +111,62 @@ class MainWindow(QMainWindow):
 
         self.textBrowser.anchorClicked.connect(open_path)
 
-        self.queue.changed.connect(self.on_queue_changed)
-        self.queue.stdout.connect(self.textBrowser.append)
-        self.queue.stderr.connect(self.textBrowser.append)
+        self.control.queue.changed.connect(self.on_queue_changed)
+        self.control.queue.stdout.connect(self.textBrowser.append)
+        self.control.queue.stderr.connect(self.textBrowser.append)
 
-        self.slave.progressed.connect(self.progressBar.setValue)
-        self.slave.stopped.connect(self.on_slave_stopped)
-        self.slave.finished.connect(self.on_slave_finished)
-        self.slave.time_out.connect(self.on_slave_time_out)
-        self.slave.progressed.connect(self.update_remains)
+        self.control.slave.progressed.connect(self.progressBar.setValue)
+        self.control.slave.stopped.connect(self.on_slave_stopped)
+        self.control.slave.finished.connect(self.on_slave_finished)
+        self.control.slave.time_out.connect(self.on_slave_time_out)
+        self.control.slave.progressed.connect(self.update_remains)
+        self.control.root_changed.connect(self.on_root_changed)
 
         self.progressBar.valueChanged.connect(self.append_timestamp)
 
-        # File drop
+    def __init__(self, parent=None):
+
+        super(MainWindow, self).__init__(parent)
+        self.control = Controller(self)
+        self._setup_ui()
+        _link_edits_to_config({
+            self.lineEditDir: 'DIR',
+            self.checkBoxProxy: 'PROXY',
+            self.checkBoxPriority: 'LOW_PRIORITY',
+            self.checkBoxContinue: 'CONTINUE',
+            self.comboBoxAfterFinish: 'AFTER_FINISH',
+            self.doubleSpinBoxMemory: 'MEMORY_LIMIT',
+            self.spinBoxTimeOut: 'TIME_OUT'
+        })
+
+        self._setup_signals()
+        # Handle file drop
         self.setAcceptDrops(True)
         self.file_dropped.connect(self.on_file_dropped)
 
-        # Key pressed
-        self.tableWidget.installEventFilter(self)
+        # Handle key pressed
+        # self.tableView.installEventFilter(self)
+
+        self.control.change_root(CONFIG['dir'])
 
     def __getattr__(self, name):
         return getattr(self._ui, name)
-
-    class Title(object):
-        """Window title.  """
-        default_title = 'Nuke批渲染'
-        prefix = ''
-        title_index = 0
-
-        def __init__(self, parent):
-            self.title_index = 0
-            assert isinstance(
-                parent, MainWindow), 'Need a Mainwindow as parent.'
-            self.parent = parent
-
-            self._timer = QTimer()
-            self._timer.setInterval(300)
-            self._timer.timeout.connect(self.update)
-            setattr(self.parent, '_title', self)
-
-            self.parent.queue.changed.connect(self.update_prefix)
-            self.parent.progressBar.valueChanged.connect(self.update_prefix)
-
-            self.parent.slave.started.connect(self._timer.start)
-            self.parent.slave.finished.connect(self._timer.stop)
-
-            self.update()
-
-        def update_prefix(self):
-            """Update title prefix with progress.  """
-
-            prefix = ''
-            queue_length = len(list(self.parent.queue.enabled_tasks()))
-
-            if queue_length:
-                prefix = '[{}]{}'.format(queue_length, prefix)
-            if self.parent.slave.rendering:
-                prefix = '{}%{}'.format(
-                    self.parent.progressBar.value(), prefix)
-
-            if prefix != self.prefix:
-                self.prefix = prefix
-                self.update()
-
-        def update(self):
-            """Update title, rotate when rendering.  """
-
-            slave = self.parent.slave
-            if slave.rendering:
-                task = slave.task
-                assert isinstance(task, render.Task)
-                title = task.filename.partition('.nk')[0] or self.default_title
-                self.title_index += 1
-                index = self.title_index % len(title)
-            else:
-                title = self.default_title
-                self.title_index = 0
-                index = 0
-
-            title = '{}{} {}'.format(
-                self.prefix, title[index:], title[:index])
-
-            self.parent.setWindowTitle(title)
 
     def append_timestamp(self):
         """Create timestamp in text browser.  """
 
         self.textBrowser.append(stylize(time.strftime('[%x %X]'), 'info'))
 
+    def on_root_changed(self, value):
+        index = self.control.model.source_index(value)
+        self.tableView.setRootIndex(index)
+
     def autostart(self):
         """Auto start rendering depend on setting.  """
 
         if (self._auto_start
-                and not self.slave.rendering
-                and self.queue):
+                and not self.control.slave.rendering
+                and self.control.queue):
             self._auto_start = False
             self.pushButtonStart.clicked.emit()
             LOGGER.info('发现新任务, 自动开始渲染')
@@ -239,7 +178,7 @@ class MainWindow(QMainWindow):
             dir=os.path.dirname(CONFIG['DIR']))
         if path:
             if self.check_dir(path):
-                CONFIG['DIR'] = path
+                self.control.set_root(path)
                 self.lineEditDir.setText(path)
             else:
                 self.ask_dir()
@@ -262,13 +201,11 @@ class MainWindow(QMainWindow):
             return False
         return True
 
-    # Slots.
-
     @Slot(list)
     def on_file_dropped(self, files):
         files = [i for i in files if i.endswith('.nk')]
         if files:
-            _ = [self.queue.put(i) for i in files]
+            _ = [self.control.queue.put(i) for i in files]
             LOGGER.debug('Add %s', files)
         else:
             QMessageBox.warning(self, '不支持的格式', '目前只支持nk文件')
@@ -277,21 +214,22 @@ class MainWindow(QMainWindow):
     def on_queue_changed(self):
 
         # Set button: start button.
-        if self.queue:
+        queue = self.control.queue
+        if queue:
             self.pushButtonStart.setEnabled(True)
         else:
             self.pushButtonStart.setEnabled(False)
 
         # Set button: Remove old version.
-        render.FILES.update()
-        old_files = render.FILES.old_version_files()
+        FILES.update()
+        old_files = FILES.old_version_files()
         button = self.pushButtonRemoveOldVersion
         button.setEnabled(bool(old_files))
         button.setToolTip('备份后从目录中移除低版本文件\n{}'.format(
             '\n'.join(old_files) or '<无>'))
 
         # Set button: checkall.
-        _enabled = any(i for i in self.queue if i.state & render.DISABLED)
+        _enabled = any(i for i in queue if i.state & render.core.DISABLED)
         self.toolButtonCheckAll.setEnabled(_enabled)
 
         self.update_remains()
@@ -300,8 +238,8 @@ class MainWindow(QMainWindow):
     @Slot()
     def update_remains(self):
         """Set remains info on button: start, stop."""
-        remains = self.queue.remains
-        text = ('[{}]'.format(render.timef(int(remains)))
+        remains = self.control.queue.remains
+        text = ('[{}]'.format(render.core.timef(int(remains)))
                 if remains else '')
         self.pushButtonStart.setText('启动' + text)
         self.pushButtonStop.setText('停止' + text)
@@ -384,14 +322,13 @@ class MainWindow(QMainWindow):
         self.textBrowser.clear()
         self.tabWidget.setCurrentIndex(1)
 
-        start_error_handler()
-        self.slave.start(self.queue)
+        self.control.start()
 
     @Slot()
     def on_stop_button_clicked(self):
         self.comboBoxAfterFinish.setCurrentIndex(0)
 
-        self.slave.stop()
+        self.control.stop()
 
     @Slot()
     def on_slave_stopped(self):
@@ -437,7 +374,7 @@ class MainWindow(QMainWindow):
             event.ignore()
 
     def dragMoveEvent(self, event):
-        widget = self.tableWidget
+        widget = self.tableView
         if widget.isVisible() \
                 and widget.geometry().contains(widget.mapFrom(self, event.pos()) + widget.pos()):
             event.setDropAction(Qt.CopyAction)
@@ -454,7 +391,7 @@ class MainWindow(QMainWindow):
         self.file_dropped.emit(links)
 
     def closeEvent(self, event):
-        if self.slave.rendering:
+        if self.control.slave.rendering:
             confirm = QMessageBox.question(
                 self,
                 '正在渲染中',
@@ -464,38 +401,38 @@ class MainWindow(QMainWindow):
                 QMessageBox.No
             )
             if confirm == QMessageBox.Yes:
-                self.slave.stop()
+                self.control.slave.stop()
 
                 def _on_stopped():
                     QApplication.exit()
                     LOGGER.info('渲染途中退出')
-                self.slave.stopped.connect(_on_stopped)
+                self.control.slave.stopped.connect(_on_stopped)
             else:
                 event.ignore()
         else:
             QApplication.exit()
             LOGGER.info('退出')
 
-    def eventFilter(self, widget, event):
-        """Qt widget event filter.  """
+    # def eventFilter(self, widget, event):
+    #     """Qt widget event filter.  """
 
-        if (event.type() == QEvent.KeyPress and
-                widget is self.tableWidget):
-            key = event.key()
+    #     if (event.type() == QEvent.KeyPress and
+    #             widget is self.tableView):
+    #         key = event.key()
 
-            if key == Qt.Key_Return:
-                selected_task = self.task_table.current_selected()
-                if len(selected_task) <= 1:
-                    return True
-                priority, confirm = QInputDialog.getInt(
-                    self, '为所选设置优先级', '优先级')
-                if confirm:
-                    for task in selected_task:
-                        task.priority = priority
-                        self.task_table[task].update()
-                    self.task_table.update_queue()
-            return True
-        return super(MainWindow, self).eventFilter(widget, event)
+    #         if key == Qt.Key_Return:
+    #             selected_task = self.task_table.current_selected()
+    #             if len(selected_task) <= 1:
+    #                 return True
+    #             priority, confirm = QInputDialog.getInt(
+    #                 self, '为所选设置优先级', '优先级')
+    #             if confirm:
+    #                 for task in selected_task:
+    #                     task.priority = priority
+    #                     self.task_table[task].update()
+    #                 self.task_table.update_queue()
+    #         return True
+    #     return super(MainWindow, self).eventFilter(widget, event)
 
 
 @Slot(QUrl)
@@ -505,12 +442,3 @@ def open_path(q_url):
     if not os.path.exists(path):
         path = os.path.dirname(path)
     webbrowser.open(path)
-
-
-def start_error_handler():
-    """Start error dialog handle for windows.  """
-
-    if sys.platform == 'win32':
-        _file = os.path.abspath(os.path.join(__file__, '../error_handler.exe'))
-        proc = subprocess.Popen(_file, close_fds=True)
-        atexit.register(proc.terminate)

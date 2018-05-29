@@ -1,10 +1,7 @@
 build/
 dist/
 *.pyc
-
-
-# PySide libarary
-PySide/
+.venv/
 
 # vscode
 .vscode/

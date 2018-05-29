@@ -1,7 +1,8 @@
 # -*- coding=UTF-8 -*-
 """Logging.  """
-from __future__ import print_function, unicode_literals
 
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 import os
 
 import multiprocessing
@@ -11,7 +12,7 @@ import traceback
 
 import logging
 import logging.handlers
-from config import CONFIG
+from .config import CONFIG
 
 LOGGER = logging.getLogger('log')
 

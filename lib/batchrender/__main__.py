@@ -2,17 +2,22 @@
 # -*- coding=UTF-8 -*-
 """GUI batchrender for nuke.  """
 
-from __future__ import absolute_import, print_function, unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
 import atexit
 import logging
-import sys
 import os
+import sys
 from subprocess import call
 
-import singleton
-from log import _set_logger
-from path import get_encoded
+from Qt.QtWidgets import QApplication
+
+from . import singleton
+from .__about__ import __version__
+from .log import _set_logger
+from .path import get_encoded
+from .view import MainWindow
 
 LOGGER = logging.getLogger()
 if __name__ == '__main__':
@@ -22,11 +27,12 @@ if __name__ == '__main__':
 def main():
     _set_logger()
 
+    if sys.getdefaultencoding() != 'UTF-8':
+        reload(sys)
+        sys.setdefaultencoding('UTF-8')
+
     if getattr(sys, 'frozen', False):
         os.environ['QT_PREFERRED_BINDING'] = 'PySide'
-
-    from __version__ import __version__
-    from mainwindow import QApplication, MainWindow
 
     atexit.register(lambda: LOGGER.debug('Python exit.'))
     app = QApplication.instance()

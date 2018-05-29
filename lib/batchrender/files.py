@@ -2,7 +2,8 @@
 # -*- coding=UTF-8 -*-
 """Task rendering.  """
 
-from __future__ import absolute_import, print_function, unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
 import datetime
 import logging
@@ -12,8 +13,8 @@ import shutil
 import subprocess
 import sys
 
-from path import get_encoded, get_unicode, version_filter
-from config import CONFIG
+from .path import get_encoded, get_unicode, version_filter
+from .config import CONFIG
 LOGGER = logging.getLogger('render')
 
 

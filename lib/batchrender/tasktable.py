@@ -1,19 +1,20 @@
-#! /usr/bin/env python2
 # -*- coding=UTF-8 -*-
 """GUI tasktable.  """
 
-from __future__ import print_function, unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
+import logging
 import os
 import webbrowser
-import logging
 
+from Qt.QtCore import QObject, Qt, QTimer, Slot
 from Qt.QtGui import QBrush, QColor
-from Qt.QtCore import Slot, QTimer, Qt, QObject
 from Qt.QtWidgets import QTableWidgetItem
 
-import render
-from database import DATABASE
+from . import render
+from .database import DATABASE
+from .files import FILES
 
 LOGGER = logging.getLogger()
 
@@ -24,28 +25,28 @@ class Row(QObject):
     brushes = {
         None: (QBrush(QColor(Qt.white)),
                QBrush(QColor(Qt.black))),
-        render.DOING: (QBrush(QColor(30, 40, 45)),
-                       QBrush(QColor(Qt.white))),
-        render.DISABLED: (QBrush(QColor(Qt.gray)),
-                          QBrush(QColor(Qt.black))),
-        render.FINISHED: (QBrush(QColor(Qt.white)),
-                          QBrush(QColor(Qt.gray)))
+        render.core.DOING: (QBrush(QColor(30, 40, 45)),
+                            QBrush(QColor(Qt.white))),
+        render.core.DISABLED: (QBrush(QColor(Qt.gray)),
+                               QBrush(QColor(Qt.black))),
+        render.core.FINISHED: (QBrush(QColor(Qt.white)),
+                               QBrush(QColor(Qt.gray)))
     }
     flags = {None: ((Qt.ItemIsSelectable | Qt.ItemIsEnabled
                      | Qt.ItemIsUserCheckable),
                     (Qt.ItemIsEnabled | Qt.ItemIsSelectable
                      | Qt.ItemIsEditable)),
-             render.DOING: ((Qt.ItemIsSelectable | Qt.ItemIsEnabled
-                             | Qt.ItemIsUserCheckable),
-                            (Qt.ItemIsEnabled | Qt.ItemIsSelectable
-                             | Qt.ItemIsEditable)),
-             render.DISABLED: ((Qt.ItemIsEnabled | Qt.ItemIsSelectable
-                                | Qt.ItemIsUserCheckable),
-                               (Qt.ItemIsEnabled | Qt.ItemIsSelectable
-                                | Qt.ItemIsEditable)),
-             render.FINISHED: ((Qt.ItemIsSelectable | Qt.ItemIsEnabled),
-                               (Qt.ItemIsEnabled | Qt.ItemIsSelectable
-                                | Qt.ItemIsEditable))}
+             render.core.DOING: ((Qt.ItemIsSelectable | Qt.ItemIsEnabled
+                                  | Qt.ItemIsUserCheckable),
+                                 (Qt.ItemIsEnabled | Qt.ItemIsSelectable
+                                  | Qt.ItemIsEditable)),
+             render.core.DISABLED: ((Qt.ItemIsEnabled | Qt.ItemIsSelectable
+                                     | Qt.ItemIsUserCheckable),
+                                    (Qt.ItemIsEnabled | Qt.ItemIsSelectable
+                                     | Qt.ItemIsEditable)),
+             render.core.FINISHED: ((Qt.ItemIsSelectable | Qt.ItemIsEnabled),
+                                    (Qt.ItemIsEnabled | Qt.ItemIsSelectable
+                                     | Qt.ItemIsEditable))}
     _task = None
     updating = False
 
@@ -109,7 +110,7 @@ class Row(QObject):
 
         def _choice():
             choice = None
-            for state in (render.FINISHED, render.DOING, render.DISABLED):
+            for state in (render.core.FINISHED, render.core.DOING, render.core.DISABLED):
                 if state & self.task.state:
                     choice = state
                     break
@@ -129,7 +130,7 @@ class Row(QObject):
 
         name.setText(self.task.filename)
         name.setCheckState(Qt.CheckState(
-            0 if self.task.state & render.DISABLED else 2))
+            0 if self.task.state & render.core.DISABLED else 2))
         name.setFlags(self.flags[_choice()][0])
 
         priority.setText(str(self.task.priority))
@@ -144,11 +145,11 @@ class Row(QObject):
         none_str = '<i>无统计数据</i>'
         rows = ['<tr><th colspan=2>{}</th></tr>'.format(task.filename),
                 _row('帧数', task.frames or none_str),
-                _row('帧均耗时', render.timef(int(avg)) if avg else none_str),
-                _row('预计耗时', render.timef(int(task.estimate_time)))]
-        if task.state & render.DOING and task.remains:
+                _row('帧均耗时', render.core.timef(int(avg)) if avg else none_str),
+                _row('预计耗时', render.core.timef(int(task.estimate_time)))]
+        if task.state & render.core.DOING and task.remains:
             rows.append(
-                _row('剩余时间', render.timef(int(task.remains))))
+                _row('剩余时间', render.core.timef(int(task.remains))))
         tooltip = '<table>{}</table>'.format(''.join(rows))
 
         name.setToolTip(tooltip)
@@ -223,8 +224,8 @@ class TaskTable(QObject):
     def update_queue(self):
         """Update queue to match files.  """
 
-        render.FILES.update()
-        map(self.queue.put, render.FILES)
+        FILES.update()
+        map(self.queue.put, FILES)
 
     def on_queue_changed(self):
         """Update table to match task queue.  """
@@ -246,9 +247,9 @@ class TaskTable(QObject):
 
         if column == 0:
             if item.checkState():
-                task.state &= ~render.DISABLED
+                task.state &= ~render.core.DISABLED
             else:
-                task.state |= render.DISABLED
+                task.state |= render.core.DISABLED
         elif column == 1:
             try:
                 text = item.text()
@@ -271,7 +272,7 @@ class TaskTable(QObject):
         """Do work on selection changed.  """
 
         tasks = (i for i in self.current_selected() if not i.state &
-                 render.DOING)
+                 render.core.DOING)
         self.parent.toolButtonRemove.setEnabled(any(tasks))
 
     @property
@@ -288,7 +289,7 @@ class TaskTable(QObject):
     def remove_old_version(self):
         """Remove all old version nk files.  """
 
-        files = render.FILES.old_version_files()
+        files = FILES.old_version_files()
         if not files:
             return
 
@@ -302,7 +303,7 @@ class TaskTable(QObject):
         for row in self:
             task = row.task
             assert isinstance(task, render.Task)
-            task.state &= ~render.DISABLED
+            task.state &= ~render.core.DISABLED
 
     def reverse_check(self):
         """Reverse checkstate for every item.  """
@@ -310,7 +311,7 @@ class TaskTable(QObject):
         tasks = [i.task for i in self]
         for task in tasks:
             assert isinstance(task, render.Task)
-            task.state ^= render.DISABLED
+            task.state ^= render.core.DISABLED
 
     def current_selected(self):
         """Current selected tasks.  """
@@ -326,7 +327,7 @@ class TaskTable(QObject):
         """Select all item in list widget.  """
 
         tasks = [i for i in self.current_selected() if not i.state &
-                 render.DOING]
+                 render.core.DOING]
 
         for i in tasks:
             self.queue.remove(i)

@@ -5,7 +5,7 @@ import os
 import webbrowser
 
 
-from __version__ import __version__
+from batchrender.__about__ import __version__
 
 
 def main():

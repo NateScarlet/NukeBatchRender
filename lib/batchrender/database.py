@@ -2,11 +2,11 @@
 """History task info database.  """
 
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from logging import getLogger
 from multiprocessing import Lock
 from os.path import expanduser
-from contextlib import contextmanager
 
 LOGGER = getLogger('database')
 
@@ -34,7 +34,7 @@ class Database(object):
                         "DELETE FROM {} where timestamp < ? ".format(table),
                         (datetime.now() - timedelta(days=30),))
                     conn.commit()
-                except sqlite3.OperationalError as ex:
+                except sqlite3.OperationalError:
                     try:
                         LOGGER.warning(
                             "Can not reconize table, reset: %s", table)

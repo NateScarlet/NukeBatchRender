@@ -1,6 +1,7 @@
 # -*- coding=UTF-8 -*-
 """Config file on disk.  """
-from __future__ import print_function, unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
 import json
 import logging
@@ -8,7 +9,7 @@ import os
 import re
 import sys
 
-from path import get_unicode
+from .path import get_unicode
 
 
 LOGGER = logging.getLogger('config')
@@ -46,8 +47,9 @@ class Config(dict):
         'LOW_PRIORITY': 2,
         'CONTINUE': 2,
         'HIBER': 0,
-        'MEMORY_LIMIT': 8.0,
-        'TIME_OUT': 120
+        'MEMORY_LIMIT': 10.0,
+        'THREADS': 4,
+        'TIME_OUT': 600
     }
     path = os.path.expanduser('~/.nuke/.batchrender.json')
     _log_path = None

@@ -1,13 +1,16 @@
 # -*- coding=UTF-8 -*-
 """After render actions.  """
-from __future__ import print_function, unicode_literals
 
-import sys
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
 import logging
+import sys
 from subprocess import PIPE, Popen, call
-from path import get_unicode
 
 from Qt.QtWidgets import QMessageBox
+
+from .codectools import get_unicode
 
 LOGGER = logging.getLogger('actions')
 

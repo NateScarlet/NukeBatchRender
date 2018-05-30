@@ -6,7 +6,7 @@ from __future__ import (absolute_import, division, print_function,
 import logging
 import os
 
-from Qt.QtCore import QObject, Signal
+from Qt.QtCore import QObject, Signal, Qt
 
 from . import render
 from .config import CONFIG
@@ -27,7 +27,7 @@ class Controller(QObject):
         self.model = proxy_model
 
         # Initiate render object.
-        self.queue = render.Queue()
+        self.queue = render.Queue(self.model)
         self.slave = render.Slave()
 
         self.is_updating = False
@@ -69,6 +69,9 @@ class Controller(QObject):
             index = self.model.index(i, 0, root_index)
             _set_model_default(model, index)
         self.model.sort(0)
+
+    def create_task(self, file):
+        pass
 
 
 def _set_model_default(model, index):

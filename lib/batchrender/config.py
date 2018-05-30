@@ -9,7 +9,7 @@ import os
 import re
 import sys
 
-from .path import get_unicode
+from .codectools import get_unicode
 
 
 LOGGER = logging.getLogger('config')
@@ -30,6 +30,8 @@ def _update_style():
     setattr(sys.modules[__name__], 'CONSOLE_STYLE', style)
 
 
+import shutil
+
 _update_style()
 
 
@@ -49,9 +51,11 @@ class Config(dict):
         'HIBER': 0,
         'MEMORY_LIMIT': 10.0,
         'THREADS': 4,
-        'TIME_OUT': 600
+        'TIME_OUT': 600,
     }
-    path = os.path.expanduser('~/.nuke/.batchrender.json')
+    engine_path = os.path.expanduser('~/.nuke/.batchrender/database.db')
+    engine_uri = 'sqlite:///{}'.format(engine_path)
+    path = os.path.expanduser('~/.nuke/.batchrender/config.json')
     _log_path = None
     instance = None
 
@@ -64,7 +68,30 @@ class Config(dict):
     def __init__(self):
         super(Config, self).__init__()
         self.update(dict(self.default))
+        self._setup()
         self.read()
+
+    def _setup(self):
+        try:
+            os.makedirs(os.path.dirname(self.path))
+        except OSError:
+            pass
+        self._handle_old_config()
+
+    def _handle_old_config(self):
+        path = os.path.expanduser('~/.nuke/.batchrender.json')
+        engine_path = os.path.expanduser('~/.nuke/batchrender.db')
+
+        def _try_remove(path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        if os.path.exists(path):
+            with open(path) as f:
+                self.update(json.load(f))
+            _try_remove(path)
+        _try_remove(engine_path)
 
     def __setitem__(self, key, value):
         LOGGER.debug('%s = %s', key, value)

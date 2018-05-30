@@ -2,24 +2,23 @@
 """Task rendering.  """
 
 import logging
-import os
-
 import time
 
-from ..files import FILES
 from . import core
+from .. import model
 from .task import Task
-
+from .. import database
 LOGGER = logging.getLogger(__name__)
 
 
 class Queue(core.RenderObject):
     """Task render quene.  """
 
-    def __init__(self):
+    def __init__(self, model):
+        from ..model import FilesProxyModel
+        assert isinstance(model, FilesProxyModel), type(model)
         super(Queue, self).__init__()
-        self._list = []
-        self.changed.connect(self.sort)
+        self.model = model
 
     def __contains__(self, item):
         if isinstance(item, (str, unicode)):
@@ -30,83 +29,36 @@ class Queue(core.RenderObject):
         return any(self.enabled_tasks())
 
     def __len__(self):
-        return self._list.__len__()
+        return len(self.enabled_tasks())
 
     def __str__(self):
-        return '[{}]'.format(',\n'.join(str(i) for i in self._list))
+        return 'render.Queue<{}>'.format(',\n'.join(self.model.checked_files()))
 
-    def __getitem__(self, name):
-        if isinstance(name, int):
-            return self._list.__getitem__(name)
-        elif isinstance(name, (str, unicode)):
-            try:
-                return [i for i in self if i.filename == name][0]
-            except IndexError:
-                raise ValueError('No task match filename: %s' % name)
-        elif isinstance(name, Task):
-            return self.__getitem__(name.filename)
-        else:
-            raise TypeError('Accept int or str, got %s' % type(name))
-
-    def sort(self):
-        """Sort queue.  """
-
-        self._list.sort(key=lambda x: (not x.state & core.DOING,
-                                       x.state, -x.priority, x.mtime))
-
-    def get(self):
+    def get(self, session=database.SESSION):
         """Get first task from queue.  """
 
         try:
-            return self.enabled_tasks().next()
+            return self.enabled_tasks(session).next()
         except StopIteration:
             time.sleep(1)
             return self.get()
 
-    def put(self, item):
-        """Put task to queue.  """
+    def enabled_tasks(self, session=database.SESSION):
+        """Iterator for enabled tasks in queue.  """
 
-        if item in tuple(self):
-            self[item].update()
-            return
-        elif not isinstance(item, Task):
-            item = Task(item)
-        item.queue.add(self)
-        self._list.append(item)
-        self.changed.emit()
-        LOGGER.debug('Add task: %s', item)
+        return self._task_iterator(self.model.checked_files(), session)
 
-    def remove(self, item):
-        """Archive file, then remove task and file.  """
+    def all_tasks(self, session=database.SESSION):
+        """Iterator for all tasks in queue.  """
 
-        item = self[item]
-        assert isinstance(item, Task)
-        if item.state & core.DOING:
-            LOGGER.error('不能移除正在进行的任务: %s', item.filename)
-            return
-        filename = item.filename
-        LOGGER.debug('Remove task: %s', item)
-
-        if os.path.exists(filename):
-            FILES.remove(filename)
-        self._list.remove(item)
-        item.queue.discard(self)
-        self.changed.emit()
-
-    def enabled_tasks(self):
-        """All enabled task in queue. """
-
-        if not self._list:
-            return ()
-        self.sort()
-        return (i for i in tuple(self) if not i.state)
+        return self._task_iterator(self.model.all_files(), session)
 
     @property
     def remains(self):
         ret = 0
-        for i in (i for i in tuple(self) if not i.state or i.state & core.DOING):
+        for i in self.all_tasks():
             assert isinstance(i, Task)
-            if i.state & core.DOING:
+            if i.state & model.DOING:
                 ret += (i.remains
                         or i.estimate_time)
             else:
@@ -114,5 +66,10 @@ class Queue(core.RenderObject):
 
         return ret
 
-    def on_changed(self):
-        self.sort()
+    def _task_iterator(self, files, session):
+        def _get_task(filename):
+            try:
+                return Task(filename, queue=self, session=session)
+            except IOError:
+                return None
+        return (j for j in (_get_task(i) for i in files) if isinstance(j, Task))

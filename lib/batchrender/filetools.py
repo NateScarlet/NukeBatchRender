@@ -1,34 +1,78 @@
-
 # -*- coding=UTF-8 -*-
-"""Path handling.  """
+"""File tools.  """
 
-from __future__ import print_function, unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
-import locale
+import hashlib
+import logging
 import os
 import re
+import shutil
+import subprocess
+import sys
+
+import six
+
+from .codectools import get_unicode
+
+LOGGER = logging.getLogger(__name__)
+CHUNK_SIZE = 2 * 2 ** 10  # 2MB
 
 
-def get_unicode(input_str, codecs=('UTF-8', 'GBK')):
-    """Return unicode by try decode @input_str with @codecs.  """
+def filehash(path):
+    """Get hash from a file.
 
-    if isinstance(input_str, unicode):
-        return input_str
+    Args:
+        path (str): File path.
 
-    for i in tuple(codecs) + tuple(locale.getdefaultlocale()[1]):
-        try:
-            return unicode(input_str, i)
-        except (UnicodeDecodeError, LookupError):
-            continue
-    raise UnicodeError(repr(input_str))
+    Returns:
+        Hash object
+    """
+
+    path = six.text_type(path)
+    ret = hashlib.md5()
+    with open(path) as f:
+        for chunk in iter(lambda: f.read(CHUNK_SIZE), ''):
+            ret.update(chunk)
+    return ret
 
 
-def get_encoded(input_str, encoding=None):
-    """Return unicode by try decode @input_str with @encodeing.  """
-    if encoding is None:
-        encoding = locale.getdefaultlocale()[1]
+def filehash_hex(path):
+    """Shortcut function for file hexdigest.
 
-    return get_unicode(input_str).encode(encoding)
+    Args:
+        path (str): File path.
+
+    Returns:
+        str: File hash hexdigest.
+    """
+
+    return filehash(path).hexdigest()
+
+
+def copy(src, dst):
+    """Copy src to dst."""
+    src, dst = get_unicode(src), get_unicode(dst)
+    LOGGER.info('\n复制:\n\t%s\n->\t%s', src, dst)
+    if not os.path.exists(src):
+        return
+    dst_dir = os.path.dirname(dst)
+    if not os.path.exists(dst_dir):
+        LOGGER.debug('创建目录: %s', dst_dir)
+        os.makedirs(dst_dir)
+    try:
+        shutil.copy2(src, dst)
+    except OSError:
+        if sys.platform == 'win32':
+            subprocess.call('XCOPY /V /Y "{}" "{}"'.format(src, dst))
+        else:
+            raise
+    if os.path.isdir(dst):
+        ret = os.path.join(dst, os.path.basename(src))
+    else:
+        ret = dst
+    return ret
 
 
 def version_filter(iterable):

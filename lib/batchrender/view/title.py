@@ -5,19 +5,12 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import logging
-import logging.handlers
-import os
-import sys
 
-from Qt.QtCore import Qt, QTimer
-from Qt.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit,
-                          QSpinBox)
+from Qt.QtCore import QTimer
 
-from .. import render
 from ..__about__ import __version__
-from ..config import CONFIG
 
-LOGGER = logging.getLogger()
+LOGGER = logging.getLogger(__name__)
 
 
 class Title(object):
@@ -50,11 +43,12 @@ class Title(object):
         """Update title prefix with progress.  """
 
         prefix = ''
-        queue_length = len(list(self.parent.queue.enabled_tasks()))
+        control = self.parent.control
+        queue_length = len(list(control.queue.enabled_tasks()))
 
         if queue_length:
             prefix = '[{}]{}'.format(queue_length, prefix)
-        if self.parent.slave.rendering:
+        if control.slave.rendering:
             prefix = '{}%{}'.format(
                 self.parent.progressBar.value(), prefix)
 
@@ -66,10 +60,9 @@ class Title(object):
         """Update title, rotate when rendering.  """
 
         slave = self.parent.control.slave
-        if slave.rendering:
-            task = slave.task
-            assert isinstance(task, render.Task)
-            title = task.filename.partition('.nk')[0] or self.default_title
+        task = slave.task
+        if slave.rendering and task:
+            title = task.label or self.default_title
             self.title_index += 1
             index = self.title_index % len(title)
         else:

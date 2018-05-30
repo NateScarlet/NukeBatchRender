@@ -3,11 +3,12 @@
 
 import logging
 import threading
-from functools import wraps
 from abc import abstractmethod
+from functools import wraps
 
 from Qt.QtCore import QObject, Signal
 
+from .. import database
 from ..config import stylize
 
 LOGGER = logging.getLogger(__name__)
@@ -87,12 +88,6 @@ class RenderObject(QObject):
     @abstractmethod
     def on_stderr(self, msg):
         pass
-
-
-# Task state bitmask
-DOING = 1 << 0
-DISABLED = 1 << 1
-FINISHED = 1 << 2
 
 
 def run_async(func):

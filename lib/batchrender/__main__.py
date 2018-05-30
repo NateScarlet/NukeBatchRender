@@ -16,7 +16,7 @@ from Qt.QtWidgets import QApplication
 from . import singleton
 from .__about__ import __version__
 from .log import _set_logger
-from .path import get_encoded
+from .codectools import get_encoded
 from .view import MainWindow
 
 LOGGER = logging.getLogger()

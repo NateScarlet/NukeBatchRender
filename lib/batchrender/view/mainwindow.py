@@ -9,22 +9,22 @@ import logging.handlers
 import os
 import subprocess
 import sys
-import webbrowser
 import time
+import webbrowser
 from functools import wraps
 
 from Qt import QtCompat
-from Qt.QtCore import Signal, Slot, Qt, QEvent, QUrl
-from Qt.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBox,\
-    QLineEdit, QCheckBox, QComboBox, QDoubleSpinBox, QSpinBox,\
-    QStyle, QInputDialog
-from ..control import Controller
+from Qt.QtCore import Qt, QUrl, Signal, Slot
+from Qt.QtWidgets import (QApplication, QCheckBox, QComboBox, QDoubleSpinBox,
+                          QFileDialog, QInputDialog, QLineEdit, QMainWindow,
+                          QMessageBox, QSpinBox, QStyle)
+
 from .. import render
-from ..config import CONFIG, stylize
-from ..path import get_unicode
 from ..__about__ import __version__
 from ..actions import hiber, shutdown
-from ..files import FILES
+from ..codectools import get_unicode
+from ..config import CONFIG, stylize
+from ..control import Controller
 from .title import Title
 
 LOGGER = logging.getLogger()
@@ -93,7 +93,8 @@ class MainWindow(QMainWindow):
         self.tableView.setColumnWidth(1, 80)
         self.tableView.setColumnWidth(2, 80)
         self.title = Title(self)
-        self.on_queue_changed()
+        self.on_data_changed()
+        self.on_model_layout_changed()
 
     def _setup_signals(self):
         self.lineEditDir.textChanged.connect(self.check_dir)
@@ -111,7 +112,6 @@ class MainWindow(QMainWindow):
 
         self.textBrowser.anchorClicked.connect(open_path)
 
-        self.control.queue.changed.connect(self.on_queue_changed)
         self.control.queue.stdout.connect(self.textBrowser.append)
         self.control.queue.stderr.connect(self.textBrowser.append)
 
@@ -119,8 +119,10 @@ class MainWindow(QMainWindow):
         self.control.slave.stopped.connect(self.on_slave_stopped)
         self.control.slave.finished.connect(self.on_slave_finished)
         self.control.slave.time_out.connect(self.on_slave_time_out)
-        self.control.slave.progressed.connect(self.update_remains)
+        self.control.slave.progressed.connect(self._update_remains)
         self.control.root_changed.connect(self.on_root_changed)
+        self.control.model.dataChanged.connect(self.on_data_changed)
+        self.control.model.layoutChanged.connect(self.on_model_layout_changed)
 
         self.progressBar.valueChanged.connect(self.append_timestamp)
 
@@ -147,7 +149,7 @@ class MainWindow(QMainWindow):
         # Handle key pressed
         # self.tableView.installEventFilter(self)
 
-        self.control.change_root(CONFIG['dir'])
+        self.control.change_root(CONFIG['DIR'])
 
     def __getattr__(self, name):
         return getattr(self._ui, name)
@@ -161,7 +163,32 @@ class MainWindow(QMainWindow):
         index = self.control.model.source_index(value)
         self.tableView.setRootIndex(index)
 
-    def autostart(self):
+    def on_data_changed(self):
+        self.pushButtonStart.setEnabled(
+            any(self.control.model.checked_files()))
+        self._update_remains()
+
+    def _update_remains(self):
+        """Set remains info on button: start, stop."""
+        remains = self.control.queue.remains
+        text = ('[{}]'.format(render.core.timef(int(remains)))
+                if remains else '')
+        self.pushButtonStart.setText('启动' + text)
+        self.pushButtonStop.setText('停止' + text)
+
+    def on_model_layout_changed(self):
+        self.on_data_changed()
+        self._update_button_remove_old_files()
+        self._autostart()
+
+    def _update_button_remove_old_files(self):
+        button = self.pushButtonRemoveOldVersion
+        old_files = list(self.control.model.old_version_files())
+        button.setEnabled(bool(old_files))
+        button.setToolTip('备份后从目录中移除低版本文件\n{}'.format(
+            '\n'.join(old_files) or '<无>'))
+
+    def _autostart(self):
         """Auto start rendering depend on setting.  """
 
         if (self._auto_start
@@ -178,7 +205,7 @@ class MainWindow(QMainWindow):
             dir=os.path.dirname(CONFIG['DIR']))
         if path:
             if self.check_dir(path):
-                self.control.set_root(path)
+                self.control.change_root(path)
                 self.lineEditDir.setText(path)
             else:
                 self.ask_dir()
@@ -201,7 +228,6 @@ class MainWindow(QMainWindow):
             return False
         return True
 
-    @Slot(list)
     def on_file_dropped(self, files):
         files = [i for i in files if i.endswith('.nk')]
         if files:
@@ -210,41 +236,6 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.warning(self, '不支持的格式', '目前只支持nk文件')
 
-    @Slot()
-    def on_queue_changed(self):
-
-        # Set button: start button.
-        queue = self.control.queue
-        if queue:
-            self.pushButtonStart.setEnabled(True)
-        else:
-            self.pushButtonStart.setEnabled(False)
-
-        # Set button: Remove old version.
-        FILES.update()
-        old_files = FILES.old_version_files()
-        button = self.pushButtonRemoveOldVersion
-        button.setEnabled(bool(old_files))
-        button.setToolTip('备份后从目录中移除低版本文件\n{}'.format(
-            '\n'.join(old_files) or '<无>'))
-
-        # Set button: checkall.
-        _enabled = any(i for i in queue if i.state & render.core.DISABLED)
-        self.toolButtonCheckAll.setEnabled(_enabled)
-
-        self.update_remains()
-        self.autostart()
-
-    @Slot()
-    def update_remains(self):
-        """Set remains info on button: start, stop."""
-        remains = self.control.queue.remains
-        text = ('[{}]'.format(render.core.timef(int(remains)))
-                if remains else '')
-        self.pushButtonStart.setText('启动' + text)
-        self.pushButtonStop.setText('停止' + text)
-
-    @Slot()
     def on_after_render_changed(self):
         edit = self.comboBoxAfterFinish
         text = edit.currentText()

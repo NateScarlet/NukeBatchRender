@@ -9,7 +9,8 @@ import logging
 from Qt.QtCore import QDir, QPersistentModelIndex, Qt, QSortFilterProxyModel
 from Qt.QtWidgets import QFileSystemModel
 from six.moves import range
-
+from . import filetools
+from Qt.QtGui import QBrush, QColor
 ROLE_PRIORITY = Qt.UserRole + 4
 ROLE_RANGE = Qt.UserRole + 5
 ROLE_STATUS = Qt.UserRole + 6
@@ -40,25 +41,17 @@ class DirectoryModel(QFileSystemModel):
 
         self.header_roles = (
             self.FileNameRole, ROLE_RANGE, ROLE_PRIORITY)
-        self.insertColumn(0)
-        self.insertColumn(1)
-        self.insertColumn(1)
+        self._data_redirect_get = {
+            Qt.CheckStateRole: self._get_check_state_data,
+            Qt.ForegroundRole: self._get_foreground_data,
+            Qt.BackgroundRole: self._get_background_data,
+        }
 
     def columnCount(self, parent):
         """Override.  """
+        # pylint: disable=unused-argument
 
         return len(self.header_roles)
-
-    # def roleNames(self):
-    #     ret = super(DirectoryModel, self).roleNames()
-    #     ret.update({
-    #         ROLE_PRIORITY: b'priority',
-    #         ROLE_STATUS: b'status',
-    #     }
-    #     )
-    #     return ret
-    def _data_key(self, index):
-        return super(DirectoryModel, self).data(index, self.FilePathRole)
 
     def flags(self, index):
         """Override.  """
@@ -74,10 +67,12 @@ class DirectoryModel(QFileSystemModel):
     def data(self, index, role=Qt.DisplayRole):
         """Override.  """
 
-        key = self._data_key(index)
-        if role == Qt.CheckStateRole and index.column() != 0:
-            return None
+        redirect = self._data_redirect_get
+
+        if role in redirect:
+            return redirect[role](index)
         elif role in self.columns:
+            key = self._data_key(index)
             return self.columns[role].get(key, _column_default(index, role))
         elif role in (Qt.DisplayRole, Qt.EditRole):
             return self._custom_data(index, role)
@@ -85,8 +80,18 @@ class DirectoryModel(QFileSystemModel):
             return Qt.AlignVCenter
         return super(DirectoryModel, self).data(index, role)
 
+    def _get_check_state_data(self, index):
+        if index.column() != 0:
+            return None
+
+        return Qt.Unchecked if self.data(
+            index, ROLE_STATUS) & DISABLED else Qt.Checked
+
     def setData(self, index, value, role=Qt.EditRole):
         """Override.  """
+
+        if role == Qt.CheckStateRole:
+            return self._set_check_state_data(index, value)
 
         key = self._data_key(index)
         column = index.column()
@@ -100,28 +105,42 @@ class DirectoryModel(QFileSystemModel):
             return True
         return super(DirectoryModel, self).setData(index, value, role)
 
+    def _get_foreground_data(self, index):
+        status = self.data(index, ROLE_STATUS)
+        if status & DOING:
+            return QBrush(QColor(Qt.white))
+        elif status & FINISHED:
+            return QBrush(QColor(Qt.gray))
+        return QBrush(QColor(Qt.black))
+
+    def _get_background_data(self, index):
+        status = self.data(index, ROLE_STATUS)
+        if status & DOING:
+            return QBrush(QColor(30, 40, 45))
+        elif status & DISABLED:
+            return QBrush(QColor(Qt.gray))
+
+        return QBrush(QColor(Qt.white))
+
+    def _set_check_state_data(self, index, value):
+        status = self.data(index, ROLE_STATUS)
+        if value == Qt.Checked:
+            status &= ~DISABLED
+        else:
+            status |= DISABLED
+
+        self.setData(index, status, ROLE_STATUS)
+        return True
+
+    def _data_key(self, index):
+        return super(DirectoryModel, self).data(index, self.FilePathRole)
+
     def _custom_data(self, index, role):
         column_index = index.column()
         role = self.header_roles[column_index]
         if role in self.columns:
             return self.data(index, role)
         return super(DirectoryModel, self).data(index, role)
-
-    def all_file(self):
-        """All files under root.  """
-
-        root_index = self.index(self.rootPath())
-        return [self.data(self.index(i, 0, root_index)) for i in range(self.rowCount(root_index))]
-
-
-def _column_default(index, role):
-    defaults = {
-        ROLE_PRIORITY: 0,
-        ROLE_RANGE: '',
-    }
-    if index.column() == 0:
-        defaults[Qt.CheckStateRole] = Qt.Unchecked
-    return defaults.get(role)
 
 
 class FilesProxyModel(QSortFilterProxyModel):
@@ -139,34 +158,8 @@ class FilesProxyModel(QSortFilterProxyModel):
         data = model.data(index, model.FileNameRole)
         return data.endswith('.nk')
 
-    def all_files(self):
-        """All files in display.  """
-
-        root_index = self.root_index()
-        count = self.rowCount(root_index)
-        return [self.data(self.index(i, 0, root_index)) for i in range(count)]
-
-    def checked_files(self):
-        """All checked files.  """
-
-        root_index = self.root_index()
-        count = self.rowCount(root_index)
-        ret = []
-        for i in range(count):
-            index = self.index(i, 0, root_index)
-            if self.data(index, Qt.CheckStateRole):
-                data = self.data(index)
-                ret.append(data)
-        return ret
-
     def lessThan(self, left, right):
         """Override.  """
-
-        def _get_sort_data(model, index):
-            return (model.data(index, Qt.CheckStateRole),
-                    model.data(index, ROLE_STATUS),
-                    -model.data(index, ROLE_PRIORITY),
-                    model.lastModified(index).toPython())
 
         model = self.sourceModel()
         left_data = _get_sort_data(model, left)
@@ -182,31 +175,12 @@ class FilesProxyModel(QSortFilterProxyModel):
                         Qt.TextAlignmentRole: Qt.AlignLeft,
                         Qt.DecorationRole: None}[role]
 
-            return [
-                {
-                    Qt.DisplayRole: '文件',
-                },
-                {
-                    Qt.DisplayRole: '范围',
-                },
-                {
-                    Qt.DisplayRole: '优先级',
-                },
-            ][section][role]
+            return [{Qt.DisplayRole: '文件', },
+                    {Qt.DisplayRole: '范围', },
+                    {Qt.DisplayRole: '优先级', }, ][section][role]
         except (KeyError, IndexError):
             return super(FilesProxyModel, self).headerData(
                 section, orientation, role)
-
-    def root_index(self):
-        """Index of root path.  """
-
-        model = self.sourceModel()
-        return self.mapFromSource(model.index(model.rootPath()))
-
-    def absolute_path(self, *path):
-        """Convert path to absolute path.  """
-        model = self.sourceModel()
-        return os.path.abspath(os.path.join(model.rootPath(), *path))
 
     def is_dir(self, index):
         """Wrapper for `self.sourceModel().isDir`.  """
@@ -214,13 +188,6 @@ class FilesProxyModel(QSortFilterProxyModel):
         source_index = self.mapToSource(index)
         source_model = self.sourceModel()
         return source_model.isDir(source_index)
-
-    def indexes(self):
-        """Return all indexes under root.  """
-
-        root_index = self.root_index()
-        count = self.rowCount(root_index)
-        return (self.index(i, 0, root_index) for i in range(count))
 
     def file_path(self, index):
         """Wrapper for `self.sourceModel().filePath`.  """
@@ -240,3 +207,58 @@ class FilesProxyModel(QSortFilterProxyModel):
 
         source_model = self.sourceModel()
         return self.mapFromSource(source_model.index(path))
+
+    def root_index(self):
+        """Index of root path.  """
+
+        model = self.sourceModel()
+        return self.mapFromSource(model.index(model.rootPath()))
+
+    def indexes(self):
+        """Return all indexes under root.  """
+
+        root_index = self.root_index()
+        count = self.rowCount(root_index)
+        return (self.index(i, 0, root_index) for i in range(count))
+
+    def absolute_path(self, *path):
+        """Convert path to absolute path.  """
+        model = self.sourceModel()
+        return os.path.abspath(os.path.join(model.rootPath(), *path))
+
+    def checked_files(self):
+        """Iterator for checked files in model.  """
+
+        return (self.file_path(i)
+                for i in self.indexes()
+                if self.data(i, Qt.CheckStateRole))
+
+    def all_files(self):
+        """Iterator for all files in model.  """
+
+        return (self.file_path(i)
+                for i in self.indexes())
+
+    def old_version_files(self):
+        """Files that has a lower version number.  """
+
+        files = self.all_files()
+        return (i for i in files if i not in filetools.version_filter(files))
+
+
+def _get_sort_data(model, index):
+    return (model.data(index, Qt.CheckStateRole),
+            model.data(index, ROLE_STATUS),
+            -model.data(index, ROLE_PRIORITY),
+            model.lastModified(index).toPython())
+
+
+def _column_default(index, role):
+    defaults = {
+        ROLE_PRIORITY: 0,
+        ROLE_RANGE: '',
+        ROLE_STATUS: 0b0,
+    }
+    if index.column() == 0:
+        defaults[Qt.CheckStateRole] = Qt.Checked
+    return defaults.get(role)

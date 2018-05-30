@@ -8,6 +8,7 @@ from Qt.QtCore import QTimer
 from . import core
 from ..config import CONFIG
 from .task import Task
+from.. import database
 
 LOGGER = logging.getLogger(__name__)
 
@@ -16,10 +17,10 @@ class Slave(core.RenderObject):
     """Render slave.  """
 
     _task = None
-    rendering = False
 
     def __init__(self):
         super(Slave, self).__init__()
+        self.rendering = False
 
         # Time out timer.
         timer = QTimer()
@@ -55,17 +56,19 @@ class Slave(core.RenderObject):
 
         LOGGER.debug('Render start')
         self.started.emit()
-
-        while queue and not self.stopping:
-            LOGGER.debug('Rendering queue:\n%s', queue)
-            try:
-                task = queue.get()
+        with database.core.session_scope() as sess:
+            while not self.stopping:
+                task = queue.get(sess)
+                if not task:
+                    break
                 assert isinstance(task, Task)
-                self.task = task
-                task.run()
-            except Exception:
-                LOGGER.error('Exception during render.', exc_info=True)
-                raise
+                LOGGER.debug('Rendering queue:\n%s', queue)
+                try:
+                    self.task = task
+                    task.run()
+                except Exception:
+                    LOGGER.error('Exception during render.', exc_info=True)
+                    raise
 
         if not self.stopping:
             self.finished.emit()
@@ -106,30 +109,3 @@ class Slave(core.RenderObject):
 
             if time_out > 0 and value < 100:
                 timer.start(time_out)
-
-
-def timef(seconds):
-    """Return a nice representation fo given seconds.
-
-    >>> print(timef(10.123))
-    10.123秒
-    >>> print(timef(100))
-    1分40秒
-    >>> print(timef(100000))
-    27小时46分40秒
-    >>> print(timef(1.23456789))
-    1.235秒
-    """
-
-    ret = ''
-    hour = seconds // 3600
-    minute = seconds % 3600 // 60
-    seconds = round((seconds % 60 * 1000)) / 1000
-    if int(seconds) == seconds:
-        seconds = int(seconds)
-    if hour:
-        ret += '{:.0f}小时'.format(hour)
-    if minute:
-        ret += '{:.0f}分'.format(minute)
-    ret += '{}秒'.format(seconds)
-    return ret

@@ -159,9 +159,10 @@ def l10n(text):
     return ret
 
 
-def stylize(text, text_type=None):
+def stylize(text, css_class=None):
     """Stylelize text for text edit"""
 
-    if text_type:
-        text = '<span class={}>{}</span>'.format(get_unicode(text_type), text)
+    if css_class:
+        text = '<span class={}>{}</span>'.format(
+            get_unicode(css_class), get_unicode(text))
     return CONSOLE_STYLE + text

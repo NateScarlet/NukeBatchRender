@@ -42,6 +42,8 @@ class Task(core.RenderObject):
 
         self.frame_finished.connect(self.on_frame_finished)
         self.file_changed.connect(self.on_file_changed)
+        self.stdout.connect(self.queue.stdout)
+        self.stderr.connect(self.queue.stderr)
 
     def __eq__(self, other):
         if isinstance(other, Task):
@@ -190,12 +192,6 @@ class Task(core.RenderObject):
 
     def on_progressed(self, value):
         self._remains = (100 - value) * self.estimate_time / 100.0
-
-    def on_stdout(self, msg):
-        self.queue.stdout.emit(msg)
-
-    def on_stderr(self, msg):
-        self.queue.stderr.emit(msg)
 
     def on_file_changed(self, **kwargs):
         for k, v in kwargs.items():

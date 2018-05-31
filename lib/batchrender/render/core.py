@@ -6,9 +6,9 @@ import threading
 from abc import abstractmethod
 from functools import wraps
 
+import six
 from Qt.QtCore import QObject, Signal
 
-from .. import database
 from ..config import stylize
 
 LOGGER = logging.getLogger(__name__)
@@ -27,8 +27,8 @@ class RenderObject(QObject):
     finished = Signal()
     time_out = Signal()
     progressed = Signal(int)
-    stdout = Signal(str)
-    stderr = Signal(str)
+    stdout = Signal(six.text_type)
+    stderr = Signal(six.text_type)
 
     def __init__(self):
         super(RenderObject, self).__init__()

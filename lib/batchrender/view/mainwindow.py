@@ -19,14 +19,13 @@ from Qt.QtWidgets import (QApplication, QCheckBox, QComboBox, QDoubleSpinBox,
                           QFileDialog, QInputDialog, QLineEdit, QMainWindow,
                           QMessageBox, QSpinBox, QStyle)
 
-from .. import render
 from ..__about__ import __version__
 from ..actions import hiber, shutdown
 from ..codectools import get_unicode
-from ..config import CONFIG, stylize
+from ..config import CONFIG
 from ..control import Controller
 from .title import Title
-
+from ..texttools import timef, stylize
 LOGGER = logging.getLogger()
 
 
@@ -112,13 +111,14 @@ class MainWindow(QMainWindow):
 
         self.textBrowser.anchorClicked.connect(open_path)
 
-        self.control.queue.stdout.connect(self.textBrowser.append)
-        self.control.queue.stderr.connect(self.textBrowser.append)
-        self.control.queue.progressed.connect(self.progressBar.setValue)
-        self.control.queue.stopped.connect(self.on_queue_stopped)
-        self.control.queue.finished.connect(self.on_queue_finished)
-        self.control.queue.time_out.connect(self.on_queue_time_out)
-        self.control.queue.progressed.connect(self._update_remains)
+        self.control.slave.stdout.connect(self.textBrowser.append)
+        self.control.slave.stderr.connect(self.textBrowser.append)
+        self.control.slave.progressed.connect(self.on_slave_progressed)
+        self.control.slave.stopped.connect(self.on_slave_stopped)
+        self.control.slave.finished.connect(self.on_slave_finished)
+        self.control.slave.time_out.connect(self.on_slave_time_out)
+        self.control.queue.remains_changed.connect(
+            self.on_queue_remains_changed)
         self.control.root_changed.connect(self.on_root_changed)
         self.control.model.dataChanged.connect(self.on_data_changed)
         self.control.model.layoutChanged.connect(self.on_model_layout_changed)
@@ -158,6 +158,9 @@ class MainWindow(QMainWindow):
 
         self.textBrowser.append(stylize(time.strftime('[%x %X]'), 'info'))
 
+    def on_slave_progressed(self, value):
+        self.progressBar.setValue(value)
+
     def on_root_changed(self, value):
         index = self.control.model.source_index(value)
         self.tableView.setRootIndex(index)
@@ -165,13 +168,11 @@ class MainWindow(QMainWindow):
     def on_data_changed(self):
         self.pushButtonStart.setEnabled(
             any(self.control.model.checked_files()))
-        self._update_remains()
 
-    def _update_remains(self):
+    def on_queue_remains_changed(self, value):
         """Set remains info on button: start, stop."""
-        remains = self.control.queue.remains
-        text = ('[{}]'.format(render.core.timef(int(remains)))
-                if remains else '')
+
+        text = ('[{}]'.format(timef(int(value))) if value else '')
         self.pushButtonStart.setText('启动' + text)
         self.pushButtonStop.setText('停止' + text)
 
@@ -191,7 +192,7 @@ class MainWindow(QMainWindow):
         """Auto start rendering depend on setting.  """
 
         if (self._auto_start
-                and not self.control.slave.rendering
+                and not self.control.slave.is_rendering
                 and self.control.queue):
             self._auto_start = False
             self.pushButtonStart.clicked.emit()
@@ -298,7 +299,7 @@ class MainWindow(QMainWindow):
             self.checkBoxPriority.setCheckState(Qt.Checked)
 
     @Slot()
-    def on_queue_time_out(self):
+    def on_slave_time_out(self):
         """Wiil be excuted when frame take too long.  """
 
         if CONFIG['LOW_PRIORITY']:
@@ -320,16 +321,14 @@ class MainWindow(QMainWindow):
 
         self.control.stop()
 
-    @Slot()
-    def on_queue_stopped(self):
+    def on_slave_stopped(self):
         self.pushButtonStop.hide()
         self.progressBar.hide()
         self.pushButtonStart.show()
         self.tabWidget.setCurrentIndex(0)
         QApplication.alert(self)
 
-    @Slot()
-    def on_queue_finished(self):
+    def on_slave_finished(self):
 
         def reset_after_render(func):
             """(Decorator)Reset after render choice before run @func  ."""
@@ -381,7 +380,7 @@ class MainWindow(QMainWindow):
         self.file_dropped.emit(links)
 
     def closeEvent(self, event):
-        if self.control.slave.rendering:
+        if self.control.slave.is_rendering:
             confirm = QMessageBox.question(
                 self,
                 '正在渲染中',

@@ -7,10 +7,9 @@ from __future__ import (absolute_import, division, print_function,
 import logging
 import os
 import shutil
-import tempfile
 
-from sqlalchemy import Column, Float, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Float, Integer, String, func
+from sqlalchemy.orm import relationship, object_session
 
 from .. import filetools
 from ..codectools import get_encoded as e
@@ -37,6 +36,9 @@ class File(Base, SerializableMixin):
     frames = relationship('Frame',
                           back_populates='file')
 
+    def __new__(cls, *args, **kwargs):
+        return super(File, cls).__new__(cls, *args, **kwargs)
+
     @property
     def frame_count(self):
         """Frame count in the file.  """
@@ -48,14 +50,16 @@ class File(Base, SerializableMixin):
 
     def estimate_cost(self, frame_count=None, default_frame_count=100, default_frame_cost=30):
         """Estimate file render time cost.  """
+        from .frame import Frame
+
+        sess = object_session(self)
+        frame_cost = (sess.query(func.avg(Frame.cost),).filter(Frame.file == self).one()[0] or
+                      sess.query(func.avg(Frame.cost),)[0] or
+                      default_frame_cost)
 
         frame_count = frame_count or self.frame_count or default_frame_count
-        frames = self.frames
-        if not frames:
-            return frame_count * default_frame_cost
-        costs = (i.cost for i in frames if i.cost)
-        frame_cost = sum(costs) / len(costs)
-        return frames * frame_cost
+
+        return frame_cost * frame_count
 
     def archive(self, dest='文件备份'):
         """Move file to a folder with hash renamed.  """
@@ -90,11 +94,11 @@ class File(Base, SerializableMixin):
 
         path = u(path)
         hexdigest = filetools.filehash_hex(path)
-        label = os.path.basename(e(path))
+        label = os.path.basename(path)
         ret = session.query(cls).get(hexdigest) or cls(hash=hexdigest)
         assert isinstance(ret, cls), type(ret)
-        session.add(ret)
         ret.label = label
         ret.path = path
+        session.add(ret)
         session.commit()
         return ret

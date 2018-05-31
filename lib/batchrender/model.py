@@ -4,16 +4,21 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-import os
 import logging
-from Qt.QtCore import QDir, QPersistentModelIndex, Qt, QSortFilterProxyModel
+import os
+
+from Qt.QtCore import QDir, QSortFilterProxyModel, Qt
+from Qt.QtGui import QBrush, QColor
 from Qt.QtWidgets import QFileSystemModel
 from six.moves import range
+
 from . import filetools
-from Qt.QtGui import QBrush, QColor
+
 ROLE_PRIORITY = Qt.UserRole + 4
 ROLE_RANGE = Qt.UserRole + 5
 ROLE_STATUS = Qt.UserRole + 6
+ROLE_REMAINS = Qt.UserRole + 7
+ROLE_ESTIMATE = Qt.UserRole + 8
 
 # Task state bitmask
 DOING = 1 << 0
@@ -37,6 +42,8 @@ class DirectoryModel(QFileSystemModel):
             ROLE_PRIORITY: {},
             ROLE_RANGE: {},
             ROLE_STATUS: {},
+            ROLE_REMAINS: {},
+            ROLE_ESTIMATE: {},
         }
 
         self.header_roles = (
@@ -72,8 +79,8 @@ class DirectoryModel(QFileSystemModel):
         if role in redirect:
             return redirect[role](index)
         elif role in self.columns:
-            key = self._data_key(index)
-            return self.columns[role].get(key, _column_default(index, role))
+            key = self.data_key(index)
+            return self.get_data_from_key(key, role, _column_default(index, role))
         elif role in (Qt.DisplayRole, Qt.EditRole):
             return self._custom_data(index, role)
         elif role == Qt.TextAlignmentRole:
@@ -93,7 +100,7 @@ class DirectoryModel(QFileSystemModel):
         if role == Qt.CheckStateRole:
             return self._set_check_state_data(index, value)
 
-        key = self._data_key(index)
+        key = self.data_key(index)
         column = index.column()
         if (index.isValid()
                 and column <= len(self.header_roles)
@@ -132,8 +139,20 @@ class DirectoryModel(QFileSystemModel):
         self.setData(index, status, ROLE_STATUS)
         return True
 
-    def _data_key(self, index):
+    def data_key(self, index):
+        """Data key for custom role, from model index.  """
+
         return super(DirectoryModel, self).data(index, self.FilePathRole)
+
+    def set_data_from_key(self, key, value, role):
+        """Set custom data from data key.  """
+
+        self.columns[role][key] = value
+
+    def get_data_from_key(self, key, role, default=None):
+        """Get custom data from data key.  """
+
+        return self.columns[role].get(key, default)
 
     def _custom_data(self, index, role):
         column_index = index.column()
@@ -254,11 +273,15 @@ def _get_sort_data(model, index):
 
 
 def _column_default(index, role):
+    if index.column() == 0 and role == Qt.CheckStateRole:
+        return Qt.Checked
+    return _data_default(role)
+
+
+def _data_default(role):
     defaults = {
         ROLE_PRIORITY: 0,
         ROLE_RANGE: '',
         ROLE_STATUS: 0b0,
     }
-    if index.column() == 0:
-        defaults[Qt.CheckStateRole] = Qt.Checked
     return defaults.get(role)

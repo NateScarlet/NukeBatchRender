@@ -48,7 +48,7 @@ class Title(object):
 
         if queue_length:
             prefix = '[{}]{}'.format(queue_length, prefix)
-        if control.slave.rendering:
+        if control.slave.is_rendering:
             prefix = '{}%{}'.format(
                 self.parent.progressBar.value(), prefix)
 
@@ -61,7 +61,7 @@ class Title(object):
 
         slave = self.parent.control.slave
         task = slave.task
-        if slave.rendering and task:
+        if slave.is_rendering and task:
             title = task.label or self.default_title
             self.title_index += 1
             index = self.title_index % len(title)

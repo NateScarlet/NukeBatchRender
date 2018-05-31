@@ -2,22 +2,19 @@
 """Task rendering.  """
 
 import logging
-import threading
 from abc import abstractmethod
-from functools import wraps
 
 import six
 from Qt.QtCore import QObject, Signal
 
-from ..config import stylize
-
+from ..texttools import stylize
 LOGGER = logging.getLogger(__name__)
 
 
 class RenderObject(QObject):
     """Base render object.  """
 
-    stopping = False
+    is_stopping = False
     _remains = None
 
     # Signals.
@@ -29,15 +26,18 @@ class RenderObject(QObject):
     progressed = Signal(int)
     stdout = Signal(six.text_type)
     stderr = Signal(six.text_type)
+    remains_changed = Signal(float)
 
-    def __init__(self):
-        super(RenderObject, self).__init__()
+    def __init__(self, parent=None):
+        super(RenderObject, self).__init__(parent)
 
         # Singals.
+        self.finished.connect(self.stopped)
         self.changed.connect(self.on_changed)
         self.progressed.connect(self.on_progressed)
         self.time_out.connect(self.on_time_out)
         self.started.connect(lambda: self.progressed.emit(0))
+        self.started.connect(self.on_started)
         self.stopped.connect(self.on_stopped)
         self.finished.connect(self.on_finished)
         self.stdout.connect(self.on_stdout)
@@ -61,8 +61,20 @@ class RenderObject(QObject):
 
         return self._remains
 
+    @remains.setter
+    def remains(self, value):
+        if value == self._remains:
+            return
+
+        self._remains = value
+        self.remains_changed.emit(value)
+
     @abstractmethod
     def on_changed(self):
+        pass
+
+    @abstractmethod
+    def on_started(self):
         pass
 
     @abstractmethod
@@ -88,41 +100,3 @@ class RenderObject(QObject):
     @abstractmethod
     def on_stderr(self, msg):
         pass
-
-
-def run_async(func):
-    """Run func in thread.  """
-
-    @wraps(func)
-    def _func(*args, **kwargs):
-        thread = threading.Thread(target=func, args=args, kwargs=kwargs)
-        thread.start()
-        return thread
-    return _func
-
-
-def timef(seconds):
-    """Return a nice representation fo given seconds.
-
-    >>> print(timef(10.123))
-    10.123秒
-    >>> print(timef(100))
-    1分40秒
-    >>> print(timef(100000))
-    27小时46分40秒
-    >>> print(timef(1.23456789))
-    1.235秒
-    """
-
-    ret = ''
-    hour = seconds // 3600
-    minute = seconds % 3600 // 60
-    seconds = round((seconds % 60 * 1000)) / 1000
-    if int(seconds) == seconds:
-        seconds = int(seconds)
-    if hour:
-        ret += '{:.0f}小时'.format(hour)
-    if minute:
-        ret += '{:.0f}分'.format(minute)
-    ret += '{}秒'.format(seconds)
-    return ret

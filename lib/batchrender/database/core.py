@@ -3,12 +3,12 @@
 import logging
 from contextlib import contextmanager
 
-import six
 from pathlib2 import PurePath
 from sqlalchemy import TypeDecorator, Unicode, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm.session import sessionmaker
 
+from ..codectools import get_unicode as u, get_encoded as e
 from ..config import CONFIG
 
 Base = declarative_base()  # pylint: disable=invalid-name
@@ -40,13 +40,13 @@ class Path(TypeDecorator):
 
     def process_bind_param(self, value, dialect):
         if value is not None:
-            value = six.text_type(value).replace('\\', '/')
+            value = u(value).replace('\\', '/')
             value = PurePath(value).as_posix()
         return value
 
     def process_result_value(self, value, dialect):
         if value is not None:
-            value = PurePath(value)
+            value = PurePath(e(value))
         return value
 
 

@@ -6,17 +6,18 @@ from __future__ import (absolute_import, division, print_function,
 import logging
 import os
 
-from Qt.QtCore import QObject, Signal, Qt
+from Qt.QtCore import QObject, Signal
 
 from . import render
 from .config import CONFIG
-from .model import DirectoryModel, FilesProxyModel, ROLE_PRIORITY, ROLE_RANGE, ROLE_STATUS
+from .model import DirectoryModel, FilesProxyModel, ROLE_PRIORITY
 
 LOGGER = logging.getLogger(__name__)
 
 
 class Controller(QObject):
     """Batchrender controller.  """
+
     root_changed = Signal(str)
 
     def __init__(self, parent=None):
@@ -28,22 +29,25 @@ class Controller(QObject):
 
         # Initiate render object.
         self.queue = render.Queue(self.model)
-        self.slave = render.Slave()
+        self.slave = render.Slave(self.queue)
 
         self.is_updating = False
 
         self.model.layoutChanged.connect(self.update_model)
         self.model.dataChanged.connect(self.update_model)
+        self.slave.progressed.connect(self.queue.update_remains)
 
     def start(self):
         """Start rendering.  """
-        self.slave.start(self.queue)
+        self.slave.start()
 
     def stop(self):
         """Stop rendering.  """
         self.slave.stop()
 
     def change_root(self, path):
+        """Change root directory.  """
+
         path = os.path.normpath(path)
         CONFIG['DIR'] = path
         self.model.sourceModel().setRootPath(path)
@@ -70,7 +74,8 @@ class Controller(QObject):
             _set_model_default(model, index)
         self.model.sort(0)
 
-    def create_task(self, file):
+    def create_task(self, filepath):
+        """Create a task from file.  """
         pass
 
 

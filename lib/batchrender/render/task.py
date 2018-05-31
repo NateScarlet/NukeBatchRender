@@ -3,98 +3,82 @@
 
 import logging
 import os
-
-import re
 import sys
 import time
-from subprocess import Popen, PIPE
+from subprocess import PIPE, Popen
 
-from Qt.QtCore import Signal
+from Qt.QtCore import Signal, Slot
 
-from ..config import CONFIG, l10n, stylize
-# from ..files import FILES
-from .. import database
-from .. import model
 from . import core
+from .. import database, model
+from ..config import CONFIG
+from .proc_handler import NukeHandler
+from ..threadtools import run_async
 LOGGER = logging.getLogger(__name__)
+
+
+def _map_model_data(role, docstring=None):
+    # pylint: disable=protected-access
+    def _get_model_data(self):
+        return self.model.get_data_from_key(self._model_key, role, model._data_default(role))
+
+    def _set_model_data(self, value):
+        self.model.set_data_from_key(self._model_key, value, role)
+
+    return property(_get_model_data, _set_model_data, doc=docstring)
 
 
 class Task(core.RenderObject):
     """Nuke render task.  """
 
     frame_finished = Signal(dict)
-    file_changed = Signal(dict)
+    process_finished = Signal(int)
     max_retry = 3
 
-    def __init__(self, path, queue, session=database.SESSION):
-        from .queue import Queue
-        assert isinstance(queue, Queue), type(queue)
-        super(Task, self).__init__()
+    def __init__(self, path, filesystem_model):
+        assert isinstance(filesystem_model, model.DirectoryModel), type(
+            filesystem_model)
 
-        self.file = database.File.from_path(path, session)
-        self.queue = queue
-        self.label = self.file.label
-        self.session = session
         self.error_count = 0
         self.proc = None
         self.frames = None
+        self.start_time = None
+        self.path = path
+        self.model = filesystem_model
+        self.file = database.File.from_path(path, database.SESSION)
+        self.label = self.file.label
+        self._tempfile = None
+        self._model_key = self.model.data_key(self.model.index(self.path))
+        self.estimate_time = self._caculate_estimate_time()
+        super(Task, self).__init__()
 
         self.frame_finished.connect(self.on_frame_finished)
-        self.file_changed.connect(self.on_file_changed)
-        self.stdout.connect(self.queue.stdout)
-        self.stderr.connect(self.queue.stderr)
-        self.progressed.connect(self.queue.progressed)
+        self.process_finished.connect(self.on_process_finished)
 
     def __eq__(self, other):
         if isinstance(other, Task):
-            other = other.file.path
-        return self.file.path == other
+            other = other.path
+        return self.path == other
 
     def __str__(self):
         return '<{0.priority}: {0.label}: {0.state:b}>'.format(self)
 
     def __unicode__(self):
         return '<任务 {0.label}: 优先级 {0.priority}, 状态 {0.state:b}>'.format(self)
+    state = _map_model_data(model.ROLE_STATUS, 'Task state.')
+    range = _map_model_data(model.ROLE_RANGE, 'Render range.')
+    priority = _map_model_data(model.ROLE_PRIORITY, 'Render range.')
+    remains = _map_model_data(model.ROLE_REMAINS, 'Remains time to render.')
 
-    @property
-    def state(self):
-        """Task state.  """
-
-        return self._get_model_data(model.ROLE_STATUS)
-
-    @property
-    def range(self):
-        """Render range.  """
-
-        return self._get_model_data(model.ROLE_RANGE)
-
-    @property
-    def priority(self):
-        """Task priority.  """
-
-        return self._get_model_data(model.ROLE_PRIORITY)
-
-    @property
-    def estimate_time(self):
+    def _caculate_estimate_time(self):
         """Estimate task time cost.  """
 
         return self.file.estimate_cost(self.frames)
 
-    @state.setter
-    def state(self, value):
-
-        if value != self.state:
-            self._set_model_data(value, model.ROLE_STATUS)
-
-    @priority.setter
-    def priority(self, value):
-        if value != self._priority:
-            self._set_model_data(value, model.ROLE_PRIORITY)
-
     def stop(self):
         """Stop rendering.  """
 
-        self.stopping = True
+        self.is_stopping = True
         self.state &= ~model.DOING
         proc = self.proc
         if proc is not None:
@@ -111,40 +95,43 @@ class Task(core.RenderObject):
     def handle_output(self, proc):
         """handle process output."""
 
-        self._handle_stderr(proc)
-        self._handle_stdout(proc)
+        handler = NukeHandler(proc)
+        handler.stdout.connect(self.stdout)
+        handler.stderr.connect(self.stderr)
+        handler.frame_finished.connect(self.frame_finished)
+        handler.start()
 
     def run(self):
         """(Override)"""
 
-        start_time = time.clock()
-        self.state |= model.DOING
+        self.started.emit()
+        self._tempfile = self.file.create_tempfile()
+        self.run_process()
 
-        temp = self.file.create_tempfile()
-        proc = nuke_process(temp, self.range)
+    @run_async
+    def run_process(self):
+        """Run render process.  """
+
+        proc = nuke_process(self._tempfile, self.range)
         self.proc = proc
         self.handle_output(proc)
-
         self.info(
-            '执行任务: {0.file.path} 优先级:{0.priority} pid: {1}'.format(self, proc.pid))
-        self.started.emit()
+            '执行任务: {0.path} 优先级:{0.priority} pid: {1}'.format(self, proc.pid))
+        self.process_finished.emit(proc.wait())
 
-        retcode = proc.wait()
-        time_cost = core.timef(time.clock() - start_time)
-        retcode_str = '退出码: {}'.format(retcode) if retcode else '正常退出'
-        self.info('{}: 结束渲染 耗时 {} {}'.format(
-            self.file.path, time_cost, retcode_str))
+    def on_process_finished(self, retcode):
+        self.info('渲染进程结束: ' + '退出码: {}'.format(retcode)
+                  if retcode else '正常退出')
 
-        if self.stopping:
+        if self.is_stopping:
             # Stopped by user.
-            self.info('中途终止进程 pid: {}'.format(proc.pid))
-            self.stopping = False
+            self.info('中途终止进程 pid: {}'.format(self.proc.pid))
         elif retcode:
             # Exited with error.
             self.error_count += 1
             self.priority -= 1
             self.error('{}: 渲染出错 第{}次'.format(
-                self.file.path, self.error_count))
+                self.path, self.error_count))
             if self.error_count >= self.max_retry:
                 self.error('渲染错误达到{}次,不再进行重试。'.format(self.max_retry))
                 self.state |= model.DISABLED
@@ -157,119 +144,69 @@ class Task(core.RenderObject):
                 self.info('任务完成')
                 self.file.archive()
         try:
-            os.remove(temp)
+            os.remove(self._tempfile)
         except OSError:
-            self.error('移除临时文件失败: {}'.format(temp))
+            self.error('移除临时文件失败: {}'.format(self._tempfile))
             LOGGER.warning('Remove temprory file failed.', exc_info=True)
 
         self.state &= ~model.DOING
-        self.finished.emit()
+        if self.is_stopping:
+            self.stopped.emit()
+        else:
+            self.finished.emit()
         return retcode
 
-    def on_frame_finished(self, **kwargs):
-        frame, cost, current, total = (kwargs['frame'],
-                                       kwargs['cost'],
-                                       kwargs['current'],
-                                       kwargs['total'])
+    @Slot(dict)
+    def on_frame_finished(self, data):
+        assert isinstance(data, dict), type(dict)
+        frame, cost, current, total = (data['frame'],
+                                       data['cost'],
+                                       data['current'],
+                                       data['total'])
         if current == 1:
-            fisrt_frame = frame
-            last_frame = fisrt_frame + total - 1
+            first_frame = frame
+            last_frame = first_frame + total - 1
             self.frames = total
             self._update_file_range(frame, last_frame)
 
-        frame_record = database.Frame(file=self.file, frame=frame, cost=cost)
+        frame_record = database.Frame(
+            file=self.file, frame=frame, cost=cost, timestamp=time.time())
         database.SESSION.add(frame_record)
         database.SESSION.commit()
         self.progressed.emit(current * 100 / total)
-        self.changed.emit()
-
-    def on_changed(self):
-        """Send changed signal to queue.  """
-
-        LOGGER.debug('Task changed: %s', self)
-
-        self.queue.changed.emit()
 
     def on_progressed(self, value):
-        self._remains = (100 - value) * self.estimate_time / 100.0
+        self.remains = (1.0 - value / 100.0) * self.estimate_time
 
-    def on_file_changed(self, **kwargs):
-        for k, v in kwargs.items():
-            setattr(self.file, k, v)
-        self.session.commit()
+    def on_started(self):
+        self.start_time = time.time()
+        self.is_stopping = False
+        self.state |= model.DOING
 
-    def _get_model_data(self, role):
-        model_ = self.queue.model.sourceModel()
-        index = model_.index(self.file.path.as_posix())
-        return model_.data(index, role)
+    def on_finished(self):
+        if self.is_stopping:
+            return
+        now = time.time()
+        cost = now - self.start_time
+        self.file.last_finish_time = now
+        self.file.last_cost = cost
+        self.info('{}: 结束渲染 耗时 {}'.format(self.path, cost))
+        database.SESSION.commit()
 
-    def _set_model_data(self, value, role):
-        model_ = self.queue.model.sourceModel()
-        index = model_.index(self.file.path.as_posix())
-        model_.setData(index, value, role)
-
-    def _update_file_range(self, fisrt_frame, last_frame):
-        old_fisrt, old_last = self.file.fisrt_frame, self.file.last_frame
+    def _update_file_range(self, first_frame, last_frame):
+        old_fisrt, old_last = self.file.first_frame, self.file.last_frame
         if old_fisrt is not None:
-            fisrt_frame = min(fisrt_frame, old_fisrt)
+            first_frame = min(first_frame, old_fisrt)
         if old_last is not None:
             last_frame = max(last_frame, old_last)
 
-        self.file.fisrt_frame = fisrt_frame
+        self.file.first_frame = first_frame
         self.file.last_frame = last_frame
-
-    @core.run_async
-    def _handle_stderr(self, proc):
-        while self.state & model.DOING:
-            line = proc.stderr.readline()
-            if not line:
-                break
-            line = l10n(line)
-            msg = 'STDERR: {}\n'.format(line)
-            with open(CONFIG.log_path, 'a') as f:
-                f.write(msg)
-            self.stderr.emit(stylize(line, 'stderr'))
-        LOGGER.debug('Finished thread: handle_stderr')
-
-    @core.run_async
-    def _handle_stdout(self, proc, **context):
-        start_time = time.clock()
-        context['last_frame_time'] = start_time
-
-        while self.state & model.DOING:
-            line = proc.stdout.readline()
-            if not line:
-                break
-
-            self._match_stdout(line, context)
-
-            self.stdout.emit(stylize(l10n(line), 'stdout'))
-
-        if not self.stopping:
-            self.file_changed.emit({'last_finish_time': time.time(),
-                                    'last_cost': time.clock() - start_time})
-        LOGGER.debug('Finished thread: handle_stdout')
-
-    def _match_stdout(self, line, context, **data):
-        match = re.match(r'Frame (\d+) \((\d+) of (\d+)\)', line)
-
-        if match:
-            now = time.clock()
-
-            data['frame'] = int(match.group(1))
-            data['current'] = int(match.group(2))
-            data['total'] = int(match.group(3))
-            data['cost'] = now - context['last_frame_time']
-
-            self.frame_finished.emit(data)
-            context['last_frame_time'] = now
 
 
 def nuke_process(f, range_):
     """Nuke render process for file @f.  """
 
-    # return subprocess.Popen('cmd /c echo 1',
-    #  stderr=subprocess.PIPE, stdout=subprocess.PIPE)
     f = '"{}"'.format(f.strip('"'))
     nuke = '"{}"'.format(CONFIG['NUKE'].strip('"'))
     _memory_limit = CONFIG['MEMORY_LIMIT']

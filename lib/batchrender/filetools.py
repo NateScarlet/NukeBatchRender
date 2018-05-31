@@ -19,6 +19,21 @@ from .codectools import get_unicode
 LOGGER = logging.getLogger(__name__)
 CHUNK_SIZE = 2 * 2 ** 10  # 2MB
 
+if getattr(sys, 'frozen', False):
+    __file__ = os.path.join(getattr(sys, '_MEIPASS', ''), __file__)
+
+__dirpath__ = os.path.abspath(os.path.dirname(__file__))
+
+
+def path(*other):
+    """Get path relative to this file.
+
+    Returns:
+        str -- Absolute path under file directory.
+    """
+
+    return os.path.abspath(os.path.join(__dirpath__, *other))
+
 
 def filehash(path):
     """Get hash from a file.

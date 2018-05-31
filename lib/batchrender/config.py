@@ -9,8 +9,8 @@ import os
 import re
 import sys
 
+from . import filetools
 from .codectools import get_unicode
-
 
 LOGGER = logging.getLogger('config')
 CONSOLE_STYLE = ''
@@ -19,18 +19,12 @@ if sys.platform == 'win32':
     import locale
     locale.setlocale(locale.LC_ALL, str('chinese'))
 
-if getattr(sys, 'frozen', False):
-    __file__ = os.path.join(getattr(sys, '_MEIPASS', ''), __file__)
-
 
 def _update_style():
-    path = os.path.join(os.path.dirname(__file__), 'console.css')
-    with open(path) as f:
+    with open(filetools.path('console.css')) as f:
         style = '<style>{}</style>'.format(f.read())
     setattr(sys.modules[__name__], 'CONSOLE_STYLE', style)
 
-
-import shutil
 
 _update_style()
 

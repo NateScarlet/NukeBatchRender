@@ -64,9 +64,9 @@ class Queue(core.RenderObject):
             assert isinstance(i, Task)
             if i.state & model.DOING:
                 ret += (i.remains
-                        or i.estimate_time)
+                        or i.estimate)
             else:
-                ret += i.estimate_time
+                ret += i.estimate
         self.remains = ret
 
     def _task_iterator(self, files):

@@ -7,7 +7,7 @@ import sys
 import time
 from subprocess import PIPE, Popen
 
-from Qt.QtCore import Signal, Slot
+from Qt.QtCore import Signal, Slot, Qt
 
 from . import core
 from .. import database, model
@@ -20,10 +20,10 @@ LOGGER = logging.getLogger(__name__)
 def _map_model_data(role, docstring=None):
     # pylint: disable=protected-access
     def _get_model_data(self):
-        return self.model.get_data_from_key(self._model_key, role, model._data_default(role))
+        return self.model.data(self._model_index, role)
 
     def _set_model_data(self, value):
-        self.model.set_data_from_key(self._model_key, value, role)
+        self.model.setData(self._model_index, value, role)
 
     return property(_get_model_data, _set_model_data, doc=docstring)
 
@@ -33,23 +33,32 @@ class Task(core.RenderObject):
 
     frame_finished = Signal(dict)
     process_finished = Signal(int)
+
     max_retry = 3
 
-    def __init__(self, path, filesystem_model):
-        assert isinstance(filesystem_model, model.DirectoryModel), type(
-            filesystem_model)
+    state = _map_model_data(model.ROLE_STATUS, 'Task state.')
+    range = _map_model_data(model.ROLE_RANGE, 'Render range.')
+    priority = _map_model_data(model.ROLE_PRIORITY, 'Render range.')
+    remains = _map_model_data(model.ROLE_REMAINS, 'Remains time to render.')
+    estimate = _map_model_data(model.ROLE_ESTIMATE, 'Estimate time to render.')
+    frames = _map_model_data(model.ROLE_FRAMES, 'Task frame count.')
+    file = _map_model_data(model.ROLE_FILE, 'Database file object.')
+    error_count = _map_model_data(
+        model.ROLE_ERROR_COUNT, 'Error count during rendering.')
+    path = _map_model_data(model.DirectoryModel.FilePathRole, 'File path.')
+    label = _map_model_data(Qt.DisplayRole, 'Task label.')
 
-        self.error_count = 0
-        self.proc = None
-        self.frames = None
-        self.start_time = None
-        self.path = path
-        self.model = filesystem_model
-        self.file = database.File.from_path(path, database.SESSION)
-        self.label = self.file.label
+    def __init__(self, path, dir_model):
+        assert isinstance(dir_model, model.DirectoryModel), type(dir_model)
+
         self._tempfile = None
-        self._model_key = self.model.data_key(self.model.index(self.path))
-        self.estimate_time = self._caculate_estimate_time()
+        self.proc = None
+        self.start_time = None
+
+        self.model = dir_model
+        self._model_index = self.model.index(path)
+        self.file = database.File.from_path(path, database.SESSION)
+        self.estimate = self.file.estimate_cost(self.frames)
         super(Task, self).__init__()
 
         self.frame_finished.connect(self.on_frame_finished)
@@ -65,15 +74,6 @@ class Task(core.RenderObject):
 
     def __unicode__(self):
         return '<任务 {0.label}: 优先级 {0.priority}, 状态 {0.state:b}>'.format(self)
-    state = _map_model_data(model.ROLE_STATUS, 'Task state.')
-    range = _map_model_data(model.ROLE_RANGE, 'Render range.')
-    priority = _map_model_data(model.ROLE_PRIORITY, 'Render range.')
-    remains = _map_model_data(model.ROLE_REMAINS, 'Remains time to render.')
-
-    def _caculate_estimate_time(self):
-        """Estimate task time cost.  """
-
-        return self.file.estimate_cost(self.frames)
 
     def stop(self):
         """Stop rendering.  """
@@ -167,6 +167,7 @@ class Task(core.RenderObject):
             first_frame = frame
             last_frame = first_frame + total - 1
             self.frames = total
+            self.estimate = self.file.estimate_cost(total)
             self._update_file_range(frame, last_frame)
 
         frame_record = database.Frame(
@@ -176,7 +177,7 @@ class Task(core.RenderObject):
         self.progressed.emit(current * 100 / total)
 
     def on_progressed(self, value):
-        self.remains = (1.0 - value / 100.0) * self.estimate_time
+        self.remains = (1.0 - value / 100.0) * self.estimate
 
     def on_started(self):
         self.start_time = time.time()

@@ -6,7 +6,6 @@ import os
 
 import re
 import sys
-import threading
 import time
 from subprocess import Popen, PIPE
 
@@ -44,6 +43,7 @@ class Task(core.RenderObject):
         self.file_changed.connect(self.on_file_changed)
         self.stdout.connect(self.queue.stdout)
         self.stderr.connect(self.queue.stderr)
+        self.progressed.connect(self.queue.progressed)
 
     def __eq__(self, other):
         if isinstance(other, Task):

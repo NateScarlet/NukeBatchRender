@@ -35,17 +35,17 @@ def path(*other):
     return os.path.abspath(os.path.join(__dirpath__, *other))
 
 
-def filehash(path):
+def filehash(filepath):
     """Get hash from a file.
 
     Args:
-        path (str): File path.
+        filepath (str): File path.
 
     Returns:
         Hash object
     """
 
-    path = six.text_type(path)
+    path = six.text_type(filepath)
     ret = hashlib.md5()
     with open(path) as f:
         for chunk in iter(lambda: f.read(CHUNK_SIZE), ''):
@@ -53,17 +53,17 @@ def filehash(path):
     return ret
 
 
-def filehash_hex(path):
+def filehash_hex(filepath):
     """Shortcut function for file hexdigest.
 
     Args:
-        path (str): File path.
+        filepath (str): File path.
 
     Returns:
         str: File hash hexdigest.
     """
 
-    return filehash(path).hexdigest()
+    return filehash(filepath).hexdigest()
 
 
 def copy(src, dst):
@@ -71,7 +71,7 @@ def copy(src, dst):
     src, dst = get_unicode(src), get_unicode(dst)
     LOGGER.info('\n复制:\n\t%s\n->\t%s', src, dst)
     if not os.path.exists(src):
-        return
+        return None
     dst_dir = os.path.dirname(dst)
     if not os.path.exists(dst_dir):
         LOGGER.debug('创建目录: %s', dst_dir)

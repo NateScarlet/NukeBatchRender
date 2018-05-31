@@ -114,12 +114,11 @@ class MainWindow(QMainWindow):
 
         self.control.queue.stdout.connect(self.textBrowser.append)
         self.control.queue.stderr.connect(self.textBrowser.append)
-
-        self.control.slave.progressed.connect(self.progressBar.setValue)
-        self.control.slave.stopped.connect(self.on_slave_stopped)
-        self.control.slave.finished.connect(self.on_slave_finished)
-        self.control.slave.time_out.connect(self.on_slave_time_out)
-        self.control.slave.progressed.connect(self._update_remains)
+        self.control.queue.progressed.connect(self.progressBar.setValue)
+        self.control.queue.stopped.connect(self.on_queue_stopped)
+        self.control.queue.finished.connect(self.on_queue_finished)
+        self.control.queue.time_out.connect(self.on_queue_time_out)
+        self.control.queue.progressed.connect(self._update_remains)
         self.control.root_changed.connect(self.on_root_changed)
         self.control.model.dataChanged.connect(self.on_data_changed)
         self.control.model.layoutChanged.connect(self.on_model_layout_changed)
@@ -299,7 +298,7 @@ class MainWindow(QMainWindow):
             self.checkBoxPriority.setCheckState(Qt.Checked)
 
     @Slot()
-    def on_slave_time_out(self):
+    def on_queue_time_out(self):
         """Wiil be excuted when frame take too long.  """
 
         if CONFIG['LOW_PRIORITY']:
@@ -322,7 +321,7 @@ class MainWindow(QMainWindow):
         self.control.stop()
 
     @Slot()
-    def on_slave_stopped(self):
+    def on_queue_stopped(self):
         self.pushButtonStop.hide()
         self.progressBar.hide()
         self.pushButtonStart.show()
@@ -330,7 +329,7 @@ class MainWindow(QMainWindow):
         QApplication.alert(self)
 
     @Slot()
-    def on_slave_finished(self):
+    def on_queue_finished(self):
 
         def reset_after_render(func):
             """(Decorator)Reset after render choice before run @func  ."""

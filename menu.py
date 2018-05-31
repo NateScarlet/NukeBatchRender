@@ -1,25 +1,24 @@
 # -*- coding: UTF-8 -*-
 """Add menu to nuke.  """
 
-import os
-from os.path import join, abspath, dirname
+import logging
+import subprocess
 import sys
 import webbrowser
-import subprocess
-import logging
+from os import listdir
+from os.path import abspath, dirname, getmtime, join
 
-import nuke
+import nuke  # pylint: disable=import-error
 
 LOGGER = logging.getLogger('batchrender')
 __folder__ = dirname(abspath(__file__))
 
 
 def _add_menu():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.insert(0, current_dir)
+    sys.path[0] = join(__folder__, 'lib')
     from batchrender.config import CONFIG
 
-    filename = join(__folder__, 'main.py')
+    launch_script_path = join(__folder__, 'launch.py')
 
     def batchrender():
         """For nuke menu call.  """
@@ -30,27 +29,26 @@ def _add_menu():
         if sys.platform == 'win32':
             # Try use built executable
             try:
-                dist_dir = os.path.join(os.path.dirname(filename), 'dist')
-                exe_path = sorted([os.path.join(dist_dir, i)
-                                   for i in os.listdir(dist_dir)
+                dist_dir = join(__folder__, 'dist')
+                exe_path = sorted([join(dist_dir, i)
+                                   for i in listdir(dist_dir)
                                    if i.endswith('.exe') and i.startswith('batchrender')],
-                                  key=os.path.getmtime, reverse=True)[0]
+                                  key=getmtime, reverse=True)[0]
                 webbrowser.open(exe_path)
                 return
             except (IndexError, OSError):
                 LOGGER.debug('Executable not found in %s', dist_dir)
 
-        _file = filename.rstrip('c')
-        args = [sys.executable, '--tg', _file]
+        args = [sys.executable, '--tg', launch_script_path]
         if sys.platform == 'win32':
-            args = [os.path.join(os.path.dirname(
-                sys.executable), 'python.exe'), _file]
+            args = [join(dirname(sys.executable), 'python.exe'),
+                    launch_script_path]
             kwargs = {'creationflags': subprocess.CREATE_NEW_CONSOLE}
         else:
             args = '"{0[0]}" {0[1]} "{0[2]}"'.format(args)
             kwargs = {'shell': True, 'executable': 'bash'}
         subprocess.Popen(args, **kwargs)
-    sys.path.remove(current_dir)
+
     globals()['batchrender'] = batchrender
 
     menubar = nuke.menu("Nuke")

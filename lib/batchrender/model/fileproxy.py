@@ -123,7 +123,7 @@ class FilesProxyModel(QSortFilterProxyModel):
 
 def _get_sort_data(model, index):
     state = model.data(index, core.ROLE_STATE)
-    return (not state & core.DISABLED,
+    return (state & core.DISABLED,
             -model.data(index, core.ROLE_PRIORITY),
             not state & core.FINISHED,
             model.lastModified(index).toPython())

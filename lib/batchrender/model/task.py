@@ -45,14 +45,14 @@ class Task(QObject):
     def __init__(self, index, dir_model):
         assert isinstance(dir_model, DirectoryModel), type(dir_model)
 
-        self._tempfile = None
-        self.proc = None
-        self.start_time = None
-
         self.model = dir_model
         self.index = index
 
+        self._tempfile = None
+        self.proc = None
+        self.start_time = None
         super(Task, self).__init__()
+        self.remains_changed.connect(self.on_changed)
 
     def __eq__(self, other):
         if isinstance(other, Task):
@@ -101,7 +101,10 @@ class Task(QObject):
 
     def _update_estimate(self):
         ret = self.file.estimate_cost(self.frames)
+        old = self._estimate
         self._estimate = ret
+        if old != ret:
+            self.changed.emit()
         return ret
 
     def _set_state(self, state, value):

@@ -17,6 +17,7 @@ from ..codectools import get_encoded as e
 from ..codectools import get_unicode as u
 from ..config import CONFIG
 from .core import Base, Path, SerializableMixin
+from .frame import Frame
 
 LOGGER = logging.getLogger(__name__)
 
@@ -57,12 +58,17 @@ class File(Base, SerializableMixin):
             return None
         return '{}-{}'.format(first, last) if first != last else six.text_type(first)
 
-    def estimate_cost(self, frame_count=None, default_frame_count=100, default_frame_cost=30):
-        """Estimate file render time cost.  """
-        from .frame import Frame
+    def average_frame_cost(self):
+        """Average frame cost for this file.  """
 
         sess = object_session(self)
-        frame_cost = (sess.query(func.avg(Frame.cost)).filter(Frame.file == self).scalar() or
+        return sess.query(func.avg(Frame.cost)).filter(Frame.file == self).scalar()
+
+    def estimate_cost(self, frame_count=None, default_frame_count=100, default_frame_cost=30):
+        """Estimate file render time cost.  """
+
+        sess = object_session(self)
+        frame_cost = (self.average_frame_cost() or
                       sess.query(func.avg(Frame.cost)).scalar() or
                       default_frame_cost)
 

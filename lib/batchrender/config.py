@@ -14,6 +14,8 @@ if sys.platform == 'win32':
     import locale
     locale.setlocale(locale.LC_ALL, str('chinese'))
 
+from . import filetools
+
 
 class Config(dict):
     """A config file can be manipulated that automatic write and read json file on disk."""
@@ -52,10 +54,7 @@ class Config(dict):
         self.read()
 
     def _setup(self):
-        try:
-            os.makedirs(os.path.dirname(self.path))
-        except OSError:
-            pass
+        filetools.ensure_parent_directory(self.path)
         self._handle_old_config()
 
     def _handle_old_config(self):

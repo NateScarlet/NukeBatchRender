@@ -83,6 +83,7 @@ class File(Base, SerializableMixin):
         dest = os.path.join(CONFIG['DIR'], dest, self.filename_with_hash())
         LOGGER.debug('Archiving file: %s -> %s', src, dest)
 
+        filetools.ensure_parent_directory(dest)
         shutil.move(e(src), e(dest))
 
     def create_tempfile(self, dirname='render'):

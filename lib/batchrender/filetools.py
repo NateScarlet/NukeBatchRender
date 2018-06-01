@@ -14,7 +14,8 @@ import sys
 
 import six
 
-from .codectools import get_unicode
+from .codectools import get_encoded as e
+from .codectools import get_unicode as u
 
 LOGGER = logging.getLogger(__name__)
 CHUNK_SIZE = 2 * 2 ** 10  # 2MB
@@ -68,7 +69,8 @@ def filehash_hex(filepath):
 
 def copy(src, dst):
     """Copy src to dst."""
-    src, dst = get_unicode(src), get_unicode(dst)
+
+    src, dst = u(src), u(dst)
     LOGGER.info('\n复制:\n\t%s\n->\t%s', src, dst)
     if not os.path.exists(src):
         return None
@@ -146,3 +148,13 @@ def split_version(f):
         return (os.path.splitext(f)[0], None)
     shot, version = match.groups()
     return (shot.strip('_'), int(version))
+
+
+def ensure_parent_directory(filepath):
+    """Ensure parents direcotry exsits.  """
+
+    filepath = u(filepath)
+    try:
+        os.makedirs(e(os.path.dirname(filepath)))
+    except OSError:
+        pass

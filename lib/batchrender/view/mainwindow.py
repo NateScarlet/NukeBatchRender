@@ -13,6 +13,7 @@ import time
 import webbrowser
 from functools import wraps
 
+import psutil
 from Qt import QtCompat
 from Qt.QtCore import Qt, QUrl, Signal, Slot
 from Qt.QtWidgets import (QApplication, QCheckBox, QComboBox, QDoubleSpinBox,
@@ -24,10 +25,10 @@ from ..actions import hiber, shutdown
 from ..codectools import get_unicode
 from ..config import CONFIG
 from ..control import Controller
+from ..texttools import stylize, timef
 from .title import Title
-from ..texttools import timef, stylize
-LOGGER = logging.getLogger()
 
+LOGGER = logging.getLogger()
 
 if getattr(sys, 'frozen', False):
     __file__ = os.path.join(getattr(sys, '_MEIPASS', ''), __file__)
@@ -91,7 +92,10 @@ class MainWindow(QMainWindow):
         self.tableView.setColumnWidth(0, 290)
         self.tableView.setColumnWidth(1, 80)
         self.tableView.setColumnWidth(2, 80)
+        self.spinBoxThreads.setMaximum(psutil.cpu_count(logical=False))
+
         self.title = Title(self.control, self)
+
         self.title.update()
         self.on_data_changed()
         self.on_model_layout_changed()

@@ -12,6 +12,7 @@ pyside = "*"
 "qt.py" = "*"
 sqlalchemy = "*"
 "pathlib2" = "*"
+psutil = "*"
 
 [requires]
 python_version = "2.7"

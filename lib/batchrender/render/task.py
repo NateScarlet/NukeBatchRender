@@ -102,7 +102,7 @@ class NukeTask(model.Task, core.RenderObject):
                 self.state |= model.DISABLED
         else:
             # Normal exit.
-            if CONFIG['PROXY']:
+            if self.state & model.PARTIAL or CONFIG['PROXY']:
                 self.state |= model.DISABLED
             else:
                 self.state |= model.FINISHED
@@ -134,6 +134,8 @@ class NukeTask(model.Task, core.RenderObject):
             self.frames = total
             self._update_estimate()
             self._update_file_range(frame, last_frame)
+            self._set_state(model.PARTIAL,
+                            self.range != self.file.range_text())
 
         frame_record = database.Frame(
             file=self.file, frame=frame, cost=cost, timestamp=time.time())

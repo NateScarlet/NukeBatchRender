@@ -15,6 +15,8 @@ ROLE_FRAMES = Qt.UserRole + 9
 ROLE_FILE = Qt.UserRole + 10
 ROLE_ERROR_COUNT = Qt.UserRole + 11
 
+
 DOING = 1 << 0
 DISABLED = 1 << 1
 FINISHED = 1 << 2
+PARTIAL = 1 << 3

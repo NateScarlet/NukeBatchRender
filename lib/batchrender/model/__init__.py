@@ -17,6 +17,7 @@ from .core import (
     DOING,
     DISABLED,
     FINISHED,
+    PARTIAL,
 )
 
 from .directory import DirectoryModel

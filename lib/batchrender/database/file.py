@@ -8,8 +8,9 @@ import logging
 import os
 import shutil
 
+import six
 from sqlalchemy import Column, Float, Integer, String, func
-from sqlalchemy.orm import relationship, object_session
+from sqlalchemy.orm import object_session, relationship
 
 from .. import filetools
 from ..codectools import get_encoded as e
@@ -45,8 +46,16 @@ class File(Base, SerializableMixin):
 
         first, last = self.first_frame, self.last_frame
         if first and last:
-            return last - first
+            return last - first + 1
         return None
+
+    def range_text(self):
+        """File range represition text, returns `None` if not avaliable. """
+
+        first, last = self.first_frame, self.last_frame
+        if first is None or last is None:
+            return None
+        return '{}-{}'.format(first, last) if first != last else six.text_type(first)
 
     def estimate_cost(self, frame_count=None, default_frame_count=100, default_frame_cost=30):
         """Estimate file render time cost.  """

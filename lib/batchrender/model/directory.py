@@ -101,7 +101,9 @@ class DirectoryModel(QFileSystemModel):
 
     def _get_foreground_data(self, index):
         status = self.data(index, core.ROLE_STATUS)
-        if status & core.DOING:
+        if status & core.PARTIAL:
+            return QBrush(QColor(150, 200, 235))
+        elif status & core.DOING:
             return QBrush(QColor(Qt.white))
         elif status & core.FINISHED:
             return QBrush(QColor(Qt.gray))

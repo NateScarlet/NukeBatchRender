@@ -32,14 +32,15 @@ class Task(QObject):
     range = _map_model_data(core.ROLE_RANGE, 'Render range.')
     priority = _map_model_data(core.ROLE_PRIORITY, 'Render range.')
     remains = _map_model_data(core.ROLE_REMAINS, 'Remains time to render.')
-    _estimate = _map_model_data(
-        core.ROLE_ESTIMATE, 'Estimate time to render.')
     frames = _map_model_data(core.ROLE_FRAMES, 'Task frame count.')
-    _file = _map_model_data(core.ROLE_FILE, 'Database file object.')
     error_count = _map_model_data(
         core.ROLE_ERROR_COUNT, 'Error count during rendering.')
     path = _map_model_data(DirectoryModel.FilePathRole, 'File path.')
     label = _map_model_data(Qt.DisplayRole, 'Task label.')
+
+    _estimate = _map_model_data(
+        core.ROLE_ESTIMATE, 'Estimate time to render.')
+    _file = _map_model_data(core.ROLE_FILE, 'Database file object.')
 
     def __init__(self, index, dir_model):
         assert isinstance(dir_model, DirectoryModel), type(dir_model)
@@ -71,7 +72,6 @@ class Task(QObject):
         ret = self._file
         if not ret:
             ret = self._update_file()
-            self._file = ret
         return ret
 
     @property
@@ -81,7 +81,6 @@ class Task(QObject):
         ret = self._estimate
         if not ret:
             ret = self._update_estimate()
-            self._estimate = ret
         return ret
 
     def is_file_exists(self):
@@ -96,12 +95,20 @@ class Task(QObject):
     def _update_file(self):
         ret = database.File.from_path(self.path, database.SESSION)
         self._file = ret
+        if not self.range:
+            self.range = self.file.range_text()
         return ret
 
     def _update_estimate(self):
         ret = self.file.estimate_cost(self.frames)
         self._estimate = ret
         return ret
+
+    def _set_state(self, state, value):
+        if value:
+            self.state |= state
+        else:
+            self.state &= ~state
 
     def _update_file_range(self, first_frame, last_frame):
         old_fisrt, old_last = self.file.first_frame, self.file.last_frame

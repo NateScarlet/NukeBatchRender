@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "cbaa657080e3b11649d600514f3f02bd6beaa86c5574d49e1073ac8eb0ba2755"
+            "sha256": "6e8a6b6c57b991d155ab9fc6a631f058b1ff95d00144c12523a97f4d03fe5f92"
         },
         "host-environment-markers": {
             "implementation_name": "cpython",
@@ -41,6 +41,11 @@
             "hashes": [],
             "version": "==1.2.4"
         },
+        "pywin32": {
+            "hashes": [],
+            "markers": "sys_platform == 'win32'",
+            "version": "==223"
+        },
         "qt.py": {
             "hashes": [],
             "version": "==1.1.0"
@@ -60,6 +65,7 @@
         },
         "win-unicode-console": {
             "hashes": [],
+            "markers": "sys_platform == 'win32'",
             "version": "==0.5"
         }
     },
@@ -74,7 +80,7 @@
         },
         "backports.functools-lru-cache": {
             "hashes": [],
-            "markers": "python_version < '3.4'",
+            "markers": "python_version == '2.7'",
             "version": "==1.5"
         },
         "colorama": {

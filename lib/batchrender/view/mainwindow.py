@@ -21,7 +21,7 @@ from Qt.QtWidgets import (QApplication, QCheckBox, QComboBox, QDoubleSpinBox,
 
 from ..__about__ import __version__
 from ..actions import hiber, shutdown
-from ..codectools import get_unicode
+from ..codectools import get_unicode as u
 from ..config import CONFIG
 from ..control import Controller
 from ..texttools import stylize, timef
@@ -339,7 +339,7 @@ class MainWindow(QMainWindow):
     # Events.
     def dragEnterEvent(self, event):
         # LOGGER.debug('Drag into %s', self)
-        if event.mimeData().hasUrls():
+        if event.mimeData().urls():
             event.accept()
         else:
             event.ignore()
@@ -355,11 +355,10 @@ class MainWindow(QMainWindow):
 
     def dropEvent(self, event):
         event.accept()
-        links = []
-        for url in event.mimeData().urls():
-            links.append(get_unicode(url.toLocalFile()))
-        LOGGER.debug('Dropped files: %s', ', '.join(links))
-        self.file_dropped.emit(links)
+
+        files = [u(i.toLocalFile()) for i in event.mimeData().urls()]
+        LOGGER.debug('Dropped files: %s', ', '.join(files))
+        self.file_dropped.emit(files)
 
     def closeEvent(self, event):
         if self.control.slave.is_rendering:

@@ -211,7 +211,7 @@ class MainWindow(QMainWindow):
     def on_file_dropped(self, files):
         files = [i for i in files if i.endswith('.nk')]
         if files:
-            _ = [self.control.queue.put(i) for i in files]
+            _ = [self.control.create_task(i) for i in files]
             LOGGER.debug('Add %s', files)
         else:
             QMessageBox.warning(self, '不支持的格式', '目前只支持nk文件')

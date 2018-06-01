@@ -11,7 +11,7 @@ from Qt.QtCore import QObject, Signal
 from . import render
 from .config import CONFIG
 from .model import DirectoryModel, FilesProxyModel, ROLE_PRIORITY
-
+from . import filetools
 LOGGER = logging.getLogger(__name__)
 
 
@@ -74,9 +74,11 @@ class Controller(QObject):
             _set_model_default(model, index)
         self.model.sort(0)
 
-    def create_task(self, filepath):
+    @classmethod
+    def create_task(cls, filepath):
         """Create a task from file.  """
-        pass
+
+        filetools.copy(filepath, CONFIG['DIR'])
 
 
 def _set_model_default(model, index):

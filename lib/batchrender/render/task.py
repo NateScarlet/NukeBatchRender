@@ -9,7 +9,7 @@ from subprocess import PIPE, Popen
 from Qt.QtCore import Signal, Slot
 
 from . import core
-from .. import database, model
+from .. import database, model, texttools
 from ..codectools import get_encoded as e
 from ..codectools import get_unicode as u
 from ..config import CONFIG
@@ -143,7 +143,7 @@ class NukeTask(model.Task, core.RenderObject):
             file=self.file, frame=frame, cost=cost, timestamp=time.time())
         database.SESSION.add(frame_record)
         database.util.throttle_commit(database.SESSION)
-        self._info_time_stamp()
+        self._info_timestamp()
         self.progressed.emit(current * 100 / total)
 
     def on_progressed(self, value):
@@ -154,7 +154,7 @@ class NukeTask(model.Task, core.RenderObject):
         self.start_time = time.time()
         self.is_stopping = False
         self.state |= model.DOING
-        self._info_time_stamp()
+        self._info_timestamp()
 
     def on_finished(self):
         if self.is_stopping:
@@ -166,8 +166,8 @@ class NukeTask(model.Task, core.RenderObject):
         self.info('{}: 结束渲染 耗时 {}'.format(self.path, cost))
         database.SESSION.commit()
 
-    def _info_time_stamp(self):
-        self.info(time.strftime('[%x %X]'))
+    def _info_timestamp(self):
+        self.stdout.emit(texttools.stylize(time.strftime('[%x %X]'), 'info'))
 
 
 def nuke_process(filepath, range_):

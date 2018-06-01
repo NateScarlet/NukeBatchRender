@@ -9,7 +9,6 @@ import logging.handlers
 import os
 import subprocess
 import sys
-import time
 import webbrowser
 from functools import wraps
 
@@ -128,8 +127,6 @@ class MainWindow(QMainWindow):
         self.control.model.dataChanged.connect(self.on_data_changed)
         self.control.model.layoutChanged.connect(self.on_model_layout_changed)
 
-        self.progressBar.valueChanged.connect(self.append_timestamp)
-
     def __init__(self, parent=None):
 
         super(MainWindow, self).__init__(parent)
@@ -158,11 +155,6 @@ class MainWindow(QMainWindow):
 
     def __getattr__(self, name):
         return getattr(self._ui, name)
-
-    def append_timestamp(self):
-        """Create timestamp in text browser.  """
-
-        self.textBrowser.append(stylize(time.strftime('[%x %X]'), 'info'))
 
     def on_slave_progressed(self, value):
         self.progressBar.setValue(value)

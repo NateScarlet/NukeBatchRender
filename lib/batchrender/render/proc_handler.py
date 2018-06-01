@@ -70,10 +70,9 @@ class NukeHandler(BaseHandler):
             line = self.proc.stdout.readline()
             if not line:
                 break
-            self._match_stdout(line, context)
 
-            line = l10n(line)
-            self.stdout.emit(stylize(line, 'stdout'))
+            self.stdout.emit(stylize(l10n(line), 'stdout'))
+            self._match_stdout(line, context)
 
         LOGGER.debug('Finished thread: handle_stdout')
 

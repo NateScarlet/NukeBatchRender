@@ -10,7 +10,7 @@ from Qt.QtCore import QObject, Signal
 
 from . import render
 from .config import CONFIG
-from .model import DirectoryModel, FilesProxyModel, ROLE_PRIORITY
+from . import model as qmodel
 from . import filetools
 LOGGER = logging.getLogger(__name__)
 
@@ -20,10 +20,16 @@ class Controller(QObject):
 
     root_changed = Signal(str)
 
+    @classmethod
+    def create_task(cls, filepath):
+        """Create a task from file.  """
+
+        filetools.copy(filepath, CONFIG['DIR'])
+
     def __init__(self, parent=None):
         super(Controller, self).__init__(parent)
-        model = DirectoryModel(self)
-        proxy_model = FilesProxyModel(self)
+        model = qmodel.DirectoryModel(self)
+        proxy_model = qmodel.FilesProxyModel(self)
         proxy_model.setSourceModel(model)
         self.model = proxy_model
 
@@ -65,22 +71,21 @@ class Controller(QObject):
         finally:
             self.is_updating = False
 
+    def enable_all(self):
+        for i in self.queue.all_tasks():
+            i.state &= ~qmodel.DISABLED
+
+    def invert_disable_state(self):
+        for i in self.queue.all_tasks():
+            if i.state & qmodel.DISABLED:
+                i.state &= ~qmodel.DISABLED
+            else:
+                i.state |= qmodel.DISABLED
+
+    def remove_selected(self):
+        for i in self.queue.selected_tasks():
+            if i.is_file_exists():
+                i.file.archive()
+
     def _update_model(self):
-        model = self.model
-        row_count = model.rowCount()
-        root_index = model.root_index()
-        for i in range(row_count):
-            index = self.model.index(i, 0, root_index)
-            _set_model_default(model, index)
         self.model.sort(0)
-
-    @classmethod
-    def create_task(cls, filepath):
-        """Create a task from file.  """
-
-        filetools.copy(filepath, CONFIG['DIR'])
-
-
-def _set_model_default(model, index):
-    if model.data(index, ROLE_PRIORITY) is None:
-        model.setData(index, 0, ROLE_PRIORITY)

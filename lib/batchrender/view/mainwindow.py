@@ -109,6 +109,10 @@ class MainWindow(QMainWindow):
             lambda: webbrowser.open(CONFIG['DIR']))
         self.toolButtonOpenLog.clicked.connect(
             lambda: webbrowser.open(CONFIG.log_path))
+        self.toolButtonCheckAll.clicked.connect(self.control.enable_all)
+        self.toolButtonRemove.clicked.connect(self.control.remove_selected)
+        self.toolButtonReverseCheck.clicked.connect(
+            self.control.invert_disable_state)
 
         self.pushButtonStart.clicked.connect(self.on_start_button_clicked)
         self.pushButtonStop.clicked.connect(self.on_stop_button_clicked)

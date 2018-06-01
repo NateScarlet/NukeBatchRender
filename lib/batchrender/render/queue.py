@@ -36,7 +36,32 @@ class Queue(core.RenderObject):
     def enabled_tasks(self):
         """Iterator for enabled tasks in queue.  """
 
-        return self._task_iterator(i for i in self.model.iter_checked())
+        return self.task_iterator(i for i in self.model.iter_checked())
+
+    def selected_tasks(self):
+        """Iterator for user selected tasks in queue.  """
+
+        indexes = self.model.selectedIndexes()
+        return self.task_iterator(indexes)
+
+    def all_tasks(self):
+        """Iterator for user selected tasks in queue.  """
+
+        indexes = self.model.iter()
+        return self.task_iterator(indexes)
+
+    def task_iterator(self, indexes):
+        """Generator for tasks from indexes.
+
+        Args:
+            indexes (list[QModelIndex]): Indexes in this model.
+
+        Returns:
+            Generator: Tasks.
+        """
+
+        source_model = self.model.sourceModel()
+        return (NukeTask(self.model.mapToSource(i), source_model) for i in indexes)
 
     def update_remains(self):
         """Caculate remains time.  """
@@ -52,7 +77,3 @@ class Queue(core.RenderObject):
 
     def on_changed(self):
         self.update_remains()
-
-    def _task_iterator(self, indexes):
-        source_model = self.model.sourceModel()
-        return (NukeTask(self.model.mapToSource(i), source_model) for i in indexes)

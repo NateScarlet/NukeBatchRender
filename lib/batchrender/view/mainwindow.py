@@ -91,7 +91,7 @@ class MainWindow(QMainWindow):
         self.tableView.setColumnWidth(0, 290)
         self.tableView.setColumnWidth(1, 80)
         self.tableView.setColumnWidth(2, 80)
-        self.spinBoxThreads.setMaximum(psutil.cpu_count(logical=False))
+        self.spinBoxThreads.setMaximum(psutil.cpu_count(logical=True))
 
         self.title = Title(self.control, self)
 

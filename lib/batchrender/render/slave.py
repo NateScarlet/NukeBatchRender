@@ -29,6 +29,7 @@ class Slave(core.RenderObject):
         self._time_out_timer = timer
         self._task_signals = [
             ('progressed', self.progressed),
+            ('frame_finished', self.on_frame_finished),
             ('finished', self._start_next),
             ('stdout', self.stdout),
             ('stderr', self.stderr),
@@ -106,13 +107,11 @@ class Slave(core.RenderObject):
             task.priority -= 1
             task.stop()
 
-    def on_progressed(self, value):
+    def on_frame_finished(self, value):
+        # Restart timeout timer.
         timer = self._time_out_timer
+        time_out = CONFIG['TIME_OUT'] * 1000
+
         timer.stop()
-
-        if CONFIG['LOW_PRIORITY']:
-            # Restart timeout timer.
-            time_out = CONFIG['TIME_OUT'] * 1000
-
-            if time_out > 0 and value < 100:
-                timer.start(time_out)
+        if time_out > 0 and value < 100:
+            timer.start(time_out)

@@ -5,7 +5,7 @@ import logging
 
 from . import core
 from .. import model
-from .task import Task
+from .task import NukeTask
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,7 +19,6 @@ class Queue(core.RenderObject):
 
         self.model = data_model
         super(Queue, self).__init__()
-        self.tasks = list(self._all_tasks())
 
         self.model.layoutChanged.connect(self.update)
 
@@ -49,19 +48,19 @@ class Queue(core.RenderObject):
     def enabled_tasks(self):
         """Iterator for enabled tasks in queue.  """
 
-        return self._task_iterator(self.model.checked_files())
+        return self._task_iterator(i for i in self.model.iter_checked())
 
-    def _all_tasks(self):
-        """Iterator for all tasks in queue.  """
+    def update(self):
+        """Update the queue.  """
 
-        return self._task_iterator(self.model.all_files())
+        self.update_remains()
 
     def update_remains(self):
         """Caculate remains time.  """
 
         ret = 0
-        for i in self.tasks:
-            assert isinstance(i, Task)
+        for i in self.enabled_tasks():
+            assert isinstance(i, model.Task)
             if i.state & model.DOING:
                 ret += (i.remains
                         or i.estimate)
@@ -69,18 +68,6 @@ class Queue(core.RenderObject):
                 ret += i.estimate
         self.remains = ret
 
-    def _task_iterator(self, files):
+    def _task_iterator(self, indexes):
         source_model = self.model.sourceModel()
-
-        def _get_task(filename):
-            try:
-                return Task(filename, source_model)
-            except IOError:
-                return None
-        return (j for j in (_get_task(i) for i in files) if isinstance(j, Task))
-
-    def update(self):
-        """Update the queue.  """
-
-        self.tasks = list(self._all_tasks())
-        self.update_remains()
+        return (NukeTask(self.model.mapToSource(i), source_model) for i in indexes)

@@ -69,6 +69,27 @@ class FilesProxyModel(QSortFilterProxyModel):
         index = self.mapToSource(index)
         return self.sourceModel().filePath(index)
 
+    def iter(self):
+        """Return all indexes under root.
+
+        Returns:
+            Generator: Model indexes.
+        """
+
+        root_index = self.root_index()
+        count = self.rowCount(root_index)
+        return (self.index(i, 0, root_index) for i in range(count))
+
+    def iter_checked(self):
+        """Get indexes that row has been user checked.
+
+        Returns:
+            Generator: Model indexes.
+        """
+
+        return (i for i in self.iter()
+                if self.data(i, Qt.CheckStateRole))
+
     def source_index(self, path):
         """Get source model index from path.
 
@@ -88,35 +109,15 @@ class FilesProxyModel(QSortFilterProxyModel):
         model = self.sourceModel()
         return self.mapFromSource(model.index(model.rootPath()))
 
-    def indexes(self):
-        """Return all indexes under root.  """
-
-        root_index = self.root_index()
-        count = self.rowCount(root_index)
-        return (self.index(i, 0, root_index) for i in range(count))
-
     def absolute_path(self, *path):
         """Convert path to absolute path.  """
         model = self.sourceModel()
         return os.path.abspath(os.path.join(model.rootPath(), *path))
 
-    def checked_files(self):
-        """Iterator for checked files in model.  """
-
-        return (self.file_path(i)
-                for i in self.indexes()
-                if self.data(i, Qt.CheckStateRole))
-
-    def all_files(self):
-        """Iterator for all files in model.  """
-
-        return (self.file_path(i)
-                for i in self.indexes())
-
     def old_version_files(self):
         """Files that has a lower version number.  """
 
-        files = self.all_files()
+        files = list(self.file_path(i) for i in self.iter())
         return (i for i in files if i not in filetools.version_filter(files))
 
 

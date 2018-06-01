@@ -1,5 +1,5 @@
 # -*- coding=UTF-8 -*-
-"""Task rendering.  """
+"""NukeTask rendering.  """
 
 import logging
 
@@ -7,9 +7,7 @@ from Qt.QtCore import QTimer
 
 from . import core
 from ..config import CONFIG
-from .task import Task
-from.. import database
-from ..threadtools import run_async
+from .task import NukeTask
 
 LOGGER = logging.getLogger(__name__)
 
@@ -45,10 +43,10 @@ class Slave(core.RenderObject):
 
     @task.setter
     def task(self, value):
-        assert value is None or isinstance(value, Task), value
+        assert value is None or isinstance(value, NukeTask), value
 
         def _apply_on_signals(task, method):
-            if not isinstance(task, Task):
+            if not isinstance(task, NukeTask):
                 return
             for i in self._task_signals:
                 signal, slot = i
@@ -62,7 +60,7 @@ class Slave(core.RenderObject):
     def _start_next(self):
         try:
             task = self.queue.get()
-            assert isinstance(task, Task)
+            assert isinstance(task, NukeTask)
             self.task = task
             task.run()
         except StopIteration:
@@ -87,7 +85,7 @@ class Slave(core.RenderObject):
 
         self.is_stopping = True
         task = self.task
-        if isinstance(task, Task):
+        if isinstance(task, NukeTask):
             task.stop()
 
     def on_stopped(self):
@@ -103,7 +101,7 @@ class Slave(core.RenderObject):
     def on_time_out(self):
         task = self.task
         self.error(u'{}: 渲染超时'.format(task))
-        if isinstance(task, Task):
+        if isinstance(task, NukeTask):
             task.priority -= 1
             task.stop()
 

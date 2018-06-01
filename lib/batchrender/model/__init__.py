@@ -21,3 +21,4 @@ from .core import (
 
 from .directory import DirectoryModel
 from .fileproxy import FilesProxyModel
+from .task import Task

@@ -167,7 +167,7 @@ class MainWindow(QMainWindow):
 
     def on_data_changed(self):
         self.pushButtonStart.setEnabled(
-            any(self.control.model.checked_files()))
+            any(self.control.model.iter_checked()))
 
     def on_queue_remains_changed(self, value):
         """Set remains info on button: start, stop."""

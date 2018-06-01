@@ -7,7 +7,7 @@ import sys
 import time
 from subprocess import PIPE, Popen
 
-from Qt.QtCore import Signal, Slot, Qt
+from Qt.QtCore import Signal, Slot
 
 from . import core
 from .. import database, model
@@ -17,18 +17,7 @@ from ..threadtools import run_async
 LOGGER = logging.getLogger(__name__)
 
 
-def _map_model_data(role, docstring=None):
-    # pylint: disable=protected-access
-    def _get_model_data(self):
-        return self.model.data(self._model_index, role)
-
-    def _set_model_data(self, value):
-        self.model.setData(self._model_index, value, role)
-
-    return property(_get_model_data, _set_model_data, doc=docstring)
-
-
-class Task(core.RenderObject):
+class NukeTask(model.Task, core.RenderObject):
     """Nuke render task.  """
 
     frame_finished = Signal(dict)
@@ -36,73 +25,20 @@ class Task(core.RenderObject):
 
     max_retry = 3
 
-    state = _map_model_data(model.ROLE_STATUS, 'Task state.')
-    range = _map_model_data(model.ROLE_RANGE, 'Render range.')
-    priority = _map_model_data(model.ROLE_PRIORITY, 'Render range.')
-    remains = _map_model_data(model.ROLE_REMAINS, 'Remains time to render.')
-    _estimate = _map_model_data(
-        model.ROLE_ESTIMATE, 'Estimate time to render.')
-    frames = _map_model_data(model.ROLE_FRAMES, 'Task frame count.')
-    _file = _map_model_data(model.ROLE_FILE, 'Database file object.')
-    error_count = _map_model_data(
-        model.ROLE_ERROR_COUNT, 'Error count during rendering.')
-    path = _map_model_data(model.DirectoryModel.FilePathRole, 'File path.')
-    label = _map_model_data(Qt.DisplayRole, 'Task label.')
-
-    def __init__(self, path, dir_model):
-        assert isinstance(dir_model, model.DirectoryModel), type(dir_model)
+    def __init__(self, index, dir_model):
+        super(NukeTask, self).__init__(index, dir_model)
 
         self._tempfile = None
         self.proc = None
         self.start_time = None
 
-        self.model = dir_model
-        self._model_index = self.model.index(path)
-
-        super(Task, self).__init__()
-
         self.frame_finished.connect(self.on_frame_finished)
         self.process_finished.connect(self.on_process_finished)
 
     def __eq__(self, other):
-        if isinstance(other, Task):
+        if isinstance(other, model.Task):
             other = other.path
         return self.path == other
-
-    def __str__(self):
-        return '<{0.priority}: {0.label}: {0.state:b}>'.format(self)
-
-    def __unicode__(self):
-        return '<任务 {0.label}: 优先级 {0.priority}, 状态 {0.state:b}>'.format(self)
-
-    @property
-    def file(self):
-        """Database file object.  """
-        ret = self._file
-        if not ret:
-            ret = self._update_file()
-            self._file = ret
-        return ret
-
-    def _update_file(self):
-        ret = database.File.from_path(self.path, database.SESSION)
-        self._file = ret
-        return ret
-
-    @property
-    def estimate(self):
-        """Estimate time to render.  """
-
-        ret = self._estimate
-        if not ret:
-            ret = self._update_estimate()
-            self._estimate = ret
-        return ret
-
-    def _update_estimate(self):
-        ret = self.file.estimate_cost(self.frames)
-        self._estimate = ret
-        return ret
 
     def stop(self):
         """Stop rendering.  """
@@ -223,16 +159,6 @@ class Task(core.RenderObject):
         self.file.last_cost = cost
         self.info('{}: 结束渲染 耗时 {}'.format(self.path, cost))
         database.SESSION.commit()
-
-    def _update_file_range(self, first_frame, last_frame):
-        old_fisrt, old_last = self.file.first_frame, self.file.last_frame
-        if old_fisrt is not None:
-            first_frame = min(first_frame, old_fisrt)
-        if old_last is not None:
-            last_frame = max(last_frame, old_last)
-
-        self.file.first_frame = first_frame
-        self.file.last_frame = last_frame
 
 
 def nuke_process(f, range_):

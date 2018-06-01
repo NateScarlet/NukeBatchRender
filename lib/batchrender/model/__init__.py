@@ -7,7 +7,7 @@ from __future__ import (absolute_import, division, print_function,
 from .core import (
     ROLE_PRIORITY,
     ROLE_RANGE,
-    ROLE_STATUS,
+    ROLE_STATE,
     ROLE_REMAINS,
     ROLE_ESTIMATE,
     ROLE_FRAMES,

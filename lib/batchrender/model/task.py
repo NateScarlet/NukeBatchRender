@@ -28,7 +28,7 @@ def _map_model_data(role, docstring=None):
 class Task(QObject):
     """Task data.  """
 
-    state = _map_model_data(core.ROLE_STATUS, 'Task state.')
+    state = _map_model_data(core.ROLE_STATE, 'Task state.')
     range = _map_model_data(core.ROLE_RANGE, 'Render range.')
     priority = _map_model_data(core.ROLE_PRIORITY, 'Render range.')
     remains = _map_model_data(core.ROLE_REMAINS, 'Remains time to render.')

@@ -8,7 +8,7 @@ from Qt.QtCore import Qt
 
 ROLE_PRIORITY = Qt.UserRole + 4
 ROLE_RANGE = Qt.UserRole + 5
-ROLE_STATUS = Qt.UserRole + 6
+ROLE_STATE = Qt.UserRole + 6
 ROLE_REMAINS = Qt.UserRole + 7
 ROLE_ESTIMATE = Qt.UserRole + 8
 ROLE_FRAMES = Qt.UserRole + 9

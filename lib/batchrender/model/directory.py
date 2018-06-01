@@ -25,7 +25,7 @@ class DirectoryModel(QFileSystemModel):
              Qt.ForegroundRole,
              core.ROLE_PRIORITY,
              core.ROLE_RANGE,
-             core.ROLE_STATUS,
+             core.ROLE_STATE,
              core.ROLE_REMAINS,
              core.ROLE_ESTIMATE,
              core.ROLE_FRAMES,
@@ -79,7 +79,7 @@ class DirectoryModel(QFileSystemModel):
             return None
 
         return Qt.Unchecked if self.data(
-            index, core.ROLE_STATUS) & core.DISABLED else Qt.Checked
+            index, core.ROLE_STATE) & core.DISABLED else Qt.Checked
 
     def setData(self, index, value, role=Qt.EditRole):
         """Override.  """
@@ -100,7 +100,7 @@ class DirectoryModel(QFileSystemModel):
         return super(DirectoryModel, self).setData(index, value, role)
 
     def _get_foreground_data(self, index):
-        status = self.data(index, core.ROLE_STATUS)
+        status = self.data(index, core.ROLE_STATE)
         if status & core.PARTIAL:
             return QBrush(QColor(150, 200, 235))
         elif status & core.DOING:
@@ -110,7 +110,7 @@ class DirectoryModel(QFileSystemModel):
         return QBrush(QColor(Qt.black))
 
     def _get_background_data(self, index):
-        status = self.data(index, core.ROLE_STATUS)
+        status = self.data(index, core.ROLE_STATE)
         if status & core.DOING:
             return QBrush(QColor(30, 40, 45))
         elif status & core.DISABLED:
@@ -119,13 +119,13 @@ class DirectoryModel(QFileSystemModel):
         return QBrush(QColor(Qt.white))
 
     def _set_check_state_data(self, index, value):
-        status = self.data(index, core.ROLE_STATUS)
+        status = self.data(index, core.ROLE_STATE)
         if value == Qt.Checked:
             status &= ~core.DISABLED
         else:
             status |= core.DISABLED
 
-        self.setData(index, status, core.ROLE_STATUS)
+        self.setData(index, status, core.ROLE_STATE)
         return True
 
     def _data_key(self, index):
@@ -143,7 +143,7 @@ def _column_default(index, role):
     defaults = {
         core.ROLE_PRIORITY: 0,
         core.ROLE_RANGE: '',
-        core.ROLE_STATUS: 0b0,
+        core.ROLE_STATE: 0b0,
         core.ROLE_ERROR_COUNT: 0,
     }
     if index.column() == 0:

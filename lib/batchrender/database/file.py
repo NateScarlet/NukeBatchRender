@@ -79,7 +79,7 @@ class File(Base, SerializableMixin):
     def archive(self, dest='文件备份'):
         """Move file to a folder with hash renamed.  """
 
-        src = self.path
+        src = u(self.path)
         dest = os.path.join(CONFIG['DIR'], dest, self.filename_with_hash())
         LOGGER.debug('Archiving file: %s -> %s', src, dest)
 

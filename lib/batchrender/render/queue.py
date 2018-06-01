@@ -40,7 +40,8 @@ class Queue(core.RenderObject):
         """Get first task from queue.  """
 
         try:
-            return next(self.enabled_tasks())
+            return next(i for i in self.enabled_tasks()
+                        if i.is_file_exists())
         except StopIteration:
             self.finished.emit()
             raise

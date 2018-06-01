@@ -84,6 +84,15 @@ class Task(QObject):
             self._estimate = ret
         return ret
 
+    def is_file_exists(self):
+        """Check if the task file exists.  """
+
+        try:
+            self._update_file()
+            return True
+        except IOError:
+            return False
+
     def _update_file(self):
         ret = database.File.from_path(self.path, database.SESSION)
         self._file = ret

@@ -6,14 +6,17 @@ from __future__ import (absolute_import, division, print_function,
 
 import logging
 import re
+import subprocess
+import sys
+import threading
 import time
 
 import six
 from Qt.QtCore import QObject, Signal
 
 from ..config import CONFIG
-from ..threadtools import run_async
 from ..texttools import l10n, stylize
+from ..threadtools import run_async
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,13 +34,14 @@ class NukeHandler(BaseHandler):
     def __init__(self, proc):
         super(NukeHandler, self).__init__()
         self.proc = proc
-        self.frame_finished.connect(lambda: print('aaa'))
 
     def start(self):
         """Start handler output.  """
 
         self._handle_stderr()
         self._handle_stdout()
+        if sys.platform == 'win32':
+            self._handle_werfault()
 
     @run_async
     def _handle_stderr(self):
@@ -86,3 +90,26 @@ class NukeHandler(BaseHandler):
 
             self.frame_finished.emit(data)
             context['last_frame_time'] = now
+
+    def _handle_werfault(self):
+        if self.proc.poll() is not None:
+            return
+
+        _close_werfault(self.proc.pid)
+        timer = threading.Timer(2.0, self._handle_werfault)
+        timer.start()
+
+
+def _close_werfault(pid):
+    args = ['WMIC', 'process', 'where',
+            "name='werfault.exe' and commandline like '%-p {}%'".format(pid),
+            'get', 'processid', '/format:list']
+    proc = subprocess.Popen(
+        args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, _ = proc.communicate()
+    match = re.match(r'\s*ProcessId=(\d+)', stdout)
+    if match:
+        pid = match.group(1)
+        subprocess.call(
+            ['TASKKILL', '/pid', pid]
+        )

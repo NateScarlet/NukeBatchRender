@@ -87,6 +87,7 @@ class Slave(core.RenderObject):
         task = self.task
         if isinstance(task, NukeTask):
             task.stop()
+            self.stopped.emit()
 
     def on_stopped(self):
         LOGGER.debug('Render stopped.')

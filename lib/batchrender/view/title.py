@@ -9,59 +9,67 @@ import logging
 from Qt.QtCore import QTimer
 
 from ..__about__ import __version__
-
+from ..control import Controller
 LOGGER = logging.getLogger(__name__)
 
 
 class Title(object):
     """Window title.  """
-    default_title = 'Nuke批渲染'
-    prefix = ''
-    title_index = 0
 
-    def __init__(self, parent):
-        self.title_index = 0
-        from .mainwindow import MainWindow
-        assert isinstance(
-            parent, MainWindow), 'Need a Mainwindow as parent.'
+    default_title = 'Nuke批渲染'
+
+    def __init__(self, control, parent):
+        assert isinstance(control, Controller), type(control)
+
         self.parent = parent
+        self.control = control
+
+        self.prefix = ''
+        self.title_index = 0
+        self.progress = 0
 
         self._timer = QTimer()
         self._timer.setInterval(300)
         self._timer.timeout.connect(self.update)
-        setattr(self.parent, '_title', self)
 
-        self.parent.control.queue.changed.connect(self.update_prefix)
-        self.parent.progressBar.valueChanged.connect(self.update_prefix)
+        self.control.queue.changed.connect(self.update_prefix)
+        self.control.slave.progressed.connect(self.on_progressed)
+        self.control.slave.started.connect(self.on_started)
+        self.control.slave.finished.connect(self.on_stopped)
 
-        self.parent.control.slave.started.connect(self._timer.start)
-        self.parent.control.slave.finished.connect(self._timer.stop)
+    def on_started(self):
+        self._timer.start()
+        self.update_prefix()
 
-        self.update()
+    def on_stopped(self):
+        self._timer.stop()
+        self.update_prefix()
+
+    def on_progressed(self, value):
+        self.progress = value
+        self.update_prefix()
 
     def update_prefix(self):
         """Update title prefix with progress.  """
 
-        prefix = ''
-        control = self.parent.control
-        queue_length = len(list(control.queue.enabled_tasks()))
+        result = ''
+        control = self.control
+        queue_length = len(list(control.model.iter_checked()))
 
         if queue_length:
-            prefix = '[{}]{}'.format(queue_length, prefix)
+            result = '[{}]'.format(queue_length)
         if control.slave.is_rendering:
-            prefix = '{}%{}'.format(
-                self.parent.progressBar.value(), prefix)
+            result = '{}%{}'.format(self.progress, result)
 
-        if prefix != self.prefix:
-            self.prefix = prefix
+        if result != self.prefix:
+            self.prefix = result
             self.update()
 
     def update(self):
         """Update title, rotate when rendering.  """
 
-        slave = self.parent.control.slave
-        task = slave.task
-        if slave.is_rendering and task:
+        task = self.control.slave.task
+        if task:
             title = task.label or self.default_title
             self.title_index += 1
             index = self.title_index % len(title)

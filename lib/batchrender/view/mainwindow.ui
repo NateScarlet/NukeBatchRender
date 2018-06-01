@@ -221,6 +221,23 @@
          </property>
         </widget>
        </item>
+       <item alignment="Qt::AlignRight">
+        <widget class="QLabel" name="label">
+         <property name="text">
+          <string>线程数</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QSpinBox" name="spinBoxThreads">
+         <property name="minimum">
+          <number>1</number>
+         </property>
+         <property name="value">
+          <number>4</number>
+         </property>
+        </widget>
+       </item>
       </layout>
      </widget>
     </item>
@@ -501,22 +518,6 @@
     <hint type="destinationlabel">
      <x>299</x>
      <y>497</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>checkBoxPriority</sender>
-   <signal>toggled(bool)</signal>
-   <receiver>frameLowPriority</receiver>
-   <slot>setVisible(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>229</x>
-     <y>426</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>229</x>
-     <y>450</y>
     </hint>
    </hints>
   </connection>

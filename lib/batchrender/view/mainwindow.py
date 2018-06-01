@@ -138,7 +138,8 @@ class MainWindow(QMainWindow):
             self.checkBoxContinue: 'CONTINUE',
             self.comboBoxAfterFinish: 'AFTER_FINISH',
             self.doubleSpinBoxMemory: 'MEMORY_LIMIT',
-            self.spinBoxTimeOut: 'TIME_OUT'
+            self.spinBoxTimeOut: 'TIME_OUT',
+            self.spinBoxThreads: 'THREADS'
         })
 
         self._setup_signals()

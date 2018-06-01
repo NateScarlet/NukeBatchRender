@@ -7,7 +7,7 @@ a = Analysis(['launch.py'],
              pathex=[
                  ''],
              binaries=[],
-             datas=[('active_pid.exe', '.'),
+             datas=[('lib/batchrender/bin/', 'batchrender/bin'),
                     ('lib/batchrender/console.css', 'batchrender'),
                     ('lib/batchrender/batchrender.zh_CN.json', 'batchrender'),
                     ('lib/batchrender/view/mainwindow.ui', 'batchrender/view'), ],

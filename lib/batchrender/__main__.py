@@ -15,16 +15,15 @@ from Qt.QtWidgets import QApplication
 
 from . import singleton
 from .__about__ import __version__
-from .log import _set_logger
 from .codectools import get_encoded
+from .log import _set_logger
 from .view import MainWindow
 
 LOGGER = logging.getLogger()
-if __name__ == '__main__':
-    __SINGLETON = singleton.SingleInstance()
 
 
 def main():
+    setattr(sys.modules[__name__], '__SINGLETON', singleton.SingleInstance())
     _set_logger()
 
     if sys.getdefaultencoding() != 'UTF-8':

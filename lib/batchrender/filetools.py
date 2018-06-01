@@ -158,3 +158,16 @@ def ensure_parent_directory(filepath):
         os.makedirs(e(os.path.dirname(filepath)))
     except OSError:
         pass
+
+
+def popen(*args, **kwargs):
+    """`Subprocess.Popen` with local bin folder injected.  """
+
+    def _inject_bin_folder(env):
+        env_path = u(env.get('path', ''))
+        env['path'] = e(path('bin') + os.pathsep + env_path)
+
+    kwargs.setdefault('env', os.environ)
+    _inject_bin_folder(kwargs['env'])
+
+    return subprocess.Popen(*args, **kwargs)

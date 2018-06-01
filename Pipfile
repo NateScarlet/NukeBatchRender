@@ -19,7 +19,6 @@ sqlalchemy = "*"
 "pathlib2" = "*"
 psutil = "*"
 win-unicode-console = {version = "*", sys_platform = "== 'win32'"}
-"pywin32" = {version = "*", sys_platform = "== 'win32'"}
 
 [requires]
 

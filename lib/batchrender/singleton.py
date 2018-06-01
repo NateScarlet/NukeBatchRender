@@ -4,13 +4,19 @@
 
 SingleInstance modified from: https://pypi.python.org/pypi/tendo
 """
-from __future__ import unicode_literals, print_function
-import sys
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import logging
 import os
+import sys
 import tempfile
 import unittest
-import logging
-from subprocess import Popen
+
+import six
+
+from . import filetools
 
 try:
     if sys.platform != 'win32':
@@ -128,14 +134,17 @@ class _SingletonTestCase(unittest.TestCase):
 
 def active_pid(pid):
     """Active window by pid.  """
-    if not pid:
+
+    try:
+        int(pid)
+    except (ValueError, TypeError):
         return
-    pid = int(pid)
+    pid = six.text_type(pid)
     LOGGER.info('激活已经打开的实例 pid: %s', pid)
     if sys.platform == 'win32':
-        Popen('"{}" "{}"'.format(os.path.join(__file__, '../active_pid.exe'), pid))
+        filetools.popen(['winactive_by_pid', pid])
     else:
-        Popen(
+        filetools.popen(
             'xdotool windowactivate $(xdotool search --pid {} -name| tail -n1)'.format(pid),
             shell=True)
 

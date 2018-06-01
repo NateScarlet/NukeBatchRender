@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "6e8a6b6c57b991d155ab9fc6a631f058b1ff95d00144c12523a97f4d03fe5f92"
+            "sha256": "f53dded487d6fdd50f9dd72313cb93c8ae4d87820395cfea10a5b592e64b836a"
         },
         "host-environment-markers": {
             "implementation_name": "cpython",
@@ -40,11 +40,6 @@
         "pyside": {
             "hashes": [],
             "version": "==1.2.4"
-        },
-        "pywin32": {
-            "hashes": [],
-            "markers": "sys_platform == 'win32'",
-            "version": "==223"
         },
         "qt.py": {
             "hashes": [],

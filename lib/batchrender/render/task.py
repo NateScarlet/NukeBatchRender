@@ -14,6 +14,7 @@ from .. import database, model
 from ..config import CONFIG
 from .proc_handler import NukeHandler
 from ..threadtools import run_async
+from ..codectools import get_encoded as e
 LOGGER = logging.getLogger(__name__)
 
 
@@ -161,30 +162,30 @@ class NukeTask(model.Task, core.RenderObject):
         database.SESSION.commit()
 
 
-def nuke_process(f, range_):
+def nuke_process(filepath, range_):
     """Nuke render process for file @f.  """
 
-    f = '"{}"'.format(f.strip('"'))
-    nuke = '"{}"'.format(CONFIG['NUKE'].strip('"'))
-    _memory_limit = CONFIG['MEMORY_LIMIT']
-    args = [nuke,
-            '-x',
-            '-p' if CONFIG['PROXY'] else '-f',
-            '--cont' if CONFIG['CONTINUE'] else '',
-            '--priority low' if CONFIG['LOW_PRIORITY'] else '',
-            '-c {}M'.format(int(_memory_limit * 1024))
-            if _memory_limit
-            else '',
-            '-m {}'.format(CONFIG['THREADS']),
-            f, range_]
-    args = ' '.join([i for i in args if i])
-    if sys.platform != 'win32':
-        kwargs = {
-            'shell': True
-        }
-    else:
-        kwargs = {}
+    options = _options_from_config()
+    if range_:
+        options.extend(('-F', range_))
+    args = [CONFIG['NUKE'], '-x'] + options + [filepath]
+    args = [e(i) for i in args]
     LOGGER.debug('Popen: %s', args)
     proc = Popen(args, stdout=PIPE, stderr=PIPE,
-                 cwd=CONFIG['DIR'], **kwargs)
+                 cwd=CONFIG['DIR'])
     return proc
+
+
+def _options_from_config():
+    ret = ['-p' if CONFIG['PROXY'] else '-f']
+    conditional_options = {
+        'CONTINUE': ('--cont',),
+        'LOW_PRIORITY': ('-priority', 'low'),
+        'THREADS': ('-m', CONFIG['THREADS']),
+        'MEMORY_LIMIT': ('-c', '{}M'.format(int(CONFIG['MEMORY_LIMIT'] * 1024)))
+    }
+
+    for k, v in conditional_options.items():
+        if CONFIG[k]:
+            ret.extend(v)
+    return ret

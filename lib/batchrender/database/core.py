@@ -1,18 +1,30 @@
 """Database core functionality.   """
 
 import logging
+from functools import wraps
 
 from pathlib2 import PurePath
 from sqlalchemy import TypeDecorator, Unicode, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm.session import sessionmaker
 
-from ..codectools import get_unicode as u, get_encoded as e
+from ..codectools import get_unicode as u
 from ..config import CONFIG
 
 Base = declarative_base()  # pylint: disable=invalid-name
 Session = sessionmaker()  # pylint: disable=invalid-name
 LOGGER = logging.getLogger(__name__)
+
+
+def _skip_process_if_is_none(process):
+
+    @wraps(process)
+    def _process(self, value, dialect):
+        if value is None:
+            return value
+        return process(self, value, dialect)
+
+    return _process
 
 
 class Path(TypeDecorator):
@@ -21,15 +33,18 @@ class Path(TypeDecorator):
 
     impl = Unicode
 
+    @_skip_process_if_is_none
     def process_bind_param(self, value, dialect):
-        if value is not None:
-            value = u(value).replace('\\', '/')
-            value = PurePath(value).as_posix()
-        return value
 
+        ret = u(value)
+        ret = ret.replace('\\', '/')
+        PurePath(ret)  # test init.
+        return ret
+
+    @_skip_process_if_is_none
     def process_result_value(self, value, dialect):
         if value is not None:
-            value = PurePath(e(value))
+            value = PurePath(value)
         return value
 
 

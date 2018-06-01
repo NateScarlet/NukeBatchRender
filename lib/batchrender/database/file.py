@@ -86,7 +86,7 @@ class File(Base, SerializableMixin):
         """Get filename with hash in middle.  """
 
         path = self.path
-        return '{}.{}{}'.format(path.stem, self.hash[:8], path.suffix)
+        return '{}.{}{}'.format(u(path.stem), self.hash[:8], u(path.suffix))
 
     @classmethod
     def from_path(cls, path, session):

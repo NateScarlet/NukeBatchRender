@@ -144,6 +144,7 @@ def _column_default(index, role):
         core.ROLE_PRIORITY: 0,
         core.ROLE_RANGE: '',
         core.ROLE_STATUS: 0b0,
+        core.ROLE_ERROR_COUNT: 0,
     }
     if index.column() == 0:
         defaults[Qt.CheckStateRole] = Qt.Checked

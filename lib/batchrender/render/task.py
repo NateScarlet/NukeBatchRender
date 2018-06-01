@@ -10,10 +10,12 @@ from Qt.QtCore import Signal, Slot
 
 from . import core
 from .. import database, model
-from ..config import CONFIG
-from .proc_handler import NukeHandler
-from ..threadtools import run_async
 from ..codectools import get_encoded as e
+from ..codectools import get_unicode as u
+from ..config import CONFIG
+from ..threadtools import run_async
+from .proc_handler import NukeHandler
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -170,10 +172,10 @@ def nuke_process(filepath, range_):
     if range_:
         options.extend(('-F', range_))
     args = [CONFIG['NUKE'], '-x'] + options + [filepath]
-    args = [e(i) for i in args]
+    args = [u(i) for i in args]
     LOGGER.debug('Popen: %s', args)
     proc = Popen(args, stdout=PIPE, stderr=PIPE,
-                 cwd=CONFIG['DIR'])
+                 cwd=e(CONFIG['DIR']))
     return proc
 
 

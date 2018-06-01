@@ -97,7 +97,7 @@ class MainWindow(QMainWindow):
         self.on_model_layout_changed()
 
     def _setup_signals(self):
-        self.lineEditDir.textChanged.connect(self.check_dir)
+        self.lineEditDir.textChanged.connect(self.control.change_root)
         self.comboBoxAfterFinish.currentIndexChanged.connect(
             self.on_after_render_changed)
 
@@ -205,29 +205,7 @@ class MainWindow(QMainWindow):
         path = QFileDialog.getExistingDirectory(
             dir=os.path.dirname(CONFIG['DIR']))
         if path:
-            if self.check_dir(path):
-                self.control.change_root(path)
-                self.lineEditDir.setText(path)
-            else:
-                self.ask_dir()
-
-    def check_dir(self, path):
-        """Check if dir is nuke readable.  """
-
-        edit = self.lineEditDir
-        path = path or edit.text()
-        try:
-            path.encode('ascii')
-            if os.path.exists(path):
-                edit.setStyleSheet('')
-            else:
-                edit.setStyleSheet('background:rgb(100%,50%,50%)')
-        except UnicodeEncodeError:
-            edit.setText(CONFIG['DIR'])
-            QMessageBox.information(
-                self, path, 'Nuke只支持英文路径')
-            return False
-        return True
+            self.lineEditDir.setText(path)
 
     def on_file_dropped(self, files):
         files = [i for i in files if i.endswith('.nk')]

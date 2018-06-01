@@ -8,13 +8,13 @@ import logging
 import os
 import sys
 
+from . import filetools
+
 LOGGER = logging.getLogger('config')
 
 if sys.platform == 'win32':
     import locale
     locale.setlocale(locale.LC_ALL, str('chinese'))
-
-from . import filetools
 
 
 class Config(dict):

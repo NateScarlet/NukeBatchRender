@@ -40,9 +40,10 @@ class Task(core.RenderObject):
     range = _map_model_data(model.ROLE_RANGE, 'Render range.')
     priority = _map_model_data(model.ROLE_PRIORITY, 'Render range.')
     remains = _map_model_data(model.ROLE_REMAINS, 'Remains time to render.')
-    estimate = _map_model_data(model.ROLE_ESTIMATE, 'Estimate time to render.')
+    _estimate = _map_model_data(
+        model.ROLE_ESTIMATE, 'Estimate time to render.')
     frames = _map_model_data(model.ROLE_FRAMES, 'Task frame count.')
-    file = _map_model_data(model.ROLE_FILE, 'Database file object.')
+    _file = _map_model_data(model.ROLE_FILE, 'Database file object.')
     error_count = _map_model_data(
         model.ROLE_ERROR_COUNT, 'Error count during rendering.')
     path = _map_model_data(model.DirectoryModel.FilePathRole, 'File path.')
@@ -57,8 +58,7 @@ class Task(core.RenderObject):
 
         self.model = dir_model
         self._model_index = self.model.index(path)
-        self.file = database.File.from_path(path, database.SESSION)
-        self.estimate = self.file.estimate_cost(self.frames)
+
         super(Task, self).__init__()
 
         self.frame_finished.connect(self.on_frame_finished)
@@ -74,6 +74,35 @@ class Task(core.RenderObject):
 
     def __unicode__(self):
         return '<任务 {0.label}: 优先级 {0.priority}, 状态 {0.state:b}>'.format(self)
+
+    @property
+    def file(self):
+        """Database file object.  """
+        ret = self._file
+        if not ret:
+            ret = self._update_file()
+            self._file = ret
+        return ret
+
+    def _update_file(self):
+        ret = database.File.from_path(self.path, database.SESSION)
+        self._file = ret
+        return ret
+
+    @property
+    def estimate(self):
+        """Estimate time to render.  """
+
+        ret = self._estimate
+        if not ret:
+            ret = self._update_estimate()
+            self._estimate = ret
+        return ret
+
+    def _update_estimate(self):
+        ret = self.file.estimate_cost(self.frames)
+        self._estimate = ret
+        return ret
 
     def stop(self):
         """Stop rendering.  """
@@ -167,7 +196,7 @@ class Task(core.RenderObject):
             first_frame = frame
             last_frame = first_frame + total - 1
             self.frames = total
-            self.estimate = self.file.estimate_cost(total)
+            self._update_estimate()
             self._update_file_range(frame, last_frame)
 
         frame_record = database.Frame(
@@ -180,6 +209,7 @@ class Task(core.RenderObject):
         self.remains = (1.0 - value / 100.0) * self.estimate
 
     def on_started(self):
+        self._update_file()
         self.start_time = time.time()
         self.is_stopping = False
         self.state |= model.DOING

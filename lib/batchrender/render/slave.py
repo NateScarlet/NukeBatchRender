@@ -68,7 +68,6 @@ class Slave(core.RenderObject):
             self.task = None
             self.finished.emit()
             self.is_rendering = False
-            LOGGER.debug('Render finished')
 
     def start(self):
         """Overridde.  """
@@ -76,7 +75,6 @@ class Slave(core.RenderObject):
         if self.is_rendering:
             return
 
-        LOGGER.debug('Render start')
         self.is_rendering = True
         self._start_next()
         self.started.emit()
@@ -89,6 +87,9 @@ class Slave(core.RenderObject):
         if isinstance(task, NukeTask):
             task.stop()
             self.stopped.emit()
+
+    def on_started(self):
+        LOGGER.debug('Render start')
 
     def on_stopped(self):
         LOGGER.debug('Render stopped.')

@@ -62,8 +62,8 @@ class File(Base, SerializableMixin):
         from .frame import Frame
 
         sess = object_session(self)
-        frame_cost = (sess.query(func.avg(Frame.cost),).filter(Frame.file == self).one()[0] or
-                      sess.query(func.avg(Frame.cost),)[0] or
+        frame_cost = (sess.query(func.avg(Frame.cost)).filter(Frame.file == self).scalar() or
+                      sess.query(func.avg(Frame.cost)).scalar() or
                       default_frame_cost)
 
         frame_count = frame_count or self.frame_count or default_frame_count

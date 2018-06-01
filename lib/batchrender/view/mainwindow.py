@@ -92,6 +92,7 @@ class MainWindow(QMainWindow):
         self.tableView.setColumnWidth(1, 80)
         self.tableView.setColumnWidth(2, 80)
         self.title = Title(self.control, self)
+        self.title.update()
         self.on_data_changed()
         self.on_model_layout_changed()
 

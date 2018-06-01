@@ -16,7 +16,7 @@ LOGGER = logging.getLogger(__name__)
 class Title(object):
     """Window title.  """
 
-    default_title = 'Nuke批渲染'
+    default_text = 'Nuke批渲染'
 
     def __init__(self, control, parent):
         assert isinstance(control, Controller), type(control)
@@ -30,12 +30,12 @@ class Title(object):
 
         self._timer = QTimer()
         self._timer.setInterval(300)
-        self._timer.timeout.connect(self.update)
+        self._timer.timeout.connect(self.rotate_text)
 
         self.control.queue.changed.connect(self.update_prefix)
         self.control.slave.progressed.connect(self.on_progressed)
         self.control.slave.started.connect(self.on_started)
-        self.control.slave.finished.connect(self.on_stopped)
+        self.control.slave.stopped.connect(self.on_stopped)
 
     def on_started(self):
         self._timer.start()
@@ -49,17 +49,38 @@ class Title(object):
         self.progress = value
         self.update_prefix()
 
+    @property
+    def text(self):
+        """Title text.  """
+
+        task = self.control.slave.task
+        if task:
+            return task.label
+        self.title_index = 0
+        return self.default_text
+
+    def rotate_text(self):
+        """Rotate title text.  """
+
+        self.title_index += 1
+        self.update()
+
     def update_prefix(self):
         """Update title prefix with progress.  """
 
-        result = ''
         control = self.control
         queue_length = len(list(control.model.iter_checked()))
 
-        if queue_length:
-            result = '[{}]'.format(queue_length)
+        def _format_length(length):
+            return '[{}]'.format(queue_length) if length else ''
+
         if control.slave.is_rendering:
-            result = '{}%{}'.format(self.progress, result)
+            result = '{}%{}'.format(self.progress,
+                                    _format_length(queue_length-1))
+        elif queue_length:
+            result = _format_length(queue_length)
+        else:
+            result = ''
 
         if result != self.prefix:
             self.prefix = result
@@ -68,17 +89,8 @@ class Title(object):
     def update(self):
         """Update title, rotate when rendering.  """
 
-        task = self.control.slave.task
-        if task:
-            title = task.label or self.default_title
-            self.title_index += 1
-            index = self.title_index % len(title)
-        else:
-            title = self.default_title
-            self.title_index = 0
-            index = 0
+        text = self.text
+        index = self.title_index % len(text)
+        text = '{}{} {}'.format(self.prefix, text[index:], text[:index])
 
-        title = '{}{} {}'.format(
-            self.prefix, title[index:], title[:index])
-
-        self.parent.setWindowTitle(title)
+        self.parent.setWindowTitle(text)

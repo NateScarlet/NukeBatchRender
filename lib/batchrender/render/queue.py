@@ -20,21 +20,8 @@ class Queue(core.RenderObject):
         self.model = data_model
         super(Queue, self).__init__()
 
-        self.model.layoutChanged.connect(self.update)
-
-    def __contains__(self, item):
-        if isinstance(item, (str, unicode)):
-            return any(i for i in self if i.filename == item)
-        return any(i for i in self if i == item)
-
-    def __nonzero__(self):
-        return any(self.enabled_tasks())
-
-    def __len__(self):
-        return len(self.enabled_tasks())
-
-    def __str__(self):
-        return 'render.Queue<{}>'.format(',\n'.join(self.model.checked_files()))
+        self.model.layoutChanged.connect(self.changed)
+        self.model.rowsRemoved.connect(self.changed)
 
     def get(self):
         """Get first task from queue.  """
@@ -51,22 +38,22 @@ class Queue(core.RenderObject):
 
         return self._task_iterator(i for i in self.model.iter_checked())
 
-    def update(self):
-        """Update the queue.  """
-
-        self.update_remains()
-
     def update_remains(self):
         """Caculate remains time.  """
 
         ret = 0
         for i in self.enabled_tasks():
             assert isinstance(i, model.Task)
-            if i.state & model.DOING and i.remains is not None:
+            if i.state & model.FINISHED:
+                pass
+            elif i.state & model.DOING and i.remains is not None:
                 ret += i.remains
             else:
                 ret += i.estimate
         self.remains = ret
+
+    def on_changed(self):
+        self.update_remains()
 
     def _task_iterator(self, indexes):
         source_model = self.model.sourceModel()

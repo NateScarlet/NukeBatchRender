@@ -1,7 +1,6 @@
 """Database core functionality.   """
 
 import logging
-from contextlib import contextmanager
 
 from pathlib2 import PurePath
 from sqlalchemy import TypeDecorator, Unicode, create_engine
@@ -14,22 +13,6 @@ from ..config import CONFIG
 Base = declarative_base()  # pylint: disable=invalid-name
 Session = sessionmaker()  # pylint: disable=invalid-name
 LOGGER = logging.getLogger(__name__)
-
-
-@contextmanager
-def session_scope(session=None):
-    """Session scope context.  """
-
-    sess = session or Session()
-
-    try:
-        yield sess
-        sess.commit()
-    except:
-        sess.rollback()
-        raise
-    finally:
-        sess.close()
 
 
 class Path(TypeDecorator):

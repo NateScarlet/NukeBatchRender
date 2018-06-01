@@ -138,7 +138,7 @@ class NukeTask(model.Task, core.RenderObject):
         frame_record = database.Frame(
             file=self.file, frame=frame, cost=cost, timestamp=time.time())
         database.SESSION.add(frame_record)
-        database.SESSION.commit()
+        database.util.throttle_commit(database.SESSION)
         self.progressed.emit(current * 100 / total)
 
     def on_progressed(self, value):

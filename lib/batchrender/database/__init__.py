@@ -4,8 +4,7 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-from . import core
-from .core import session_scope
+from . import core, util
 from .file import File
 from .frame import Frame
 from .output import Output

@@ -62,9 +62,8 @@ class Queue(core.RenderObject):
         ret = 0
         for i in self.enabled_tasks():
             assert isinstance(i, model.Task)
-            if i.state & model.DOING:
-                ret += (i.remains
-                        or i.estimate)
+            if i.state & model.DOING and i.remains is not None:
+                ret += i.remains
             else:
                 ret += i.estimate
         self.remains = ret

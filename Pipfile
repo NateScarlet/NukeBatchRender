@@ -1,18 +1,14 @@
 [[source]]
-
 url = "https://mirrors.aliyun.com/pypi/simple"
 verify_ssl = true
 name = "pypi"
 
-
 [dev-packages]
-
 pylint = "*"
 "autopep8" = "*"
-
+pyinstaller = "*"
 
 [packages]
-
 pyside = "*"
 "qt.py" = "*"
 sqlalchemy = "*"
@@ -21,5 +17,4 @@ psutil = "*"
 win-unicode-console = {version = "*", sys_platform = "== 'win32'"}
 
 [requires]
-
 python_version = "2.7"

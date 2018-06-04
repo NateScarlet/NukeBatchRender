@@ -4,8 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['launch.py'],
-             pathex=[
-                 ''],
+             pathex=[''],
              binaries=[],
              datas=[('lib/batchrender/bin/', 'batchrender/bin'),
                     ('lib/batchrender/console.css', 'batchrender'),

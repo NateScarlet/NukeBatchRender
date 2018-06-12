@@ -188,7 +188,7 @@ def _options_from_config():
     ret = ['-p' if CONFIG['PROXY'] else '-f']
     conditional_options = {
         'CONTINUE': ('--cont',),
-        'LOW_PRIORITY': ('-priority', 'low'),
+        'LOW_PRIORITY': ('--priority', 'low'),
         'THREADS': ('-m', CONFIG['THREADS']),
         'MEMORY_LIMIT': ('-c', '{}M'.format(int(CONFIG['MEMORY_LIMIT'] * 1024)))
     }

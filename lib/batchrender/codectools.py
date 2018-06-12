@@ -2,7 +2,8 @@
 # -*- coding=UTF-8 -*-
 """Coding decoding tools.  """
 
-from __future__ import print_function, unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
 import locale
 import sys

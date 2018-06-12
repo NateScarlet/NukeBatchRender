@@ -1,5 +1,8 @@
 # -*- coding=UTF-8 -*-
 """Build exe on windows.  """
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 from subprocess import Popen
 import os
 import webbrowser

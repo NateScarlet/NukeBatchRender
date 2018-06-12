@@ -1,6 +1,9 @@
 # -*- coding=UTF-8 -*-
 """NukeTask rendering.  """
 
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
 import logging
 
 from Qt.QtCore import QTimer

@@ -71,21 +71,23 @@ def copy(src, dst):
     """Copy src to dst."""
 
     src, dst = u(src), u(dst)
+    src_e, dst_e = e(src), e(dst)
     LOGGER.info('\n复制:\n\t%s\n->\t%s', src, dst)
-    if not os.path.exists(src):
+    if not os.path.exists(src_e):
         return None
     dst_dir = os.path.dirname(dst)
-    if not os.path.exists(dst_dir):
+    dst_dir_e = e(dst_dir)
+    if not os.path.exists(dst_dir_e):
         LOGGER.debug('创建目录: %s', dst_dir)
-        os.makedirs(dst_dir)
+        os.makedirs(dst_dir_e)
     try:
-        shutil.copy2(src, dst)
+        shutil.copy2(src_e, dst_e)
     except OSError:
         if sys.platform == 'win32':
-            subprocess.call('XCOPY /V /Y "{}" "{}"'.format(src, dst))
+            subprocess.call(e('XCOPY /V /Y "{}" "{}"'.format(src, dst)))
         else:
             raise
-    if os.path.isdir(dst):
+    if os.path.isdir(dst_e):
         ret = os.path.join(dst, os.path.basename(src))
     else:
         ret = dst

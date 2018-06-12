@@ -89,12 +89,14 @@ class File(Base, SerializableMixin):
     def create_tempfile(self, dirname='render'):
         """Create a copy in tempdir for render, caller is responsible for deleting.  """
 
-        dirpath = os.path.join(CONFIG['DIR'], dirname)
+        dirname = u(dirname)
+        dirpath = os.path.normpath(os.path.join(CONFIG['DIR'], dirname))
         try:
-            os.makedirs(dirpath)
+            os.makedirs(e(dirpath))
         except OSError:
             pass
         dst = os.path.join(dirpath, self.filename_with_hash())
+        assert isinstance(dst, six.text_type), type(dst)
         filetools.copy(self.path.as_posix(), dst)
         return dst
 

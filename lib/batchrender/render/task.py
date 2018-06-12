@@ -176,11 +176,13 @@ class NukeTask(model.Task, core.RenderObject):
 def nuke_process(filepath, range_):
     """Nuke render process for file @f.  """
 
+    filepath = os.path.normpath(u(filepath))
+
     options = _options_from_config()
     if range_:
         options.extend(('-F', range_))
     args = [CONFIG['NUKE'], '-x'] + options + [filepath]
-    args = [u(i) for i in args]
+    args = [u(i) for i in args]  # int, bytes -> str
     LOGGER.debug('Popen: %s', args)
     proc = Popen(args, stdout=PIPE, stderr=PIPE,
                  cwd=e(CONFIG['DIR']))

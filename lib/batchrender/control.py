@@ -82,8 +82,10 @@ class Controller(QObject):
             else:
                 i.state |= qmodel.DISABLED
 
-    def remove_selected(self):
-        for i in self.queue.selected_tasks():
+    def remove(self, indexes):
+        """Archive related file.  """
+
+        for i in self.queue.task_iterator(indexes):
             if i.is_file_exists():
                 i.file.archive()
 

@@ -112,9 +112,13 @@ class MainWindow(QMainWindow):
         self.toolButtonOpenLog.clicked.connect(
             lambda: webbrowser.open(CONFIG.log_path))
         self.toolButtonCheckAll.clicked.connect(self.control.enable_all)
-        self.toolButtonRemove.clicked.connect(self.control.remove_selected)
+        self.toolButtonRemove.clicked.connect(
+            lambda: self.control.remove(self.tableView.selectedIndexes()))
         self.toolButtonReverseCheck.clicked.connect(
             self.control.invert_disable_state)
+
+        self.selection_model.selectionChanged.connect(
+            self.on_table_selection_changed)
 
         self.pushButtonStart.clicked.connect(self.on_start_button_clicked)
         self.pushButtonStop.clicked.connect(self.on_stop_button_clicked)
@@ -149,6 +153,7 @@ class MainWindow(QMainWindow):
             self.spinBoxThreads: 'THREADS'
         })
 
+        self.selection_model = self.tableView.selectionModel()
         self._setup_signals()
         # Handle file drop
         self.setAcceptDrops(True)
@@ -172,6 +177,10 @@ class MainWindow(QMainWindow):
     def on_data_changed(self):
         self.pushButtonStart.setEnabled(
             any(self.control.model.iter_checked()))
+
+    def on_table_selection_changed(self):
+        self.toolButtonRemove.setEnabled(
+            self.tableView.selectionModel().hasSelection())
 
     def on_queue_remains_changed(self, value):
         """Set remains info on button: start, stop."""

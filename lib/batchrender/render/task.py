@@ -100,13 +100,11 @@ class NukeTask(model.Task, core.RenderObject):
     def on_process_finished(self, retcode):
         self.info('渲染进程结束: ' + '退出码: {}'.format(retcode)
                   if retcode else '正常退出')
-        self._update_file()
 
+        self._update_file()
         if self.is_stopping:
-            # Stopped by user.
             self.info('中途终止进程 pid: {}'.format(self.proc.pid))
         elif self.file.hash != self._filehash:
-            # Exited with file changed.
             self.info('文件有更改, 重新加入队列.')
         elif retcode:
             self._handle_render_error()
@@ -120,30 +118,6 @@ class NukeTask(model.Task, core.RenderObject):
         else:
             self.finished.emit()
         return retcode
-
-    def _handle_render_error(self):
-        self.error_count += 1
-        self.priority -= 1
-        self.error('{}: 渲染出错 第{}次'.format(
-            self.path, self.error_count))
-        if self.error_count >= self.max_retry:
-            self.error('渲染错误达到{}次,不再进行重试。'.format(self.max_retry))
-            self.state |= model.DISABLED
-
-    def _handle_normal_ext(self):
-        if self.state & model.PARTIAL or CONFIG['PROXY']:
-            self.state |= model.DISABLED
-        else:
-            self.state |= model.FINISHED
-            self.info('任务完成')
-            self.file.archive()
-
-    def _try_remove_tempfile(self):
-        try:
-            os.remove(self._tempfile)
-        except OSError:
-            self.error('移除临时文件失败: {}'.format(self._tempfile))
-            LOGGER.warning('Remove temprory file failed.', exc_info=True)
 
     @Slot(dict)
     def on_frame_finished(self, data):
@@ -183,6 +157,30 @@ class NukeTask(model.Task, core.RenderObject):
         self.file.last_cost = cost
         self.info('{}: 结束渲染 耗时 {}'.format(self.path, cost))
         database.SESSION.commit()
+
+    def _handle_render_error(self):
+        self.error_count += 1
+        self.priority -= 1
+        self.error('{}: 渲染出错 第{}次'.format(
+            self.path, self.error_count))
+        if self.error_count >= self.max_retry:
+            self.error('渲染错误达到{}次,不再进行重试。'.format(self.max_retry))
+            self.state |= model.DISABLED
+
+    def _handle_normal_ext(self):
+        if self.state & model.PARTIAL or CONFIG['PROXY']:
+            self.state |= model.DISABLED
+        else:
+            self.state |= model.FINISHED
+            self.info('任务完成')
+            self.file.archive()
+
+    def _try_remove_tempfile(self):
+        try:
+            os.remove(self._tempfile)
+        except OSError:
+            self.error('移除临时文件失败: {}'.format(self._tempfile))
+            LOGGER.warning('Remove temprory file failed.', exc_info=True)
 
     def _info_timestamp(self):
         self.stdout.emit(texttools.stylize(time.strftime('[%x %X]'), 'info'))

@@ -20,8 +20,7 @@ class DirectoryModel(QFileSystemModel):
         self.setFilter(QDir.Files)
         self.columns = {
             i: {} for i in
-            (Qt.CheckStateRole,
-             Qt.StatusTipRole,
+            (Qt.StatusTipRole,
              Qt.ForegroundRole,
              core.ROLE_PRIORITY,
              core.ROLE_RANGE,

@@ -72,11 +72,15 @@ class Controller(QObject):
             self.is_updating = False
 
     def enable_all(self):
-        for i in self.queue.all_tasks():
+        """Enable all tasks.  """
+
+        for i in list(self.queue.all_tasks()):
             i.state &= ~qmodel.DISABLED
 
     def invert_disable_state(self):
-        for i in self.queue.all_tasks():
+        """Invert disable state on all tasks.  """
+
+        for i in list(self.queue.all_tasks()):
             if i.state & qmodel.DISABLED:
                 i.state &= ~qmodel.DISABLED
             else:

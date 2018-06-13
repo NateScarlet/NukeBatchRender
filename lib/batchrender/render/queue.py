@@ -48,7 +48,7 @@ class Queue(core.RenderObject):
         return self.task_iterator(indexes)
 
     def all_tasks(self):
-        """Iterator for user selected tasks in queue.  """
+        """Iterator for all tasks in queue.  """
 
         indexes = self.model.iter()
         return self.task_iterator(indexes)

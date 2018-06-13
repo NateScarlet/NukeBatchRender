@@ -70,4 +70,5 @@ def setup(engine_uri=None):
     LOGGER.debug('Bind to engine: %s', engine_uri)
     engine = create_engine(engine_uri)
     Session.configure(bind=engine)
+    engine.execute('DROP TABLE Output')
     Base.metadata.create_all(engine)

@@ -23,9 +23,12 @@ LOGGER = logging.getLogger(__name__)
 
 class BaseHandler(QObject):
     """Base class for process output handler.  """
+
+    frame_finished = Signal(dict)
+    output_updated = Signal(dict)
+
     stdout = Signal(six.text_type)
     stderr = Signal(six.text_type)
-    frame_finished = Signal(dict)
 
 
 class NukeHandler(BaseHandler):
@@ -42,6 +45,17 @@ class NukeHandler(BaseHandler):
         self._handle_stdout()
         if sys.platform == 'win32':
             self._handle_werfault()
+
+    def match_result(self, text):
+        """Find output file.  """
+
+        match = re.match('Writing (.+?) took (.+?) seconds', text)
+        if match:
+            payload = {
+                'path': match.group(1),
+                'cost': match.group(2),
+            }
+            self.output_updated.emit(payload)
 
     @run_async
     def _handle_stderr(self):
@@ -71,6 +85,7 @@ class NukeHandler(BaseHandler):
             if not line:
                 break
 
+            self.match_result(line)
             self.stdout.emit(stylize(l10n(line), 'stdout'))
             self._match_stdout(line, context)
 

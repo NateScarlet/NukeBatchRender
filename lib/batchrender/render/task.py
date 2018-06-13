@@ -6,6 +6,7 @@ from __future__ import (absolute_import, division, print_function,
 
 import logging
 import os
+import sys
 import time
 from subprocess import PIPE, Popen
 
@@ -70,6 +71,7 @@ class NukeTask(model.Task, core.RenderObject):
         handler.stdout.connect(self.stdout)
         handler.stderr.connect(self.stderr)
         handler.frame_finished.connect(self.frame_finished)
+        handler.output_updated.connect(self.on_output_updated)
         handler.start()
 
     def run(self):
@@ -158,6 +160,14 @@ class NukeTask(model.Task, core.RenderObject):
         self.info('{}: 结束渲染 耗时 {}'.format(self.path, cost))
         database.SESSION.commit()
 
+    def on_output_updated(self, payload):
+        output_record = database.Output(
+            timestamp=time.time(),
+            file=self.file,
+            **payload
+        )
+        database.SESSION.add(output_record)
+
     def _handle_render_error(self):
         self.error_count += 1
         self.priority -= 1
@@ -197,8 +207,14 @@ def nuke_process(filepath, range_):
     args = [CONFIG['NUKE'], '-x'] + options + [filepath]
     args = [u(i) for i in args]  # int, bytes -> str
     LOGGER.debug('Popen: %s', args)
-    proc = Popen(args, stdout=PIPE, stderr=PIPE,
-                 cwd=e(CONFIG['DIR']))
+    kwargs = {
+        'stdout': PIPE,
+        'stderr': PIPE,
+        'cwd': CONFIG['DIR']
+    }
+    if sys.platform == 'win32':
+        kwargs['cwd'] = e(kwargs['cwd'])
+    proc = Popen(args, **kwargs)
     return proc
 
 

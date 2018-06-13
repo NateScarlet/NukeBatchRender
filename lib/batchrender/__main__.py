@@ -18,20 +18,28 @@ from .__about__ import __version__
 from .codectools import get_encoded
 from .log import _set_logger
 from .view import MainWindow
+from . import mimetool
 
 LOGGER = logging.getLogger()
 
 
-def main():
-    setattr(sys.modules[__name__], '__SINGLETON', singleton.SingleInstance())
-    _set_logger()
-
-    if sys.getdefaultencoding() != 'UTF-8':
+def _set_default_encoding(encoding='utf-8'):
+    if sys.getdefaultencoding() != encoding:
         reload(sys)
-        sys.setdefaultencoding('UTF-8')
+        sys.setdefaultencoding(encoding)
 
+
+def _setup_env():
     if getattr(sys, 'frozen', False):
         os.environ['QT_PREFERRED_BINDING'] = 'PySide'
+
+
+def main():
+    setattr(sys.modules[__name__], '__SINGLETON', singleton.SingleInstance())
+    _set_default_encoding()
+    _set_logger()
+    mimetool.setup()
+    _setup_env()
 
     atexit.register(lambda: LOGGER.debug('Python exit.'))
     app = QApplication.instance()

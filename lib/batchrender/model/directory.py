@@ -9,6 +9,7 @@ from Qt.QtGui import QBrush, QColor
 from Qt.QtWidgets import QFileSystemModel
 
 from . import core
+from .. import texttools
 
 
 class DirectoryModel(QFileSystemModel):
@@ -175,9 +176,6 @@ class DirectoryModel(QFileSystemModel):
         if role in self.columns:
             return self.data(index, role)
         return super(DirectoryModel, self).data(index, role)
-
-
-from .. import texttools
 
 
 def _column_default(index, role):

@@ -12,7 +12,7 @@ from subprocess import PIPE, Popen
 from Qt.QtCore import Signal, Slot
 
 from . import core
-from .. import database, model, texttools
+from .. import database, model, texttools, filetools
 from ..codectools import get_encoded as e
 from ..codectools import get_unicode as u
 from ..config import CONFIG
@@ -74,9 +74,15 @@ class NukeTask(model.Task, core.RenderObject):
     def run(self):
         """(Override)"""
 
-        self.started.emit()
+        self.start_time = time.time()
+        self.is_stopping = False
+        self.state |= model.DOING
+
+        self._update_file()
         self._tempfile = self.file.create_tempfile()
         self.run_process()
+
+        self.started.emit()
 
     @run_async
     def run_process(self):
@@ -92,6 +98,8 @@ class NukeTask(model.Task, core.RenderObject):
     def on_process_finished(self, retcode):
         self.info('渲染进程结束: ' + '退出码: {}'.format(retcode)
                   if retcode else '正常退出')
+        self._update_file()
+        filehash = filetools.filehash_hex(self._tempfile)
 
         if self.is_stopping:
             # Stopped by user.
@@ -105,6 +113,9 @@ class NukeTask(model.Task, core.RenderObject):
             if self.error_count >= self.max_retry:
                 self.error('渲染错误达到{}次,不再进行重试。'.format(self.max_retry))
                 self.state |= model.DISABLED
+        elif self.file.hash != filehash:
+            # Exited with file changed.
+            self.info('文件有更改, 重新加入队列.')
         else:
             # Normal exit.
             if self.state & model.PARTIAL or CONFIG['PROXY']:
@@ -113,6 +124,7 @@ class NukeTask(model.Task, core.RenderObject):
                 self.state |= model.FINISHED
                 self.info('任务完成')
                 self.file.archive()
+
         try:
             os.remove(self._tempfile)
         except OSError:
@@ -153,10 +165,6 @@ class NukeTask(model.Task, core.RenderObject):
         self.remains = (1.0 - value / 100.0) * self.estimate
 
     def on_started(self):
-        self._update_file()
-        self.start_time = time.time()
-        self.is_stopping = False
-        self.state |= model.DOING
         self._info_timestamp()
 
     def on_finished(self):

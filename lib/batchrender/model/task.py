@@ -93,6 +93,8 @@ class Task(QObject):
             return False
 
     def _update_file(self):
+        """Update the related file record.  """
+
         ret = database.File.from_path(self.path, database.SESSION)
         self._file = ret
         if not self.range:

@@ -97,9 +97,12 @@ class Task(QObject):
 
         ret = database.File.from_path(self.path, database.SESSION)
         self._file = ret
+        self._update_range()
+        return ret
+
+    def _update_range(self):
         if not self.range:
             self.range = self.file.range_text()
-        return ret
 
     def _update_estimate(self):
         ret = self.file.estimate_cost(self.frames)
@@ -124,3 +127,4 @@ class Task(QObject):
 
         self.file.first_frame = first_frame
         self.file.last_frame = last_frame
+        self._update_range()

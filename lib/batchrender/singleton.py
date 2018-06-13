@@ -17,6 +17,7 @@ import unittest
 import six
 
 from . import filetools
+from .codectools import get_unicode as u, get_encoded as e
 
 try:
     if sys.platform != 'win32':
@@ -35,7 +36,7 @@ class SingleInstance(object):
     def __init__(self, flavor_id="", on_exit=None):
         self.initialized = False
         self.on_exit = on_exit
-        basename = os.path.splitext(os.path.abspath(sys.argv[0]))[0].replace(
+        basename = os.path.splitext(os.path.abspath(u(sys.argv[0])))[0].replace(
             "/", "-").replace(":", "").replace("\\", "-") + '-{}'.format(flavor_id) + '.lock'
         self.lockfile = os.path.normpath(
             tempfile.gettempdir() + '/' + basename)
@@ -64,9 +65,10 @@ class SingleInstance(object):
             try:
                 # file already exists, we try to remove (in case previous
                 # execution was interrupted)
-                if os.path.exists(self.lockfile):
-                    os.remove(self.lockfile)
-                self.file = open(self.lockfile, 'w')
+                path_e = e(self.lockfile)
+                if os.path.exists(path_e):
+                    os.remove(path_e)
+                self.file = open(path_e, 'w')
             except OSError as ex:
                 if ex.errno == 13:
                     existed = True
@@ -80,13 +82,14 @@ class SingleInstance(object):
             LOGGER.info("已经有其他实例在运行了.  ")
             self.exit()
         pid = os.getpid()
-        with open(self.lockfile, 'w') as f:
-            f.write(str(pid))
+        with open(e(self.lockfile), 'w') as f:
+            f.write(e(pid))
             LOGGER.debug('Write pid %s to lockfile', pid)
 
     def exit(self):
         """Exit scrpit."""
-        with open(self.lockfile) as f:
+
+        with open(e(self.lockfile)) as f:
             pid = f.read()
             active_pid(pid)
         sys.exit(-1)

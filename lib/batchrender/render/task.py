@@ -12,7 +12,7 @@ from subprocess import PIPE, Popen
 from Qt.QtCore import Signal, Slot
 
 from . import core
-from .. import database, model, texttools, filetools
+from .. import database, model, texttools
 from ..codectools import get_encoded as e
 from ..codectools import get_unicode as u
 from ..config import CONFIG
@@ -34,6 +34,7 @@ class NukeTask(model.Task, core.RenderObject):
         super(NukeTask, self).__init__(index, dir_model)
 
         self._tempfile = None
+        self._filehash = None
         self.proc = None
         self.start_time = None
 
@@ -80,6 +81,7 @@ class NukeTask(model.Task, core.RenderObject):
 
         self._update_file()
         self._tempfile = self.file.create_tempfile()
+        self._filehash = self.file.hash
         self.run_process()
 
         self.started.emit()
@@ -99,7 +101,6 @@ class NukeTask(model.Task, core.RenderObject):
         self.info('渲染进程结束: ' + '退出码: {}'.format(retcode)
                   if retcode else '正常退出')
         self._update_file()
-        filehash = filetools.filehash_hex(self._tempfile)
 
         if self.is_stopping:
             # Stopped by user.
@@ -113,7 +114,7 @@ class NukeTask(model.Task, core.RenderObject):
             if self.error_count >= self.max_retry:
                 self.error('渲染错误达到{}次,不再进行重试。'.format(self.max_retry))
                 self.state |= model.DISABLED
-        elif self.file.hash != filehash:
+        elif self.file.hash != self._filehash:
             # Exited with file changed.
             self.info('文件有更改, 重新加入队列.')
         else:

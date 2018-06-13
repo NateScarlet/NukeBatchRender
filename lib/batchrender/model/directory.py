@@ -159,7 +159,9 @@ class DirectoryModel(QFileSystemModel):
 
     def _set_check_state_data(self, index, value):
         status = self.data(index, core.ROLE_STATE)
-        if value == Qt.Checked:
+        if status & core.DOING:
+            return False
+        elif value == Qt.Checked:
             status &= ~core.DISABLED
         else:
             status |= core.DISABLED

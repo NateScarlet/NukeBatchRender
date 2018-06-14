@@ -88,6 +88,8 @@ class DirectoryModel(QFileSystemModel):
             return row_template.format(label, value)
 
         def _timef(seconds):
+            if seconds is None:
+                return None
             return texttools.timef(int(seconds))
 
         file_record = self.data(index, core.ROLE_FILE)

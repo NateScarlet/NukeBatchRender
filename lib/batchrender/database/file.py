@@ -62,7 +62,7 @@ class File(Base, SerializableMixin):
         """Average frame cost for this file.  """
 
         sess = object_session(self)
-        return sess.query(func.avg(Frame.cost)).filter(Frame.file == self).scalar() or 10
+        return sess.query(func.avg(Frame.cost)).filter(Frame.file == self).scalar()
 
     def estimate_cost(self, frame_count=None, default_frame_count=100, default_frame_cost=30):
         """Estimate file render time cost.  """

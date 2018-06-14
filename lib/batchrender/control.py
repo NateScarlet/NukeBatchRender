@@ -32,16 +32,14 @@ class Controller(QObject):
         proxy_model = qmodel.FilesProxyModel(self)
         proxy_model.setSourceModel(model)
         self.model = proxy_model
+        self.output_model = qmodel.OutputFileModel(self)
 
         # Initiate render object.
         self.queue = render.Queue(self.model)
         self.slave = render.Slave(self.queue)
 
-        self.is_updating = False
-
-        self.model.layoutChanged.connect(self.update_model)
-        self.model.dataChanged.connect(self.update_model)
         self.slave.progressed.connect(self.queue.update_remains)
+        self.slave.progressed.connect(self.output_model.update)
 
     def start(self):
         """Start rendering.  """
@@ -58,18 +56,6 @@ class Controller(QObject):
         CONFIG['DIR'] = path
         self.model.sourceModel().setRootPath(path)
         self.root_changed.emit(path)
-
-    def update_model(self):
-        """Update directory model.  """
-
-        if self.is_updating:
-            return
-
-        self.is_updating = True
-        try:
-            self._update_model()
-        finally:
-            self.is_updating = False
 
     def enable_all(self):
         """Enable all tasks.  """
@@ -92,6 +78,3 @@ class Controller(QObject):
         for i in self.queue.task_iterator(indexes):
             if i.is_file_exists():
                 i.file.archive()
-
-    def _update_model(self):
-        self.model.sort(0)

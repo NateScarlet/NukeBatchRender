@@ -20,6 +20,20 @@ LOGGER = logging.getLogger(__name__)
 class FilesProxyModel(QSortFilterProxyModel):
     """Filter data by version.  """
 
+    def __init__(self, parent):
+        super(FilesProxyModel, self).__init__(parent)
+
+        self.layoutChanged.connect(self._sort)
+        self.dataChanged.connect(self._sort)
+        self.is_updating = False
+
+    def _sort(self):
+        if self.is_updating:
+            return
+        self.is_updating = True
+        self.sort(0)
+        self.is_updating = False
+
     def filterAcceptsRow(self, source_row, source_parent):
         """Override.  """
         # pylint: disable=invalid-name

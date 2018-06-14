@@ -91,6 +91,7 @@ class MainWindow(QMainWindow):
         self.tableView.setColumnWidth(0, 290)
         self.tableView.setColumnWidth(1, 80)
         self.tableView.setColumnWidth(2, 80)
+        self.listView.setModel(self.control.output_model)
         self.doubleSpinBoxMemory.setMaximum(
             psutil.virtual_memory().total / 2.0 ** 30)
         self.spinBoxThreads.setMaximum(psutil.cpu_count(logical=True))

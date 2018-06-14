@@ -46,7 +46,7 @@ class NukeHandler(BaseHandler):
         if sys.platform == 'win32':
             self._handle_werfault()
 
-    def match_result(self, text):
+    def parse_stdout(self, text):
         """Find output file.  """
 
         match = re.match('Writing (.+?) took (.+?) seconds', text)
@@ -85,7 +85,7 @@ class NukeHandler(BaseHandler):
             if not line:
                 break
 
-            self.match_result(line)
+            self.parse_stdout(line)
             self.stdout.emit(stylize(l10n(line), 'stdout'))
             self._match_stdout(line, context)
 

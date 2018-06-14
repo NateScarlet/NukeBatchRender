@@ -4,7 +4,8 @@ import logging
 from functools import wraps
 
 from pathlib2 import PurePath
-from sqlalchemy import TypeDecorator, Unicode, create_engine
+from sqlalchemy import (Column, ForeignKey, String, Table, TypeDecorator,
+                        Unicode, create_engine)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm.session import sessionmaker
 
@@ -14,6 +15,10 @@ from ..config import CONFIG
 Base = declarative_base()  # pylint: disable=invalid-name
 Session = sessionmaker()  # pylint: disable=invalid-name
 LOGGER = logging.getLogger(__name__)
+
+FILE_OUTPUT = Table('File-Output', Base.metadata,
+                    Column('file_hash', String, ForeignKey('File.hash')),
+                    Column('output_path', String, ForeignKey('Output.path')))
 
 
 def _skip_process_if_is_none(process):

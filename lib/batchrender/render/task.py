@@ -162,12 +162,14 @@ class NukeTask(model.Task, core.RenderObject):
         database.SESSION.commit()
 
     def on_output_updated(self, payload):
-        output_record = database.Output(
-            timestamp=time.time(),
-            file=self.file,
-            **payload
-        )
-        database.SESSION.add(output_record)
+        path = payload['path']
+
+        record = (database.SESSION.query(database.Output).get(path)
+                  or database.Output(path=path))
+        assert isinstance(record, database.Output)
+        record.timestamp = time.time()
+        record.files += [self.file]
+        database.SESSION.add(record)
 
     def _handle_render_error(self):
         self.error_count += 1

@@ -6,20 +6,23 @@ from __future__ import (absolute_import, division, print_function,
 
 from Qt.QtCore import QAbstractListModel, Qt
 
-from .. import database
+from .. import database as db
+from sqlalchemy import desc
+import pendulum
 
 
-class OutputFileModel(QAbstractListModel):
+class FileOutputModel(QAbstractListModel):
     """Model for output file data.  """
 
     def __init__(self, parent=None):
-        super(OutputFileModel, self).__init__(parent)
+        super(FileOutputModel, self).__init__(parent)
         self._data = []
 
     def update(self):
         """Update item from database.  """
 
-        data = database.SESSION.query(database.Output).all()
+        data = db.SESSION.query(db.Output).order_by(
+            desc(db.Output.timestamp)).all()
         if self._data != data:
             self.beginResetModel()
             self._data = data
@@ -36,10 +39,10 @@ class OutputFileModel(QAbstractListModel):
         row = index.row()
         # column = index.colomn()
         item = self._data[row]
-        assert isinstance(item, database.Output)
+        assert isinstance(item, db.Output)
 
         if role == Qt.DisplayRole:
-            return item.path.as_posix()
+            return '[{}]{}'.format(pendulum.from_timestamp(item.timestamp).diff_for_humans(locale='zh'), item.path.as_posix())
 
         return None
 

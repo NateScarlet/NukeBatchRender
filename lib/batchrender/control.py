@@ -32,7 +32,7 @@ class Controller(QObject):
         proxy_model = qmodel.FilesProxyModel(self)
         proxy_model.setSourceModel(model)
         self.model = proxy_model
-        self.output_model = qmodel.OutputFileModel(self)
+        self.output_model = qmodel.FileOutputModel(self)
 
         # Initiate render object.
         self.queue = render.Queue(self.model)

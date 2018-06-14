@@ -6,21 +6,18 @@ from __future__ import (absolute_import, division, print_function,
 
 import logging
 
-from sqlalchemy import Column, Float, ForeignKey, Integer
+from sqlalchemy import Column, Float
 from sqlalchemy.orm import relationship
 
-from .core import Base, Path, SerializableMixin
+from . import core
 
 LOGGER = logging.getLogger(__name__)
 
 
-class Output(Base, SerializableMixin):
+class Output(core.Base, core.SerializableMixin):
     """Output table.  """
 
     __tablename__ = 'Output'
-    id = Column(Integer, primary_key=True)  # pylint: disable = invalid-name
-    path = Column(Path)
+    path = Column(core.Path, primary_key=True)
     timestamp = Column(Float)
-    cost = Column(Float)
-    file_hash = Column(Integer, ForeignKey('File.hash'))
-    file = relationship('File')
+    files = relationship('File', secondary=core.FILE_OUTPUT)

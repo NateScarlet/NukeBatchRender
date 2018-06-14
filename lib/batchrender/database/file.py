@@ -18,7 +18,7 @@ from ..codectools import get_unicode as u
 from ..config import CONFIG
 from .core import Base, Path, SerializableMixin
 from .frame import Frame
-
+from . import core
 LOGGER = logging.getLogger(__name__)
 
 
@@ -33,8 +33,7 @@ class File(Base, SerializableMixin):
     last_cost = Column(Float)
     last_finish_time = Column(Float)
     path = Column(Path)
-    outputs = relationship('Output',
-                           back_populates='file')
+    outputs = relationship('Output', secondary=core.FILE_OUTPUT)
     frames = relationship('Frame',
                           back_populates='file')
 

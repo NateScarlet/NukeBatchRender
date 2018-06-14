@@ -132,8 +132,7 @@ class NukeTask(model.Task, core.RenderObject):
             first_frame = frame
             last_frame = first_frame + total - 1
             self.frames = total
-            self._update_estimate()
-            self._update_file_range(frame, last_frame)
+            self._update_file_range(first_frame, last_frame)
             self._set_state(model.PARTIAL,
                             self.range != self.file.range_text())
 
@@ -141,10 +140,12 @@ class NukeTask(model.Task, core.RenderObject):
             file=self.file, frame=frame, cost=cost, timestamp=time.time())
         database.SESSION.add(frame_record)
         database.util.throttle_commit(database.SESSION)
-        self._info_timestamp()
+
         self.progressed.emit(current * 100 / total)
 
     def on_progressed(self, value):
+        self._info_timestamp()
+        self._update_estimate()
         self.remains = (1.0 - value / 100.0) * self.estimate
 
     def on_started(self):

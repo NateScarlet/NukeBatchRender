@@ -54,7 +54,7 @@ def stylize(text, css_class=None):
     return CONSOLE_STYLE + text
 
 
-def timef(seconds):
+def timef(seconds, digits=None):
     """Return a nice representation fo given seconds.
 
     >>> print(timef(10.123))
@@ -63,16 +63,19 @@ def timef(seconds):
     1分40秒
     >>> print(timef(100000))
     27小时46分40秒
-    >>> print(timef(1.23456789))
+    >>> print(timef(1.23456789, 3))
     1.235秒
     """
 
-    ret = ''
     hour = seconds // 3600
     minute = seconds % 3600 // 60
-    seconds = round((seconds % 60 * 1000)) / 1000
+    seconds = seconds % 60
+    if digits is not None:
+        seconds = round(seconds, digits)
     if int(seconds) == seconds:
         seconds = int(seconds)
+
+    ret = ''
     if hour:
         ret += '{:.0f}小时'.format(hour)
     if minute:

@@ -87,10 +87,10 @@ class DirectoryModel(QFileSystemModel):
             value = '<i>无数据</i>' if value is None else value
             return row_template.format(label, value)
 
-        def _timef(seconds):
+        def _timef(seconds, digits=None):
             if seconds is None:
                 return None
-            return texttools.timef(int(seconds))
+            return texttools.timef(seconds, digits)
 
         file_record = self.data(index, core.ROLE_FILE)
         state = self.data(index, core.ROLE_STATE)
@@ -99,14 +99,14 @@ class DirectoryModel(QFileSystemModel):
         label = self.data(index, Qt.DisplayRole)
 
         rows = ['<tr><th colspan=2>{}</th></tr>'.format(label),
-                _row('预计耗时', _timef(estimate)), ]
+                _row('预计耗时', _timef(estimate, 0)), ]
         if file_record:
             rows.extend(
                 [
                     _row('内容散列值', file_record.hash),
                     _row('文件帧数', file_record.frame_count),
                     _row('文件范围', file_record.range_text()),
-                    _row('帧均耗时', _timef(file_record.average_frame_cost())),
+                    _row('帧均耗时', _timef(file_record.average_frame_cost(), 2)),
                 ]
             )
         if state & core.DOING and remains:

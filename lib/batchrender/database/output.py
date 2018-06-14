@@ -19,5 +19,5 @@ class Output(core.Base, core.SerializableMixin):
 
     __tablename__ = 'Output'
     path = Column(core.Path, primary_key=True)
-    timestamp = Column(Float)
+    timestamp = Column(core.TimeStamp)
     files = relationship('File', secondary=core.FILE_OUTPUT)

@@ -6,7 +6,7 @@ from __future__ import (absolute_import, division, print_function,
 
 import re
 from collections import namedtuple
-from functools import reduce
+from functools import reduce  # pylint: disable=redefined-builtin
 
 import six
 from six.moves import range
@@ -15,12 +15,15 @@ from six.moves import range
 class _FrameRangePart(namedtuple('FrameRangePart', ('first', 'last', 'increment'))):
     @property
     def is_single(self):
+        """If the part only has one frame.  """
         return self.first == self.last
 
     def __add__(self, other):
         return self.concact(other)
 
     def concact(self, other):
+        """Get concated part with other part.  """
+
         assert isinstance(other, _FrameRangePart), type(other)
 
         if self.is_single and other.is_single:
@@ -49,6 +52,8 @@ class _FrameRangePart(namedtuple('FrameRangePart', ('first', 'last', 'increment'
 
 @six.python_2_unicode_compatible
 class FrameRange(list):
+    """Nuke style frame range list.  """
+
     def __str__(self):
         """Nuke style frame range representation.  """
         return ' '.join(_format_part(i) for i in self._iter_parts())
@@ -78,6 +83,8 @@ class FrameRange(list):
 
     @classmethod
     def parse(cls, text):
+        """Get framerange from text.  """
+
         def _int(obj):
             if obj is None:
                 return obj

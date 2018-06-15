@@ -7,6 +7,7 @@ name = "pypi"
 pylint = "*"
 "autopep8" = "*"
 pyinstaller = "*"
+pytest = "*"
 
 [packages]
 pyside = "*"

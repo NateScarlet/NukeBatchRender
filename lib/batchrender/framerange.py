@@ -28,26 +28,31 @@ class _FrameRangePart(namedtuple('FrameRangePart', ('first', 'last', 'increment'
 
         if self.is_single and other.is_single:
             first, last = sorted([self.first, other.first])
-            return [_FrameRangePart(first=first, last=last, increment=last-first)]
+            increment = last - first
         elif self.is_single and other.first - other.increment == self.first:
-            first, last = self.first, other.last
-            return [_FrameRangePart(first=first, last=last, increment=other.increment)]
+            first = self.first
+            last = other.last
+            increment = other.increment
         elif self.is_single and other.last + other.increment == self.first:
-            first, last = other.first, self.first
-            return [_FrameRangePart(first=first, last=last, increment=other.increment)]
+            first = other.first
+            last = self.first
+            increment = other.increment
         elif other.is_single and self.last + self.increment == other.first:
-            first, last = self.first, other.first
-            return [_FrameRangePart(first=first, last=last, increment=self.increment)]
+            first = self.first
+            last = other.first
+            increment = self.increment
         elif other.is_single and self.first - self.increment == other.first:
-            first, last = other.first, self.last
-            return [_FrameRangePart(first=first, last=last, increment=self.increment)]
+            first = other.first
+            last = self.last
+            increment = self.increment
         elif self.increment == other.increment and (self.last + self.increment == other.first
                                                     or self.first - self.increment == other.last):
-            first, last = min(self.first, other.first), max(
-                self.last, other.last)
-            return [_FrameRangePart(first=first, last=last, increment=self.increment)]
-
-        return [self, other]
+            first = min(self.first, other.first)
+            last = max(self.last, other.last)
+            increment = self.increment
+        else:
+            return [self, other]
+        return [_FrameRangePart(first=first, last=last, increment=increment)]
 
 
 @six.python_2_unicode_compatible

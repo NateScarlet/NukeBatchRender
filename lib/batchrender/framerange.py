@@ -93,7 +93,7 @@ class FrameRange(list):
         ret = []
         for i in text.split(' '):
 
-            match = re.match(r'(\d+)(?:-(\d+))?(?:x(\d+))?', i)
+            match = re.match(r'(-?\d+)(?:-(-?\d+))?(?:x(-?\d+))?', i)
             if not match:
                 raise ValueError('Can not parse.', i)
             first, last, increment = [_int(i) for i in match.groups()]

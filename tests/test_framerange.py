@@ -16,6 +16,7 @@ def test_framerange():
         ([1, 2, 3, 5, 6], '1-3 5-6'),
         ([1, 3, 5, 7, 9], '1-9x2'),
         ([1, 3, 5, 7, 9, 10, 11], '1-9x2 10-11'),
+        ([-1, 0, 1, 3, 5, 7, 9, 10, 11], '-1-1 3-9x2 10-11'),
     ]
     for frames, range_text in cases:
         frange = framerange.FrameRange(frames)

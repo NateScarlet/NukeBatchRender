@@ -16,7 +16,7 @@ sqlalchemy = "*"
 "pathlib2" = "*"
 psutil = "*"
 win-unicode-console = {version = "*", sys_platform = "== 'win32'"}
-pendulum = "*"
+"7fcf883" = {file = "https://github.com/NateScarlet/pendulum/files/2105590/pendulum-2.0.3.tar.gz"}
 
 [requires]
 python_version = "2.7"

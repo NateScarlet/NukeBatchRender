@@ -104,7 +104,8 @@ class Task(QObject):
         if not self.range:
             self.range = self.file.range()
         if self.file.has_sequence():
-            self.range -= self.file.rendered_frames()
+            remains = self.range - self.file.rendered_frames()
+            self.range = remains or self.range
 
     def _update_estimate(self):
         ret = self.file.estimate_cost(self.frames)

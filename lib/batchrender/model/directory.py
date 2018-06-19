@@ -149,7 +149,7 @@ class DirectoryModel(QFileSystemModel):
             if role == core.ROLE_RANGE and not isinstance(value, FrameRange):
                 value = FrameRange.parse(value)
             return value
-        except ValueError:
+        except (ValueError, AttributeError):
             return default
 
     def _get_foreground_data(self, index):

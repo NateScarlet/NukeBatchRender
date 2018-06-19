@@ -1,6 +1,9 @@
 # -*- coding=UTF-8 -*-
 """Testing database.  """
 
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
 
 import random
 
@@ -47,4 +50,45 @@ def test_rendered_frams(session):
         session.add(output_obj)
 
     result = file_obj.rendered_frames()
-    assert result == sorted(frames)
+    assert sorted(result) == sorted(frames)
+
+
+def test_file_sequence_pattern(session):
+    frames = set(random.randint(0, 100) for _ in xrange(100))
+    file_obj = database.File(hash='abc')
+    session.add(file_obj)
+
+    cases = [
+        'test.%d.exr',
+        'test%d.exr',
+        'test1.%d.exr',
+        'test2%04d.exr',
+        '测试3%d.exr',
+    ]
+    for i in frames:
+        for j in cases:
+            output_obj = database.Output(
+                path=database.output.format_sequence(j, i), frame=i, files=[file_obj])
+            session.add(output_obj)
+    session.commit()
+    result = file_obj.get_sequence_pattern()
+    assert result == sorted(cases)
+
+
+def test_output(session):
+    case = [
+        'test.%d.exr',
+        'test%d.exr',
+        'test1%d.exr',
+        'test%04d.exr',
+        '测试1%d.exr',
+        '001/test%04d.exr',
+    ]
+    for i in case:
+        files = [database.Output(path=database.output.format_sequence(
+            i, j), frame=j) for j in range(-100, 100)]
+        session.add_all(files)
+        session.commit()
+        assert database.output.get_sequence_pattern(files) == [i], i
+        _ = [session.delete(i) for i in files]
+        session.commit()

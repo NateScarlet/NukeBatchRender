@@ -287,8 +287,10 @@ class MainWindow(QMainWindow):
 
         if text in ('关机', '休眠', 'Deadline'):
             self.checkBoxPriority.setCheckState(Qt.Unchecked)
+            self.spinBoxThreads.setValue(self.spinBoxThreads.maximum())
         else:
             self.checkBoxPriority.setCheckState(Qt.Checked)
+            self.spinBoxThreads.setValue(self.spinBoxThreads.maximum() // 2)
 
     @Slot()
     def on_slave_time_out(self):

@@ -17,6 +17,7 @@ from Qt.QtCore import QObject, Signal
 from ..config import CONFIG
 from ..texttools import l10n, stylize
 from ..threadtools import run_async
+from ..codectools import get_unicode as u
 
 LOGGER = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class NukeHandler(BaseHandler):
         if sys.platform == 'win32':
             self._handle_werfault()
 
-    def parse_stdout(self, text):
+    def parse_stdout(self, text, **context):
         """Find output file.  """
 
         match = re.match('Writing (.+?) took (.+?) seconds', text)
@@ -54,6 +55,7 @@ class NukeHandler(BaseHandler):
             payload = {
                 'path': match.group(1),
                 'cost': match.group(2),
+                'frame': context['current']
             }
             self.output_updated.emit(payload)
 
@@ -61,7 +63,7 @@ class NukeHandler(BaseHandler):
     def _handle_stderr(self):
         LOGGER.debug('Start handle stderr.')
         while True:
-            line = self.proc.stderr.readline()
+            line = u(self.proc.stderr.readline())
             if not line:
                 break
 
@@ -80,18 +82,23 @@ class NukeHandler(BaseHandler):
         start_time = time.clock()
         context['last_frame_time'] = start_time
 
+        frame_lines = []
+
         while True:
-            line = self.proc.stdout.readline()
+            line = u(self.proc.stdout.readline())
             if not line:
                 break
 
-            self.parse_stdout(line)
             self.stdout.emit(stylize(l10n(line), 'stdout'))
-            self._match_stdout(line, context)
+            if self._match_frame_finish(line, context):
+                _ = [self.parse_stdout(i, **context) for i in frame_lines]
+                frame_lines = []
+            else:
+                frame_lines.append(line)
 
         LOGGER.debug('Finished thread: handle_stdout')
 
-    def _match_stdout(self, line, context, **data):
+    def _match_frame_finish(self, line, context, **data):
         match = re.match(r'Frame (\d+) \((\d+) of (\d+)\)', line)
 
         if match:
@@ -103,7 +110,11 @@ class NukeHandler(BaseHandler):
             data['cost'] = now - context['last_frame_time']
 
             self.frame_finished.emit(data)
+            context['current'] = data['current']
             context['last_frame_time'] = now
+
+            return True
+        return False
 
     def _handle_werfault(self):
         if self.proc.poll() is not None:

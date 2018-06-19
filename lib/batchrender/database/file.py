@@ -18,6 +18,8 @@ from ..codectools import get_unicode as u
 from ..config import CONFIG
 from .core import Base, Path, SerializableMixin
 from .frame import Frame
+from ..framerange import FrameRange
+from .output import Output
 from . import core
 LOGGER = logging.getLogger(__name__)
 
@@ -49,13 +51,13 @@ class File(Base, SerializableMixin):
             return last - first + 1
         return None
 
-    def range_text(self):
+    def range(self):
         """File range represition text, returns `None` if not avaliable. """
 
         first, last = self.first_frame, self.last_frame
         if first is None or last is None:
             return None
-        return '{}-{}'.format(first, last) if first != last else six.text_type(first)
+        return FrameRange(range(first, last+1))
 
     def average_frame_cost(self):
         """Average frame cost for this file.  """
@@ -104,6 +106,18 @@ class File(Base, SerializableMixin):
 
         path = self.path
         return '{}.{}{}'.format(u(path.stem), self.hash[:8], u(path.suffix))
+
+    def has_sequence(self):
+        sess = object_session(self)
+        count = sess.query(Output.frame).filter(
+            Output.files.contains(self)).distinct().count()
+        return count > 1
+
+    def rendered_frames(self):
+        sess = object_session(self)
+        frames = [i for i, in sess.query(Output.frame).filter(
+            Output.files.contains(self)).distinct().order_by(Output.frame).all()]
+        return FrameRange(frames)
 
     @classmethod
     def from_path(cls, path, session):

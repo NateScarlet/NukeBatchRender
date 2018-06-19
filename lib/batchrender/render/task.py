@@ -134,7 +134,7 @@ class NukeTask(model.Task, core.RenderObject):
             self.frames = total
             self._update_file_range(first_frame, last_frame)
             self._set_state(model.PARTIAL,
-                            self.range != self.file.range_text())
+                            self.range != self.file.range())
 
         frame_record = database.Frame(
             file=self.file, frame=frame, cost=cost, timestamp=time.time())
@@ -163,13 +163,16 @@ class NukeTask(model.Task, core.RenderObject):
 
     def on_output_updated(self, payload):
         path = payload['path']
+        frame = payload['frame']
 
         record = (database.SESSION.query(database.Output).get(path)
                   or database.Output(path=path))
         assert isinstance(record, database.Output)
         record.timestamp = time.time()
         record.files += [self.file]
+        record.frame = frame
         database.SESSION.add(record)
+        database.SESSION.commit()
 
     def _handle_render_error(self):
         self.error_count += 1

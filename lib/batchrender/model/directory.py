@@ -10,6 +10,9 @@ from Qt.QtWidgets import QFileSystemModel
 
 from . import core
 from .. import texttools
+from ..framerange import FrameRange
+
+from ..codectools import get_unicode as u
 
 
 class DirectoryModel(QFileSystemModel):
@@ -73,7 +76,7 @@ class DirectoryModel(QFileSystemModel):
             key = self._data_key(index)
             return self.columns[role].get(key, _column_default(index, role))
         elif role in (Qt.DisplayRole, Qt.EditRole):
-            return self._custom_data(index, role)
+            return self._custom_data(index)
         elif role == Qt.TextAlignmentRole:
             return Qt.AlignVCenter
         return super(DirectoryModel, self).data(index, role)
@@ -105,7 +108,7 @@ class DirectoryModel(QFileSystemModel):
                 [
                     _row('内容散列值', file_record.hash),
                     _row('文件帧数', file_record.frame_count),
-                    _row('文件范围', file_record.range_text()),
+                    _row('文件范围', file_record.range()),
                     _row('帧均耗时', _timef(file_record.average_frame_cost(), 2)),
                 ]
             )
@@ -134,10 +137,20 @@ class DirectoryModel(QFileSystemModel):
                 and role in (Qt.DisplayRole, Qt.EditRole)):
             role = self.header_roles[index.column()]
         if role in self.columns:
-            self.columns[role][key] = value
+            self.columns[role][key] = self._parse_data(
+                value, role, _column_default(index, role))
             self.dataChanged.emit(index, index)
             return True
         return super(DirectoryModel, self).setData(index, value, role)
+
+    @staticmethod
+    def _parse_data(value, role, default):
+        try:
+            if role == core.ROLE_RANGE and not isinstance(value, FrameRange):
+                value = FrameRange.parse(value)
+            return value
+        except ValueError:
+            return default
 
     def _get_foreground_data(self, index):
         status = self.data(index, core.ROLE_STATE)
@@ -173,18 +186,24 @@ class DirectoryModel(QFileSystemModel):
     def _data_key(self, index):
         return super(DirectoryModel, self).data(index, self.FilePathRole)
 
-    def _custom_data(self, index, role):
+    def _custom_data(self, index):
         column_index = index.column()
         role = self.header_roles[column_index]
         if role in self.columns:
-            return self.data(index, role)
+            ret = self.data(index, role)
+            return self._format_custom_data(ret)
         return super(DirectoryModel, self).data(index, role)
+
+    def _format_custom_data(self, value):
+        if isinstance(value, FrameRange):
+            value = u(value)
+        return value
 
 
 def _column_default(index, role):
     defaults = {
         core.ROLE_PRIORITY: 0,
-        core.ROLE_RANGE: '',
+        core.ROLE_RANGE: None,
         core.ROLE_STATE: 0b0,
         core.ROLE_ERROR_COUNT: 0,
     }

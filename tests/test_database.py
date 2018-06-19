@@ -2,8 +2,9 @@
 """Testing database.  """
 
 
-import pytest
 import random
+
+import pytest
 
 from batchrender import database
 

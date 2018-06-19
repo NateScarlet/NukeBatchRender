@@ -18,6 +18,12 @@ class _FrameRangePart(namedtuple('FrameRangePart', ('first', 'last', 'increment'
         """If the part only has one frame.  """
         return self.first == self.last
 
+    @property
+    def is_double(self):
+        """If the part only has two frame.  """
+
+        return abs(self.last - self.first) == self.increment
+
     def __add__(self, other):
         return self.concact(other)
 
@@ -50,13 +56,28 @@ class _FrameRangePart(namedtuple('FrameRangePart', ('first', 'last', 'increment'
             first = min(self.first, other.first)
             last = max(self.last, other.last)
             increment = self.increment
+        elif self.is_double and self.last + other.increment == other.first:
+            return [_FrameRangePart(first=self.first,
+                                    last=self.first,
+                                    increment=1),
+                    _FrameRangePart(first=self.last,
+                                    last=other.last,
+                                    increment=other.increment)]
+        elif self.is_double:
+            return [_FrameRangePart(first=self.first,
+                                    last=self.first,
+                                    increment=1),
+                    _FrameRangePart(first=self.last,
+                                    last=self.last,
+                                    increment=1),
+                    other]
         else:
             return [self, other]
         return [_FrameRangePart(first=first, last=last, increment=increment)]
 
 
 @six.python_2_unicode_compatible
-class FrameRange(list):
+class FrameRange(set):
     """Nuke style frame range list.  """
 
     def __str__(self):
@@ -66,24 +87,13 @@ class FrameRange(list):
     def _iter_parts(self):
         frames = sorted(self)
         parts = (_FrameRangePart(first=i, last=i, increment=1) for i in frames)
-        if len(frames) == 1:
+        if (len(frames) == 1
+                or (len(frames) == 2
+                    and frames[1] - frames[0] != 1)):
             return parts
         return reduce(_concat_part, parts)
 
-    def intersection(self, other):
-        """Create intersection with other frame range.  """
-
-        return FrameRange([i for i in self if i in other])
-
-    def __and__(self, other):
-        return self.intersection(other)
-
-    def union(self, other):
-        """Create union with other frame range.  """
-
-        return FrameRange(sorted([self + other]))
-
-    def __or__(self, other):
+    def __add__(self, other):
         return self.union(other)
 
     @classmethod

@@ -6,7 +6,7 @@ from __future__ import (absolute_import, division, print_function,
 
 import logging
 
-from sqlalchemy import Column, Float
+from sqlalchemy import Column, Integer
 from sqlalchemy.orm import relationship
 
 from . import core
@@ -20,4 +20,5 @@ class Output(core.Base, core.SerializableMixin):
     __tablename__ = 'Output'
     path = Column(core.Path, primary_key=True)
     timestamp = Column(core.TimeStamp)
+    frame = Column(Integer)
     files = relationship('File', secondary=core.FILE_OUTPUT)

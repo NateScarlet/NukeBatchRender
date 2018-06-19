@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "813f5b44d875d3856ca2ab21fc348b70301214ad84d01b518833bc590af31b6c"
+            "sha256": "b026d9543a5456f804c41d97daad7787e316db077287a31b37c898b2a7e2b189"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -16,8 +16,8 @@
         ]
     },
     "default": {
-        "7fcf883": {
-            "file": "https://github.com/NateScarlet/pendulum/files/2105590/pendulum-2.0.3.tar.gz"
+        "90503d6": {
+            "file": "https://github.com/NateScarlet/pendulum/files/2105726/pendulum-2.0.3.tar.gz"
         },
         "pathlib2": {
             "hashes": [
@@ -144,7 +144,7 @@
                 "sha256:9d98697f088eb1b0fa451391f91afb5e3ebde16bbdb272819fd091151fda4f1a",
                 "sha256:f0b0e4eba956de51238e17573b7087e852dfe9854afd2e9c873f73fc0ca0a6dd"
             ],
-            "markers": "python_version == '2.7'",
+            "markers": "python_version < '3.4'",
             "version": "==1.5"
         },
         "colorama": {

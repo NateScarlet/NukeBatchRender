@@ -4,11 +4,11 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-import pendulum
 from Qt.QtCore import QAbstractListModel, Qt
 from sqlalchemy import desc
 
 from .. import database as db
+from ..codectools import get_unicode as u
 
 
 class FileOutputModel(QAbstractListModel):
@@ -42,7 +42,8 @@ class FileOutputModel(QAbstractListModel):
         assert isinstance(item, db.Output)
 
         if role == Qt.DisplayRole:
-            return '[{}]{}'.format(item.timestamp.diff_for_humans(locale='zh'), item.path.as_posix())
+            return '[{}]{}'.format(item.timestamp.diff_for_humans(locale='zh'),
+                                   u(item.path.as_posix()))
 
         return None
 

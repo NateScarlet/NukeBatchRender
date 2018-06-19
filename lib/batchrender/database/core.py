@@ -3,6 +3,7 @@
 import logging
 from functools import wraps
 
+import pendulum
 from pathlib2 import PurePath
 from sqlalchemy import (Column, Float, ForeignKey, String, Table,
                         TypeDecorator, Unicode, create_engine)
@@ -19,8 +20,6 @@ LOGGER = logging.getLogger(__name__)
 FILE_OUTPUT = Table('File-Output', Base.metadata,
                     Column('file_hash', String, ForeignKey('File.hash')),
                     Column('output_path', String, ForeignKey('Output.path')))
-
-import pendulum
 
 
 def _skip_process_if_is_none(process):
@@ -54,22 +53,20 @@ class Path(TypeDecorator):
 
 
 class TimeStamp(TypeDecorator):
-    """Path type."""
+    """TimeStamp type."""
     # pylint: disable=abstract-method
 
     impl = Float
 
     @_skip_process_if_is_none
     def process_bind_param(self, value, dialect):
-        if isinstance(value, float):
-            value = pendulum.from_timestamp(value)
-        assert isinstance(value, pendulum.DateTime), type(value)
-        return value.timestamp()
+        if isinstance(value, pendulum.DateTime):
+            value = value.timestamp()
+        return value
 
     @_skip_process_if_is_none
     def process_result_value(self, value, dialect):
-
-        return pendulum.from_timestamp(value)
+        return pendulum.from_timestamp(float(value))
 
 
 class SerializableMixin(object):
@@ -94,5 +91,4 @@ def setup(engine_uri=None):
     LOGGER.debug('Bind to engine: %s', engine_uri)
     engine = create_engine(engine_uri)
     Session.configure(bind=engine)
-    engine.execute('DROP TABLE Output')
     Base.metadata.create_all(engine)

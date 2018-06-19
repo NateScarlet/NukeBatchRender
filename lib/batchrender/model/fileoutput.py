@@ -11,9 +11,10 @@ from Qt.QtCore import QAbstractListModel, Qt
 from sqlalchemy import desc
 
 from .. import database as db
+from ..framerange import FrameRange
 from ..codectools import get_unicode as u
 
-Sequence = namedtuple('sequence', ('path', 'timestamp'))
+Sequence = namedtuple('sequence', ('path', 'timestamp', 'range'))
 
 
 class FileOutputModel(QAbstractListModel):
@@ -34,7 +35,8 @@ class FileOutputModel(QAbstractListModel):
             if len(v) == 1:
                 data.append(v[0])
             else:
-                sequences = Sequence(PurePath(k), max(i.timestamp for i in v))
+                sequences = Sequence(PurePath(k), max(
+                    i.timestamp for i in v), FrameRange(i.frame for i in v))
                 data.append(sequences)
 
         data.sort(key=lambda x: x.timestamp, reverse=True)
@@ -59,7 +61,11 @@ class FileOutputModel(QAbstractListModel):
         if role == Qt.DisplayRole:
             return item.path.name
         elif role == Qt.ToolTipRole:
-            return '\n'.join([item.timestamp.diff_for_humans(locale='zh'), u(item.path.as_posix())])
+            rows = [item.timestamp.diff_for_humans(
+                locale='zh'), u(item.path.as_posix())]
+            if isinstance(item, Sequence):
+                rows.append('范围: {}'.format(item.range))
+            return '\n'.join(rows)
         elif role == Qt.EditRole:
             return item
         return None

@@ -8,7 +8,6 @@ from Qt.QtCore import QAbstractListModel, Qt
 from sqlalchemy import desc
 
 from .. import database as db
-from ..codectools import get_unicode as u
 
 
 class FileOutputModel(QAbstractListModel):
@@ -42,9 +41,11 @@ class FileOutputModel(QAbstractListModel):
         assert isinstance(item, db.Output)
 
         if role == Qt.DisplayRole:
-            return '[{}]{}'.format(item.timestamp.diff_for_humans(locale='zh'),
-                                   u(item.path.as_posix()))
-
+            return item.path.name
+        elif role == Qt.ToolTipRole:
+            return item.timestamp.diff_for_humans(locale='zh')
+        elif role == Qt.EditRole:
+            return item
         return None
 
     def flags(self, _):

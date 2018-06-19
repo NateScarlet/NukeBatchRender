@@ -125,6 +125,7 @@ class MainWindow(QMainWindow):
         self.pushButtonStop.clicked.connect(self.on_stop_button_clicked)
 
         self.textBrowser.anchorClicked.connect(open_path)
+        self.listView.doubleClicked.connect(self.on_list_item_double_clicked)
 
         self.control.slave.stdout.connect(self.textBrowser.append)
         self.control.slave.stderr.connect(self.textBrowser.append)
@@ -347,6 +348,11 @@ class MainWindow(QMainWindow):
 
         actions.get(after_finish,
                     lambda: LOGGER.error('Not found match action for %s', after_finish))()
+
+    def on_list_item_double_clicked(self, index):
+        model = self.listView.model()
+        item = model.data(index, Qt.EditRole)
+        webbrowser.open(item.path.parent.as_posix())
 
     # Events.
     def dragEnterEvent(self, event):

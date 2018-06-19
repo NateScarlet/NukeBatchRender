@@ -148,9 +148,6 @@ class NukeTask(model.Task, core.RenderObject):
         self._update_estimate()
         self.remains = (1.0 - value / 100.0) * self.estimate
 
-    def on_started(self):
-        self._info_timestamp()
-
     def on_finished(self):
         if self.is_stopping:
             return

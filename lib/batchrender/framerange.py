@@ -87,7 +87,7 @@ class FrameRange(set):
     def _iter_parts(self):
         frames = sorted(self)
         parts = (_FrameRangePart(first=i, last=i, increment=1) for i in frames)
-        if (len(frames) == 1
+        if (len(frames) <= 1
                 or (len(frames) == 2
                     and frames[1] - frames[0] != 1)):
             return parts

@@ -55,7 +55,7 @@ class NukeHandler(BaseHandler):
             payload = {
                 'path': match.group(1),
                 'cost': match.group(2),
-                'frame': context['current']
+                'frame': context['frame']
             }
             self.output_updated.emit(payload)
 
@@ -110,7 +110,7 @@ class NukeHandler(BaseHandler):
             data['cost'] = now - context['last_frame_time']
 
             self.frame_finished.emit(data)
-            context['current'] = data['current']
+            context['frame'] = data['frame']
             context['last_frame_time'] = now
 
             return True

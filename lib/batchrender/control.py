@@ -33,6 +33,7 @@ class Controller(QObject):
         proxy_model.setSourceModel(model)
         self.model = proxy_model
         self.output_model = qmodel.FileOutputModel(self)
+        self.output_model.update()
 
         # Initiate render object.
         self.queue = render.Queue(self.model)

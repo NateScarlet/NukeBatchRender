@@ -58,6 +58,6 @@ def convert_to_mov(src, dst, start_number):
     kwargs = {}
     if sys.platform == 'win32':
         kwargs['creationflags'] = CREATE_NEW_CONSOLE
-        command = ['cmd', '/c'] + command + ['&&', 'PAUSE']
+        command = ['cmd', '/c'] + command + ['||', 'PAUSE']
     command = [e(i) for i in command]
     filetools.popen(command, **kwargs)

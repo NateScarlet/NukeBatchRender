@@ -11,7 +11,7 @@ from subprocess import CREATE_NEW_CONSOLE, PIPE, Popen, call
 from Qt.QtWidgets import QMessageBox
 
 from . import filetools
-from .codectools import get_unicode
+from .codectools import get_unicode, get_encoded as e
 
 LOGGER = logging.getLogger('actions')
 
@@ -41,17 +41,23 @@ def shutdown():
         call('shutdown')
 
 
-def convert_to_mov(src, dst):
+def convert_to_mov(src, dst, start_number):
     """Convert sequence to mov, use ffmpeg.  """
 
     try:
         filetools.popen(['ffmpeg', '-version'])
     except OSError:
         raise RuntimeError('FFmpeg is not installed.')
-    filetools.popen(['ffmpeg', '-y',
-                     '-gamma', '2.2',
-                     '-pix_fmt', 'yuv420p',
-                     '-i', src,
-                     '-vcodec', 'prores', '-profile:3',
-                     '-o', dst],
-                    creationflags=CREATE_NEW_CONSOLE)
+    command = ['ffmpeg', '-y',
+               '-gamma', '2.2',
+               '-pix_fmt', 'yuv420p',
+               '-start_number', start_number,
+               '-i', src,
+               '-vcodec', 'prores', '-profile:3',
+               '-o', dst]
+    kwargs = {}
+    if sys.platform == 'win32':
+        kwargs['creationflags'] = CREATE_NEW_CONSOLE
+        command = ['cmd', '/c'] + command + ['&&', 'PAUSE']
+    command = [e(i) for i in command]
+    filetools.popen(command, **kwargs)

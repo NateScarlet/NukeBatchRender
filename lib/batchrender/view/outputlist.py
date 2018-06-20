@@ -44,8 +44,8 @@ class OutputListView(UnicodeTrMixin, QListView):
         )
         if not dst:
             return
-        src = u(item.path)
-        self.control.convert_to_mov(src, dst)
+
+        self.control.sequence_to_mov(item, dst)
 
     def convert_to_mov_in_situ(self, item):
         """Convert sequence to mov in situ.  """
@@ -56,5 +56,5 @@ class OutputListView(UnicodeTrMixin, QListView):
                 return _without_suffix(ret)
             return ret
         dst = u(_without_suffix(item.path).with_suffix('.mov'))
-        src = u(item.path)
-        self.control.convert_to_mov(src, dst)
+
+        self.control.sequence_to_mov(item, dst)

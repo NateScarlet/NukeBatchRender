@@ -11,8 +11,10 @@ from Qt.QtWidgets import QMessageBox
 
 from . import model as qmodel
 from . import actions, filetools, render
+from .codectools import get_unicode as u
 from .config import CONFIG
 from .mixin import UnicodeTrMixin
+from .model.fileoutput import Sequence
 
 LOGGER = logging.getLogger(__name__)
 
@@ -82,11 +84,14 @@ class Controller(UnicodeTrMixin, QObject):
             if i.is_file_exists():
                 i.file.archive()
 
-    def convert_to_mov(self, src, dst):
+    def sequence_to_mov(self, sequence, dst):
         """Execute sequece convert.  """
 
+        assert isinstance(sequence, Sequence), type(sequence)
         try:
-            actions.convert_to_mov(src, dst)
+            src = u(sequence.path)
+            start_number = min(sequence.range)
+            actions.convert_to_mov(src, dst, start_number)
         except RuntimeError:
             QMessageBox.critical(None, self.tr('Can not convert.'), self.tr(
                 'This feature need FFMPEG installed.'))

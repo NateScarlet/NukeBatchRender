@@ -6,10 +6,12 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import atexit
+import locale
 import logging
 import sys
 from subprocess import call
 
+import pendulum
 from Qt import QtCore
 from Qt.QtWidgets import QApplication
 
@@ -28,6 +30,12 @@ def _set_default_encoding(encoding='utf-8'):
         sys.setdefaultencoding(encoding)
 
 
+def set_locale():
+    """Set locale.  """
+
+    pendulum.set_locale(locale.getdefaultlocale()[0])
+
+
 def install_translator(app):
     """Install translator on app.  """
 
@@ -41,6 +49,7 @@ def main():
     setattr(sys.modules[__name__], '__SINGLETON', singleton.SingleInstance())
     _set_default_encoding()
     _set_logger()
+    set_locale()
     mimetool.setup()
 
     atexit.register(lambda: LOGGER.debug('Python exit.'))

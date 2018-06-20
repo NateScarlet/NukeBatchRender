@@ -4,15 +4,14 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+import pendulum
 from Qt.QtCore import QDir, Qt
 from Qt.QtGui import QBrush, QColor
 from Qt.QtWidgets import QFileSystemModel
 
 from . import core
-from .. import texttools
-from ..framerange import FrameRange
-
 from ..codectools import get_unicode as u
+from ..framerange import FrameRange
 
 
 class DirectoryModel(QFileSystemModel):
@@ -90,10 +89,10 @@ class DirectoryModel(QFileSystemModel):
             value = '<i>无数据</i>' if value is None else value
             return row_template.format(label, value)
 
-        def _timef(seconds, digits=None):
+        def _timef(seconds):
             if seconds is None:
                 return None
-            return texttools.timef(seconds, digits)
+            return pendulum.duration(seconds=seconds).in_words()
 
         file_record = self.data(index, core.ROLE_FILE)
         state = self.data(index, core.ROLE_STATE)
@@ -102,14 +101,14 @@ class DirectoryModel(QFileSystemModel):
         label = self.data(index, Qt.DisplayRole)
 
         rows = ['<tr><th colspan=2>{}</th></tr>'.format(label),
-                _row('预计耗时', _timef(estimate, 0)), ]
+                _row('预计耗时', _timef(estimate)), ]
         if file_record:
             rows.extend(
                 [
                     _row('内容散列值', file_record.hash),
                     _row('文件帧数', file_record.frame_count),
                     _row('文件范围', file_record.range()),
-                    _row('帧均耗时', _timef(file_record.average_frame_cost(), 2)),
+                    _row('帧均耗时', _timef(file_record.average_frame_cost())),
                 ]
             )
         if state & core.DOING and remains:

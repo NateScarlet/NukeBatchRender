@@ -12,6 +12,7 @@ import sys
 import webbrowser
 from functools import wraps
 
+import pendulum
 import psutil
 from Qt import QtCompat
 from Qt.QtCore import Qt, QUrl, Signal, Slot
@@ -24,8 +25,8 @@ from ..actions import hiber, shutdown
 from ..codectools import get_unicode as u
 from ..config import CONFIG
 from ..control import Controller
-from ..texttools import stylize, timef
 from ..mixin import UnicodeTrMixin
+from ..texttools import stylize
 from .outputlist import OutputListView
 from .title import Title
 
@@ -191,7 +192,8 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
     def on_queue_remains_changed(self, value):
         """Set remains info on button: start, stop."""
 
-        text = ('[{}]'.format(timef(int(value))) if value else '')
+        text = ('[{}]'.format(pendulum.duration(
+            seconds=value).in_words()) if value else '')
         self.pushButtonStart.setText(self.tr('Start') + text)
         self.pushButtonStop.setText(self.tr('Stop') + text)
 

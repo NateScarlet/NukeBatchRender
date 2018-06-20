@@ -61,8 +61,7 @@ class FileOutputModel(QAbstractListModel):
         if role == Qt.DisplayRole:
             return item.path.name
         elif role == Qt.ToolTipRole:
-            rows = [item.timestamp.diff_for_humans(
-                locale='zh'), u(item.path.as_posix())]
+            rows = [item.timestamp.diff_for_humans(), u(item.path.as_posix())]
             if isinstance(item, Sequence):
                 rows.append('范围: {}'.format(item.range))
             return '\n'.join(rows)

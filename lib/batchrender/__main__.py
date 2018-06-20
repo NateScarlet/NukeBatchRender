@@ -7,7 +7,6 @@ from __future__ import (absolute_import, division, print_function,
 
 import atexit
 import logging
-import os
 import sys
 from subprocess import call
 
@@ -29,11 +28,6 @@ def _set_default_encoding(encoding='utf-8'):
         sys.setdefaultencoding(encoding)
 
 
-def _setup_env():
-    if getattr(sys, 'frozen', False):
-        os.environ['QT_PREFERRED_BINDING'] = 'PySide'
-
-
 def install_translator(app):
     """Install translator on app.  """
 
@@ -48,7 +42,6 @@ def main():
     _set_default_encoding()
     _set_logger()
     mimetool.setup()
-    _setup_env()
 
     atexit.register(lambda: LOGGER.debug('Python exit.'))
     app = QApplication.instance()

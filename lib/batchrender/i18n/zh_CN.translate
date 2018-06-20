@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE TS>
+<TS version="2.0" language="zh_CN">
+<context>
+    <name>Controller</name>
+    <message>
+        <location filename="../control.py" line="91"/>
+        <source>Can not convert.</source>
+        <translation>无法转换.</translation>
+    </message>
+    <message>
+        <location filename="../control.py" line="92"/>
+        <source>This feature need FFMPEG installed.</source>
+        <translation>此功能需安装FFMPEG.</translation>
+    </message>
+</context>
+<context>
+    <name>MainWindow</name>
+    <message>
+        <location filename="../view/mainwindow.py" line="195"/>
+        <source>Start</source>
+        <translation>启动</translation>
+    </message>
+    <message>
+        <location filename="../view/mainwindow.py" line="196"/>
+        <source>Stop</source>
+        <translation>停止</translation>
+    </message>
+</context>
+<context>
+    <name>OutputListView</name>
+    <message>
+        <location filename="../view/outputlist.py" line="42"/>
+        <source>Choose mov save path</source>
+        <translation>选择mov保存路径</translation>
+    </message>
+    <message>
+        <location filename="../view/outputlist.py" line="29"/>
+        <source>Convert to mov...</source>
+        <translation>mov转码...</translation>
+    </message>
+    <message>
+        <location filename="../view/outputlist.py" line="32"/>
+        <source>Convert to mov in situ</source>
+        <translation>mov转码至同文件夹</translation>
+    </message>
+</context>
+<context>
+    <name>Title</name>
+    <message>
+        <location filename="../view/title.py" line="63"/>
+        <source>NukeBatchRender</source>
+        <translation>Nuke批渲染</translation>
+    </message>
+</context>
+</TS>

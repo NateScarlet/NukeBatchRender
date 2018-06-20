@@ -6,20 +6,21 @@ from __future__ import (absolute_import, division, print_function,
 
 import logging
 
-from Qt.QtCore import QTimer
+from Qt.QtCore import QTimer, QObject
 
 from ..__about__ import __version__
 from ..control import Controller
+from ..mixin import UnicodeTrMixin
+
 LOGGER = logging.getLogger(__name__)
 
 
-class Title(object):
+class Title(UnicodeTrMixin, QObject):
     """Window title.  """
-
-    default_text = 'Nuke批渲染'
 
     def __init__(self, control, parent):
         assert isinstance(control, Controller), type(control)
+        super(Title, self).__init__(parent)
 
         self.parent = parent
         self.control = control
@@ -57,7 +58,7 @@ class Title(object):
         if task:
             return task.label
         self.title_index = 0
-        return self.default_text
+        return self.tr('NukeBatchRender')
 
     def rotate_text(self):
         """Rotate title text.  """

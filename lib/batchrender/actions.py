@@ -1,15 +1,16 @@
 # -*- coding=UTF-8 -*-
-"""After render actions.  """
+"""External actions.  """
 
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import logging
 import sys
-from subprocess import PIPE, Popen, call
+from subprocess import CREATE_NEW_CONSOLE, PIPE, Popen, call
 
 from Qt.QtWidgets import QMessageBox
 
+from . import filetools
 from .codectools import get_unicode
 
 LOGGER = logging.getLogger('actions')
@@ -38,3 +39,19 @@ def shutdown():
         call('SHUTDOWN /A')
     else:
         call('shutdown')
+
+
+def convert_to_mov(src, dst):
+    """Convert sequence to mov, use ffmpeg.  """
+
+    try:
+        filetools.popen(['ffmpeg', '-version'])
+    except OSError:
+        raise RuntimeError('FFmpeg is not installed.')
+    filetools.popen(['ffmpeg', '-y',
+                     '-gamma', '2.2',
+                     '-pix_fmt', 'yuv420p',
+                     '-i', src,
+                     '-vcodec', 'prores', '-profile:3',
+                     '-o', dst],
+                    creationflags=CREATE_NEW_CONSOLE)

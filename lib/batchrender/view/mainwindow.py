@@ -25,6 +25,8 @@ from ..codectools import get_unicode as u
 from ..config import CONFIG
 from ..control import Controller
 from ..texttools import stylize, timef
+from ..mixin import UnicodeTrMixin
+from .outputlist import OutputListView
 from .title import Title
 
 LOGGER = logging.getLogger()
@@ -60,7 +62,7 @@ def _link_edits_to_config(edits_key):
             LOGGER.debug('待处理的控件: %s %s', type(edit), edit)
 
 
-class MainWindow(QMainWindow):
+class MainWindow(UnicodeTrMixin, QMainWindow):
     """Main GUI window.  """
 
     _auto_start = False
@@ -91,7 +93,9 @@ class MainWindow(QMainWindow):
         self.tableView.setColumnWidth(0, 290)
         self.tableView.setColumnWidth(1, 80)
         self.tableView.setColumnWidth(2, 80)
+        self.listView = OutputListView(self, self.control)
         self.listView.setModel(self.control.output_model)
+        self.tab_3.layout().addWidget(self.listView)
         self.doubleSpinBoxMemory.setMaximum(
             psutil.virtual_memory().total / 2.0 ** 30)
         self.spinBoxThreads.setMaximum(psutil.cpu_count(logical=True))
@@ -188,8 +192,8 @@ class MainWindow(QMainWindow):
         """Set remains info on button: start, stop."""
 
         text = ('[{}]'.format(timef(int(value))) if value else '')
-        self.pushButtonStart.setText('启动' + text)
-        self.pushButtonStop.setText('停止' + text)
+        self.pushButtonStart.setText(self.tr('Start') + text)
+        self.pushButtonStop.setText(self.tr('Stop') + text)
 
     def on_model_layout_changed(self):
         self.on_data_changed()

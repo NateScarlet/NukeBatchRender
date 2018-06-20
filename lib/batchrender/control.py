@@ -7,15 +7,17 @@ import logging
 import os
 
 from Qt.QtCore import QObject, Signal
+from Qt.QtWidgets import QMessageBox
 
-from . import render
-from .config import CONFIG
 from . import model as qmodel
-from . import filetools
+from . import actions, filetools, render
+from .config import CONFIG
+from .mixin import UnicodeTrMixin
+
 LOGGER = logging.getLogger(__name__)
 
 
-class Controller(QObject):
+class Controller(UnicodeTrMixin, QObject):
     """Batchrender controller.  """
 
     root_changed = Signal(str)
@@ -79,3 +81,12 @@ class Controller(QObject):
         for i in self.queue.task_iterator(indexes):
             if i.is_file_exists():
                 i.file.archive()
+
+    def convert_to_mov(self, src, dst):
+        """Execute sequece convert.  """
+
+        try:
+            actions.convert_to_mov(src, dst)
+        except RuntimeError:
+            QMessageBox.critical(None, self.tr('Can not convert.'), self.tr(
+                'This feature need FFMPEG installed.'))

@@ -11,14 +11,14 @@ import os
 import sys
 from subprocess import call
 
+from Qt import QtCore
 from Qt.QtWidgets import QApplication
 
-from . import singleton
+from . import filetools, mimetool, singleton
 from .__about__ import __version__
 from .codectools import get_encoded
 from .log import _set_logger
 from .view import MainWindow
-from . import mimetool
 
 LOGGER = logging.getLogger()
 
@@ -34,6 +34,15 @@ def _setup_env():
         os.environ['QT_PREFERRED_BINDING'] = 'PySide'
 
 
+def install_translator(app):
+    """Install translator on app.  """
+
+    translator = QtCore.QTranslator(app)
+    translator.load(QtCore.QLocale.system(), "i18n/",
+                    directory=filetools.__dirpath__)
+    app.installTranslator(translator)
+
+
 def main():
     setattr(sys.modules[__name__], '__SINGLETON', singleton.SingleInstance())
     _set_default_encoding()
@@ -45,6 +54,7 @@ def main():
     app = QApplication.instance()
     if not app:
         app = QApplication(sys.argv)
+    install_translator(app)
 
     if sys.platform == 'win32':
         call(get_encoded('TITLE 批渲染.console v{}'.format(__version__)), shell=True)

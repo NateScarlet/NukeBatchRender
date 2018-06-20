@@ -60,7 +60,7 @@ def _link_edits_to_config(edits_key):
             edit.valueChanged.connect(
                 lambda value, k=key: CONFIG.__setitem__(k, value))
         else:
-            LOGGER.debug('待处理的控件: %s %s', type(edit), edit)
+            LOGGER.debug('Widget not handled: %s %s', type(edit), edit)
 
 
 class MainWindow(UnicodeTrMixin, QMainWindow):
@@ -206,8 +206,8 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         button = self.pushButtonRemoveOldVersion
         old_files = list(self.control.model.old_version_files())
         button.setEnabled(bool(old_files))
-        button.setToolTip('备份后从目录中移除低版本文件\n{}'.format(
-            '\n'.join(old_files) or '<无>'))
+        button.setToolTip(self.tr('Archive old version files\n{}').format(
+            '\n'.join(old_files) or self.tr('<None>')))
 
     def _autostart(self):
         """Auto start rendering depend on setting.  """
@@ -217,7 +217,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
                 and self.control.queue):
             self._auto_start = False
             self.pushButtonStart.clicked.emit()
-            LOGGER.info('发现新任务, 自动开始渲染')
+            LOGGER.info(self.tr('Found new task, auto start rendering.'))
 
     def ask_dir(self):
         """Show a dialog ask config['DIR'].  """
@@ -233,7 +233,8 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
             _ = [self.control.create_task(i) for i in files]
             LOGGER.debug('Add %s', files)
         else:
-            QMessageBox.warning(self, '不支持的格式', '目前只支持nk文件')
+            QMessageBox.warning(self, self.tr(
+                'Not support this file type.'), self.tr('Only support `.nk` file.'))
 
     def on_after_render_changed(self):
         edit = self.comboBoxAfterFinish
@@ -245,54 +246,59 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
 
         def _deadline():
             if os.path.exists(CONFIG['DEADLINE']):
-                LOGGER.info('渲染后运行Deadline: %s', CONFIG['DEADLINE'])
+                LOGGER.info(
+                    self.tr('Run deadline after render finished: %s'), CONFIG['DEADLINE'])
                 return
             path = QFileDialog.getOpenFileName(
                 self,
-                '选择Deadline Slave执行程序',
+                self.tr('Choose Deadline Slave executable'),
                 dir=CONFIG['DEADLINE'],
                 filter='deadlineslave.exe;;*.*',
                 selectedFilter='deadlineslave.exe')[0]
             if path:
                 CONFIG['DEADLINE'] = path
-                LOGGER.info('Deadline 路径改为: %s', path)
+                LOGGER.info(self.tr('Set Deadline path: %s'), path)
                 edit.setToolTip(path)
             else:
                 _reset()
 
         def _run_command():
             cmd, confirm = QInputDialog.getText(
-                self, '执行命令', '命令内容', text=CONFIG['AFTER_FINISH_CMD'])
+                self, self.tr('Execute command after render finished...'),
+                self.tr('Command'), text=CONFIG['AFTER_FINISH_CMD'])
             if confirm and cmd:
                 CONFIG['AFTER_FINISH_CMD'] = cmd
-                LOGGER.info('渲染后执行命令: %s', cmd)
+                LOGGER.info(
+                    self.tr('Execute command after render finished: %s'), cmd)
                 edit.setToolTip(cmd)
             else:
                 _reset()
 
         def _run_exe():
             path = QFileDialog.getOpenFileName(
-                self, '渲染完成后运行...', dir=CONFIG['AFTER_FINISH_PROGRAM'])[0]
+                self, self.tr('Execute command after render finished...'),
+                dir=CONFIG['AFTER_FINISH_PROGRAM'])[0]
             if path:
                 CONFIG['AFTER_FINISH_PROGRAM'] = path
-                LOGGER.info('渲染后运行程序: %s', path)
+                LOGGER.info(
+                    self.tr('Run program after render finished: %s'), path)
                 edit.setToolTip(path)
             else:
                 _reset()
 
-        if text != '等待新任务':
+        if text != self.tr('Wait for new task'):
             self._auto_start = False
 
-        if text == 'Deadline':
+        if text == self.tr('Deadline'):
             _deadline()
-        elif text == '执行命令':
+        elif text == self.tr('Execute command...'):
             _run_command()
-        elif text == '运行程序':
+        elif text == self.tr('Run program...'):
             _run_exe()
         else:
             edit.setToolTip('')
 
-        if text in ('关机', '休眠', 'Deadline'):
+        if text in (self.tr('Shutdown'), self.tr('Hibernate'), self.tr('Deadline')):
             self.checkBoxPriority.setCheckState(Qt.Unchecked)
             self.spinBoxThreads.setValue(self.spinBoxThreads.maximum())
         else:
@@ -304,7 +310,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         """Wiil be excuted when frame take too long.  """
 
         if CONFIG['LOW_PRIORITY']:
-            msg = '渲染超时, 关闭低优先级。'
+            msg = self.tr('Render timeout, turn off `low priority`.')
             LOGGER.info(msg)
             self.textBrowser.append(stylize(msg, 'error'))
             self.checkBoxPriority.setCheckState(Qt.Unchecked)
@@ -343,13 +349,15 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         after_finish = self.comboBoxAfterFinish.currentText()
 
         actions = {
-            '等待新任务': lambda: setattr(self, '_auto_start', True),
-            '休眠': reset_after_render(hiber),
-            '关机': reset_after_render(shutdown),
+            self.tr('Wait for new task'): lambda: setattr(self, '_auto_start', True),
+            self.tr('Hibernate'): reset_after_render(hiber),
+            self.tr('Shutdown'): reset_after_render(shutdown),
             'Deadline': reset_after_render(lambda: webbrowser.open(CONFIG['DEADLINE'])),
-            '执行命令': lambda: subprocess.Popen(CONFIG['AFTER_FINISH_CMD'], shell=True),
-            '运行程序': lambda: webbrowser.open(CONFIG['AFTER_FINISH_PROGRAM']),
-            '什么都不做': lambda: LOGGER.info('渲染完成后什么都不做')
+            self.tr('Execute command...'):
+                lambda: subprocess.Popen(
+                    CONFIG['AFTER_FINISH_CMD'], shell=True),
+            self.tr('Run program...'): lambda: webbrowser.open(CONFIG['AFTER_FINISH_PROGRAM']),
+            self.tr('Idle'): lambda: LOGGER.info(self.tr('Idle after render finished.'))
         }
 
         actions.get(after_finish,
@@ -388,8 +396,8 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         if self.control.slave.is_rendering:
             confirm = QMessageBox.question(
                 self,
-                '正在渲染中',
-                "停止渲染并退出?",
+                self.tr('Rendering'),
+                self.tr("Stop render and exit?"),
                 QMessageBox.Yes |
                 QMessageBox.No,
                 QMessageBox.No
@@ -399,13 +407,13 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
 
                 def _on_stopped():
                     QApplication.exit()
-                    LOGGER.info('渲染途中退出')
+                    LOGGER.info(self.tr('Exit during render.'))
                 self.control.slave.stopped.connect(_on_stopped)
             else:
                 event.ignore()
         else:
             QApplication.exit()
-            LOGGER.info('退出')
+            LOGGER.info(self.tr('exit'))
 
     # def eventFilter(self, widget, event):
     #     """Qt widget event filter.  """

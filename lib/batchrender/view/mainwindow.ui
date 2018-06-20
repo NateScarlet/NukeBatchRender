@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Nuke批渲染</string>
+   <string>NukeBatchRender</string>
   </property>
   <property name="styleSheet">
    <string notr="true">QTextBrowser{
@@ -25,7 +25,7 @@
       <item>
        <widget class="QToolButton" name="toolButtonOpenDir">
         <property name="text">
-         <string>渲染文件夹</string>
+         <string>Render folder</string>
         </property>
         <property name="toolButtonStyle">
          <enum>Qt::ToolButtonTextBesideIcon</enum>
@@ -64,7 +64,7 @@
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
-        <string>任务队列</string>
+        <string>TaskSequence</string>
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout">
         <property name="margin">
@@ -85,7 +85,7 @@
           <item>
            <widget class="QPushButton" name="pushButtonRemoveOldVersion">
             <property name="text">
-             <string>移除低版本号文件</string>
+             <string>Remove old version files</string>
             </property>
            </widget>
           </item>
@@ -95,21 +95,21 @@
              <bool>false</bool>
             </property>
             <property name="text">
-             <string>移除</string>
+             <string>Remove</string>
             </property>
            </widget>
           </item>
           <item>
            <widget class="QToolButton" name="toolButtonCheckAll">
             <property name="text">
-             <string>全选</string>
+             <string>Select all</string>
             </property>
            </widget>
           </item>
           <item>
            <widget class="QToolButton" name="toolButtonReverseCheck">
             <property name="text">
-             <string>反选</string>
+             <string>Reverse selection</string>
             </property>
            </widget>
           </item>
@@ -119,7 +119,7 @@
       </widget>
       <widget class="QWidget" name="tab_2">
        <attribute name="title">
-        <string>输出</string>
+        <string>Output</string>
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_4">
         <property name="margin">
@@ -145,7 +145,7 @@
       </widget>
       <widget class="QWidget" name="tab_3">
        <attribute name="title">
-        <string>文件</string>
+        <string>File</string>
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <property name="margin">
@@ -179,7 +179,7 @@
        <item alignment="Qt::AlignRight">
         <widget class="QLabel" name="label_3">
          <property name="text">
-          <string>内存限制</string>
+          <string>Memory limit</string>
          </property>
         </widget>
        </item>
@@ -211,17 +211,17 @@
        <item alignment="Qt::AlignRight">
         <widget class="QLabel" name="label_4">
          <property name="text">
-          <string>单帧超时</string>
+          <string>Timeout</string>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QSpinBox" name="spinBoxTimeOut">
          <property name="toolTip">
-          <string>渲染超时时会关闭低优先级重试</string>
+          <string>Will retry with `low priority` off when timeout.</string>
          </property>
          <property name="suffix">
-          <string> 秒</string>
+          <string> seconds</string>
          </property>
          <property name="maximum">
           <number>999</number>
@@ -234,7 +234,7 @@
        <item alignment="Qt::AlignRight">
         <widget class="QLabel" name="label">
          <property name="text">
-          <string>线程数</string>
+          <string>Threads</string>
          </property>
         </widget>
        </item>
@@ -262,7 +262,7 @@
          </sizepolicy>
         </property>
         <property name="text">
-         <string>代理尺寸</string>
+         <string>Proxy size</string>
         </property>
        </widget>
       </item>
@@ -275,7 +275,7 @@
          </sizepolicy>
         </property>
         <property name="text">
-         <string>出错继续渲</string>
+         <string>Countinue on error</string>
         </property>
        </widget>
       </item>
@@ -288,7 +288,7 @@
          </sizepolicy>
         </property>
         <property name="text">
-         <string>低优先级</string>
+         <string>Low priority</string>
         </property>
        </widget>
       </item>
@@ -303,7 +303,7 @@
            </sizepolicy>
           </property>
           <property name="text">
-           <string>完成后</string>
+           <string>After finished</string>
           </property>
          </widget>
         </item>
@@ -317,17 +317,17 @@
           </property>
           <item>
            <property name="text">
-            <string>等待新任务</string>
+            <string>Wait for new task</string>
            </property>
           </item>
           <item>
            <property name="text">
-            <string>关机</string>
+            <string>Shutdown</string>
            </property>
           </item>
           <item>
            <property name="text">
-            <string>休眠</string>
+            <string>Hibernate</string>
            </property>
           </item>
           <item>
@@ -337,17 +337,17 @@
           </item>
           <item>
            <property name="text">
-            <string>执行命令</string>
+            <string>Execute command...</string>
            </property>
           </item>
           <item>
            <property name="text">
-            <string>运行程序</string>
+            <string>Run program...</string>
            </property>
           </item>
           <item>
            <property name="text">
-            <string>什么都不做</string>
+            <string>Idle</string>
            </property>
           </item>
          </widget>
@@ -380,7 +380,7 @@
          </size>
         </property>
         <property name="text">
-         <string>启动</string>
+         <string>Start</string>
         </property>
        </widget>
       </item>
@@ -393,7 +393,7 @@
          </size>
         </property>
         <property name="text">
-         <string>停止</string>
+         <string>Stop</string>
         </property>
        </widget>
       </item>
@@ -404,7 +404,7 @@
       <item>
        <widget class="QToolButton" name="toolButtonOpenLog">
         <property name="text">
-         <string>打开日志</string>
+         <string>Open log</string>
         </property>
        </widget>
       </item>

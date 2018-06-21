@@ -9,8 +9,9 @@ import os
 from Qt.QtCore import QObject, Signal
 from Qt.QtWidgets import QMessageBox
 
+from . import actions, filetools
 from . import model as qmodel
-from . import actions, filetools, render
+from . import render
 from .codectools import get_unicode as u
 from .config import CONFIG
 from .mixin import UnicodeTrMixin

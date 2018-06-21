@@ -36,6 +36,7 @@ class Slave(core.RenderObject):
             ('finished', self._start_next),
             ('stdout', self.stdout),
             ('stderr', self.stderr),
+            ('stopped', self.stopped.emit),
             ('remains_changed', self.queue.update_remains),
         ]
 
@@ -89,7 +90,6 @@ class Slave(core.RenderObject):
         task = self.task
         if isinstance(task, NukeTask):
             task.stop()
-            self.stopped.emit()
 
     def on_started(self):
         LOGGER.debug('Render start')

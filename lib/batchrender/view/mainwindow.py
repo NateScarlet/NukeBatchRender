@@ -402,17 +402,12 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
                 QMessageBox.No
             )
             if confirm == QMessageBox.Yes:
+                self.control.slave.stopped.connect(self.close)
                 self.control.slave.stop()
+            event.ignore()
+            return
 
-                def _on_stopped():
-                    QApplication.exit()
-                    LOGGER.info(self.tr('Exit during render.'))
-                self.control.slave.stopped.connect(_on_stopped)
-            else:
-                event.ignore()
-        else:
-            QApplication.exit()
-            LOGGER.info(self.tr('exit'))
+        event.accept()
 
     # def eventFilter(self, widget, event):
     #     """Qt widget event filter.  """

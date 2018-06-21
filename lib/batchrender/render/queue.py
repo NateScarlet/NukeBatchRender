@@ -21,6 +21,7 @@ class Queue(core.RenderObject):
         assert isinstance(data_model, FilesProxyModel), type(data_model)
 
         self.model = data_model
+        self._task_cache = {}
         super(Queue, self).__init__()
 
         self.model.layoutChanged.connect(self.changed)
@@ -63,8 +64,14 @@ class Queue(core.RenderObject):
             Generator: Tasks.
         """
 
-        source_model = self.model.sourceModel()
-        return (NukeTask(self.model.mapToSource(i), source_model) for i in indexes)
+        return (self._get_task(i) for i in indexes)
+
+    def _get_task(self, index):
+        if index not in self._task_cache:
+            source_model = self.model.sourceModel()
+            self._task_cache[index] = NukeTask(
+                self.model.mapToSource(index), source_model)
+        return self._task_cache[index]
 
     def update_remains(self):
         """Caculate remains time.  """

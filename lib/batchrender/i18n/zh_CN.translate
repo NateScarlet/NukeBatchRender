@@ -1,6 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE TS>
-<TS version="2.0" language="zh_CN">
+<!DOCTYPE TS><TS version="1.1" language="zh_CN">
+<context>
+    <name>ConsoleTranslator</name>
+    <message>
+        <location filename="../translator.py" line="32"/>
+        <source>\1Error reading LUT file\. \2unable to open file\.</source>
+        <translation>\1读取LUT文件出错。 \2 无法打开文件。</translation>
+    </message>
+    <message>
+        <location filename="../translator.py" line="36"/>
+        <source>\1Error reading pixel data from image file \2\. Early end of file: read \3 out of \4 requested bytes.</source>
+        <translation>\1自文件 \2 读取像素数据错误。过早的文件结束符: 读取了 \4 数据中的 \3 。</translation>
+    </message>
+    <message>
+        <location filename="../translator.py" line="40"/>
+        <source>\1Error reading pixel data from image file \2\. Scan line \3 is missing\.</source>
+        <translation>\1自文件 \2 读取像素数据错误。扫描线 \3 丢失。</translation>
+    </message>
+    <message>
+        <location filename="../translator.py" line="42"/>
+        <source>Missing input channel</source>
+        <translation>输入通道丢失</translation>
+    </message>
+    <message>
+        <location filename="../translator.py" line="44"/>
+        <source>Read error: No such file or directory</source>
+        <translation>读取错误: 找不到文件或路径</translation>
+    </message>
+    <message>
+        <location filename="../translator.py" line="46"/>
+        <source>There are no active Write operators in this script</source>
+        <translation>此脚本中没有启用任何Write节点</translation>
+    </message>
+    <message>
+        <location filename="../translator.py" line="48"/>
+        <source>Can&apos;t read \1: Permission denied</source>
+        <translation>不能读取 \1:没有权限</translation>
+    </message>
+    <message>
+        <location filename="../translator.py" line="50"/>
+        <source>Can&apos;t read \1: No such file or directory</source>
+        <translation>不能读取 \1:找不到文件或目录</translation>
+    </message>
+    <message>
+        <location filename="../translator.py" line="54"/>
+        <source>Writing &lt;a href=&quot;\1&quot;&gt;\1&lt;/a&gt; took \2 seconds</source>
+        <translation>写入 &lt;a href=&quot;\1&quot;&gt;\1&lt;/a&gt; 耗时 \2 秒</translation>
+    </message>
+    <message>
+        <location filename="../translator.py" line="56"/>
+        <source>Frame</source>
+        <translation>帧</translation>
+    </message>
+    <message>
+        <location filename="../translator.py" line="58"/>
+        <source>All Rights Reserved</source>
+        <translation>版权所有</translation>
+    </message>
+</context>
 <context>
     <name>Controller</name>
     <message>

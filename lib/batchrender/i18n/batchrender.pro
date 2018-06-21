@@ -4,6 +4,7 @@ SOURCES = ../view/mainwindow.py \
           ../control.py \
           ../model/directory.py \
           ../model/fileproxy.py \
-          ../model/fileoutput.py 
+          ../model/fileoutput.py \
+          ../translator.py 
 FORMS = ../view/mainwindow.ui
 TRANSLATIONS = zh_CN.translate

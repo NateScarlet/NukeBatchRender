@@ -15,10 +15,10 @@ import six
 from Qt.QtCore import QObject, Signal
 
 from ..config import CONFIG
-from ..texttools import l10n, stylize
+from ..texttools import stylize
 from ..threadtools import run_async
 from ..codectools import get_unicode as u
-
+from ..translator import ConsoleTranslator
 LOGGER = logging.getLogger(__name__)
 
 
@@ -67,7 +67,7 @@ class NukeHandler(BaseHandler):
             if not line:
                 break
 
-            line = l10n(line)
+            line = ConsoleTranslator.translate(line)
             msg = 'STDERR: {}\n'.format(line)
             with open(CONFIG.log_path, 'a') as f:
                 f.write(msg)
@@ -89,7 +89,8 @@ class NukeHandler(BaseHandler):
             if not line:
                 break
 
-            self.stdout.emit(stylize(l10n(line), 'stdout'))
+            self.stdout.emit(
+                stylize(ConsoleTranslator.translate(line), 'stdout'))
             if self._match_frame_finish(line, context):
                 _ = [self.parse_stdout(i, **context) for i in frame_lines]
                 frame_lines = []

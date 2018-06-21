@@ -12,12 +12,13 @@ from six.moves import range
 
 from . import core
 from .. import filetools
+from ..mixin import UnicodeTrMixin
 from .directory import DirectoryModel
 
 LOGGER = logging.getLogger(__name__)
 
 
-class FilesProxyModel(QSortFilterProxyModel):
+class FilesProxyModel(UnicodeTrMixin, QSortFilterProxyModel):
     """Filter data by version.  """
 
     def __init__(self, parent):
@@ -63,9 +64,9 @@ class FilesProxyModel(QSortFilterProxyModel):
                         Qt.TextAlignmentRole: Qt.AlignLeft,
                         Qt.DecorationRole: None}[role]
 
-            return [{Qt.DisplayRole: '文件', },
-                    {Qt.DisplayRole: '范围', },
-                    {Qt.DisplayRole: '优先级', }, ][section][role]
+            return [{Qt.DisplayRole: self.tr('File'), },
+                    {Qt.DisplayRole: self.tr('Range'), },
+                    {Qt.DisplayRole: self.tr('Priority'), }, ][section][role]
         except (KeyError, IndexError):
             return super(FilesProxyModel, self).headerData(
                 section, orientation, role)

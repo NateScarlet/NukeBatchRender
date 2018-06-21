@@ -11,13 +11,14 @@ from Qt.QtCore import QAbstractListModel, Qt
 from sqlalchemy import desc
 
 from .. import database as db
-from ..framerange import FrameRange
 from ..codectools import get_unicode as u
+from ..framerange import FrameRange
+from ..mixin import UnicodeTrMixin
 
 Sequence = namedtuple('sequence', ('path', 'timestamp', 'range'))
 
 
-class FileOutputModel(QAbstractListModel):
+class FileOutputModel(UnicodeTrMixin, QAbstractListModel):
     """Model for output file data.  """
 
     def __init__(self, parent=None):
@@ -63,7 +64,7 @@ class FileOutputModel(QAbstractListModel):
         elif role == Qt.ToolTipRole:
             rows = [item.timestamp.diff_for_humans(), u(item.path.as_posix())]
             if isinstance(item, Sequence):
-                rows.append('范围: {}'.format(item.range))
+                rows.append(self.tr('Range: {}').format(item.range))
             return '\n'.join(rows)
         elif role == Qt.EditRole:
             return item

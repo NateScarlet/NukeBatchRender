@@ -12,9 +12,10 @@ from Qt.QtWidgets import QFileSystemModel
 from . import core
 from ..codectools import get_unicode as u
 from ..framerange import FrameRange
+from ..mixin import UnicodeTrMixin
 
 
-class DirectoryModel(QFileSystemModel):
+class DirectoryModel(UnicodeTrMixin, QFileSystemModel):
     """Checkable fileSystem model.  """
 
     def __init__(self, parent=None):
@@ -86,7 +87,8 @@ class DirectoryModel(QFileSystemModel):
         row_template = '<tr><td>{}</td><td align="right">{}</td></tr>'
 
         def _row(label, value):
-            value = '<i>无数据</i>' if value is None else value
+            value = ('<i>{}</i>'.format(self.tr('NO DATA'))
+                     if value is None else value)
             return row_template.format(label, value)
 
         def _timef(seconds):
@@ -101,18 +103,19 @@ class DirectoryModel(QFileSystemModel):
         label = self.data(index, Qt.DisplayRole)
 
         rows = ['<tr><th colspan=2>{}</th></tr>'.format(label),
-                _row('预计耗时', _timef(estimate)), ]
+                _row(self.tr('Estimate cost'), _timef(estimate)), ]
         if file_record:
             rows.extend(
                 [
-                    _row('内容散列值', file_record.hash),
-                    _row('文件帧数', file_record.frame_count),
-                    _row('文件范围', file_record.range()),
-                    _row('帧均耗时', _timef(file_record.average_frame_cost())),
+                    _row(self.tr('File hash'), file_record.hash),
+                    _row(self.tr('Frame count'), file_record.frame_count),
+                    _row(self.tr('File range'), file_record.range()),
+                    _row(self.tr('Average frame cost'), _timef(
+                        file_record.average_frame_cost())),
                 ]
             )
         if state & core.DOING and remains:
-            rows.append(_row('剩余时间', _timef(remains)))
+            rows.append(_row(self.tr('Remains'), _timef(remains)))
 
         return '<table>{}</table>'.format(''.join(rows))
 

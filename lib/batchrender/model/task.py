@@ -6,6 +6,7 @@ from __future__ import (absolute_import, division, print_function,
 
 import logging
 
+import six
 from Qt.QtCore import QObject, Qt
 
 from . import core
@@ -25,6 +26,7 @@ def _map_model_data(role, docstring=None):
     return property(_get_model_data, _set_model_data, doc=docstring)
 
 
+@six.python_2_unicode_compatible
 class Task(QObject):
     """Task data.  """
 
@@ -60,10 +62,7 @@ class Task(QObject):
         return self.path == other
 
     def __str__(self):
-        return '<{0.priority}: {0.label}: {0.state:b}>'.format(self)
-
-    def __unicode__(self):
-        return '<任务 {0.label}: 优先级 {0.priority}, 状态 {0.state:b}>'.format(self)
+        return '<Task: priority={0.priority}, label={0.label}, state={0.state:b}>'.format(self)
 
     @property
     def file(self):

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE TS><TS version="1.1" language="zh_CN">
+<!DOCTYPE TS>
+<TS version="2.0" language="zh_CN">
 <context>
     <name>Controller</name>
     <message>
@@ -11,6 +12,70 @@
         <location filename="../control.py" line="97"/>
         <source>This feature need FFMPEG installed.</source>
         <translation>此功能需安装FFMPEG.</translation>
+    </message>
+</context>
+<context>
+    <name>DirectoryModel</name>
+    <message>
+        <location filename="../model/directory.py" line="90"/>
+        <source>NO DATA</source>
+        <translation>无数据</translation>
+    </message>
+    <message>
+        <location filename="../model/directory.py" line="106"/>
+        <source>Estimate cost</source>
+        <translation>预计耗时</translation>
+    </message>
+    <message>
+        <location filename="../model/directory.py" line="110"/>
+        <source>File hash</source>
+        <translation>文件散列值</translation>
+    </message>
+    <message>
+        <location filename="../model/directory.py" line="111"/>
+        <source>Frame count</source>
+        <translation>帧数</translation>
+    </message>
+    <message>
+        <location filename="../model/directory.py" line="112"/>
+        <source>File range</source>
+        <translation>文件范围</translation>
+    </message>
+    <message>
+        <location filename="../model/directory.py" line="113"/>
+        <source>Average frame cost</source>
+        <translation>帧均耗时</translation>
+    </message>
+    <message>
+        <location filename="../model/directory.py" line="118"/>
+        <source>Remains</source>
+        <translation>剩余</translation>
+    </message>
+</context>
+<context>
+    <name>FileOutputModel</name>
+    <message>
+        <location filename="../model/fileoutput.py" line="67"/>
+        <source>Range: {}</source>
+        <translation>范围: {}</translation>
+    </message>
+</context>
+<context>
+    <name>FilesProxyModel</name>
+    <message>
+        <location filename="../model/fileproxy.py" line="67"/>
+        <source>File</source>
+        <translation>文件</translation>
+    </message>
+    <message>
+        <location filename="../model/fileproxy.py" line="68"/>
+        <source>Range</source>
+        <translation>范围</translation>
+    </message>
+    <message>
+        <location filename="../model/fileproxy.py" line="69"/>
+        <source>Priority</source>
+        <translation>优先级</translation>
     </message>
 </context>
 <context>

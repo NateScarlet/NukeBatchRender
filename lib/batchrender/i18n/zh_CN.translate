@@ -61,12 +61,12 @@
 <context>
     <name>Controller</name>
     <message>
-        <location filename="../control.py" line="96"/>
+        <location filename="../control.py" line="97"/>
         <source>Can not convert.</source>
         <translation>无法转换.</translation>
     </message>
     <message>
-        <location filename="../control.py" line="97"/>
+        <location filename="../control.py" line="98"/>
         <source>This feature need FFMPEG installed.</source>
         <translation>此功能需安装FFMPEG.</translation>
     </message>
@@ -138,12 +138,12 @@
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../view/mainwindow.py" line="197"/>
+        <location filename="../view/mainwindow.py" line="195"/>
         <source>Start</source>
         <translation>启动</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="198"/>
+        <location filename="../view/mainwindow.py" line="196"/>
         <source>Stop</source>
         <translation>停止</translation>
     </message>
@@ -168,7 +168,7 @@
         <translation>超时</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="301"/>
+        <location filename="../view/mainwindow.py" line="299"/>
         <source>Deadline</source>
         <translation></translation>
     </message>
@@ -223,11 +223,6 @@
         <translation>内存限制</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="221"/>
-        <source>Will retry with `low priority` off when timeout.</source>
-        <translation>渲染超时时会关闭低优先级重试.</translation>
-    </message>
-    <message>
         <location filename="../view/mainwindow.ui" line="224"/>
         <source> seconds</source>
         <translation>秒</translation>
@@ -258,32 +253,32 @@
         <translation>完成后</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="352"/>
+        <location filename="../view/mainwindow.py" line="351"/>
         <source>Wait for new task</source>
         <translation>等待新任务</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="354"/>
+        <location filename="../view/mainwindow.py" line="353"/>
         <source>Shutdown</source>
         <translation>关机</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="353"/>
+        <location filename="../view/mainwindow.py" line="352"/>
         <source>Hibernate</source>
         <translation>休眠</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="357"/>
+        <location filename="../view/mainwindow.py" line="356"/>
         <source>Execute command...</source>
         <translation>执行命令...</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="359"/>
+        <location filename="../view/mainwindow.py" line="358"/>
         <source>Run program...</source>
         <translation>运行程序...</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="360"/>
+        <location filename="../view/mainwindow.py" line="359"/>
         <source>Idle</source>
         <translation>什么都不做</translation>
     </message>
@@ -293,96 +288,91 @@
         <translation>打开日志</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="209"/>
+        <location filename="../view/mainwindow.py" line="207"/>
         <source>Archive old version files
 {}</source>
         <translation>归档旧文件
 {}</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="210"/>
+        <location filename="../view/mainwindow.py" line="208"/>
         <source>&lt;None&gt;</source>
         <translation>&lt;无&gt;</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="220"/>
+        <location filename="../view/mainwindow.py" line="218"/>
         <source>Found new task, auto start rendering.</source>
         <translation>发现新任务, 自动开始渲染。</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="237"/>
+        <location filename="../view/mainwindow.py" line="235"/>
         <source>Not support this file type.</source>
         <translation>不支持此文件类型。</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="237"/>
+        <location filename="../view/mainwindow.py" line="235"/>
         <source>Only support `.nk` file.</source>
         <translation>只支持 `.nk` 文件。</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="250"/>
+        <location filename="../view/mainwindow.py" line="248"/>
         <source>Run deadline after render finished: %s</source>
         <translation>渲染完成后运行Deadline: %s</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="254"/>
+        <location filename="../view/mainwindow.py" line="252"/>
         <source>Choose Deadline Slave executable</source>
         <translation>选择Deadline Slave 执行程序</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="260"/>
+        <location filename="../view/mainwindow.py" line="258"/>
         <source>Set Deadline path: %s</source>
         <translation>设置Deadline路径为: %s</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="279"/>
+        <location filename="../view/mainwindow.py" line="277"/>
         <source>Execute command after render finished...</source>
         <translation>渲染后执行命令...</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="268"/>
+        <location filename="../view/mainwindow.py" line="266"/>
         <source>Command</source>
         <translation>命令</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="272"/>
+        <location filename="../view/mainwindow.py" line="270"/>
         <source>Execute command after render finished: %s</source>
         <translation>渲染后执行命令: %s</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="284"/>
+        <location filename="../view/mainwindow.py" line="282"/>
         <source>Run program after render finished: %s</source>
         <translation>渲染后运行程序: %s</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="314"/>
-        <source>Render timeout, turn off `low priority`.</source>
-        <translation>渲染超时, 关闭低优先级。</translation>
-    </message>
-    <message>
-        <location filename="../view/mainwindow.py" line="399"/>
+        <location filename="../view/mainwindow.py" line="398"/>
         <source>Rendering</source>
         <translation>正在渲染</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="400"/>
+        <location filename="../view/mainwindow.py" line="399"/>
         <source>Stop render and exit?</source>
         <translation>停止渲染并退出?</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="410"/>
-        <source>Exit during render.</source>
-        <translation>渲染中途退出。</translation>
-    </message>
-    <message>
-        <location filename="../view/mainwindow.py" line="416"/>
-        <source>exit</source>
-        <translation>退出</translation>
-    </message>
-    <message>
-        <location filename="../view/mainwindow.py" line="360"/>
+        <location filename="../view/mainwindow.py" line="359"/>
         <source>Idle after render finished.</source>
         <translation>渲染完成后什么都不做。</translation>
+    </message>
+    <message>
+        <location filename="../view/mainwindow.ui" line="221"/>
+        <source>Auto remove all resource limit when timeout. 0 seconds to disable the timeout.</source>
+        <translation>超时时自动移除所有资源限制。 0秒代表不会超时。</translation>
+    </message>
+    <message>
+        <location filename="../view/mainwindow.py" line="310"/>
+        <source>Render timeout, remove resource limit.</source>
+        <translation>渲染超时, 移除资源限制。</translation>
     </message>
 </context>
 <context>

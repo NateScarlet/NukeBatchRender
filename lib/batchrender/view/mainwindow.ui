@@ -218,7 +218,7 @@
        <item>
         <widget class="QSpinBox" name="spinBoxTimeOut">
          <property name="toolTip">
-          <string>Will retry with `low priority` off when timeout.</string>
+          <string>Auto remove all resource limit when timeout. 0 seconds to disable the timeout.</string>
          </property>
          <property name="suffix">
           <string> seconds</string>

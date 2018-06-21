@@ -93,10 +93,11 @@ class Slave(core.RenderObject):
 
     def on_started(self):
         LOGGER.debug('Render start')
+        self._start_timeout_timer()
 
     def on_stopped(self):
         LOGGER.debug('Render stopped.')
-        self._time_out_timer.stop()
+        self._stop_timeout_timer()
         self.is_rendering = False
         self.is_stopping = False
         self.task = None
@@ -106,16 +107,26 @@ class Slave(core.RenderObject):
 
     def on_time_out(self):
         task = self.task
-        self.error(u'{}: 渲染超时'.format(task))
         if isinstance(task, NukeTask):
             task.priority -= 1
             task.stop()
 
-    def on_frame_finished(self, value):
+    def on_frame_finished(self, payload):
         # Restart timeout timer.
-        timer = self._time_out_timer
-        time_out = CONFIG['TIME_OUT'] * 1000
 
-        timer.stop()
-        if time_out > 0 and value < 100:
-            timer.start(time_out)
+        frame = payload['frame']
+        total = payload['total']
+
+        self._stop_timeout_timer()
+        if frame != total:
+            self._start_timeout_timer()
+
+    def _start_timeout_timer(self):
+        time_out = CONFIG['TIME_OUT']
+        if time_out > 0:
+            self._time_out_timer.start(time_out * 1000)
+
+    def _stop_timeout_timer(self):
+        timer = self._time_out_timer
+        if timer.isActive():
+            timer.stop()

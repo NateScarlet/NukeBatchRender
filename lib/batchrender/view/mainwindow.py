@@ -306,11 +306,13 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
     def on_slave_time_out(self):
         """Wiil be excuted when frame take too long.  """
 
-        if CONFIG['LOW_PRIORITY']:
-            msg = self.tr('Render timeout, turn off `low priority`.')
-            LOGGER.info(msg)
-            self.textBrowser.append(stylize(msg, 'error'))
-            self.checkBoxPriority.setCheckState(Qt.Unchecked)
+        msg = self.tr('Render timeout, remove resource limit.')
+        LOGGER.info(msg)
+        self.textBrowser.append(stylize(msg, 'error'))
+        self.checkBoxPriority.setCheckState(Qt.Unchecked)
+        self.spinBoxThreads.setValue(self.spinBoxThreads.maximum())
+        self.doubleSpinBoxMemory.setValue(self.doubleSpinBoxMemory.maximum())
+        self.spinBoxTimeOut.setValue(0)
 
     @Slot()
     def on_start_button_clicked(self):

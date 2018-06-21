@@ -8,6 +8,8 @@ import logging
 import os
 import sys
 
+import psutil
+
 from . import filetools
 
 LOGGER = logging.getLogger('config')
@@ -31,8 +33,8 @@ class Config(dict):
         'LOW_PRIORITY': 2,
         'CONTINUE': 2,
         'HIBER': 0,
-        'MEMORY_LIMIT': 10.0,
-        'THREADS': 4,
+        'MEMORY_LIMIT': psutil.virtual_memory().total / 2.0 ** 30,
+        'THREADS': psutil.cpu_count(logical=True),
         'TIME_OUT': 600,
     }
     engine_path = os.path.expanduser('~/.nuke/.batchrender/database.db')

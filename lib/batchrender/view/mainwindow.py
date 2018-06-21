@@ -13,7 +13,6 @@ import webbrowser
 from functools import wraps
 
 import pendulum
-import psutil
 from Qt import QtCompat
 from Qt.QtCore import Qt, QUrl, Signal, Slot
 from Qt.QtWidgets import (QApplication, QCheckBox, QComboBox, QDoubleSpinBox,
@@ -97,9 +96,8 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         self.listView = OutputListView(self, self.control)
         self.listView.setModel(self.control.output_model)
         self.tab_3.layout().addWidget(self.listView)
-        self.doubleSpinBoxMemory.setMaximum(
-            psutil.virtual_memory().total / 2.0 ** 30)
-        self.spinBoxThreads.setMaximum(psutil.cpu_count(logical=True))
+        self.doubleSpinBoxMemory.setMaximum(CONFIG.default['MEMORY_LIMIT'])
+        self.spinBoxThreads.setMaximum(CONFIG.default['THREADS'])
 
         self.title = Title(self.control, self)
 
@@ -303,7 +301,6 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
             self.spinBoxThreads.setValue(self.spinBoxThreads.maximum())
         else:
             self.checkBoxPriority.setCheckState(Qt.Checked)
-            self.spinBoxThreads.setValue(self.spinBoxThreads.maximum() // 2)
 
     @Slot()
     def on_slave_time_out(self):

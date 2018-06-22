@@ -132,7 +132,8 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         self.control.slave.stdout.connect(self.textBrowser.append)
         self.control.slave.stderr.connect(self.textBrowser.append)
         self.control.slave.progressed.connect(self.on_slave_progressed)
-        self.control.slave.stopped.connect(self.on_slave_stopped)
+        self.control.slave.started.connect(self.actionSlaveStarted.triggered)
+        self.control.slave.stopped.connect(self.actionSlaveStopped.triggered)
         self.control.slave.finished.connect(self.on_slave_finished)
         self.control.slave.time_out.connect(self.on_slave_time_out)
         self.control.queue.remains_changed.connect(
@@ -328,16 +329,10 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
 
         self.control.abort()
 
-    def on_slave_stopped(self):
-        QApplication.alert(self)
-        self._autostart()
-
     def on_slave_finished(self):
 
-        self.pushButtonStart.show()
+        QApplication.alert(self)
         self.tabWidget.setCurrentIndex(0)
-        self.pushButtonStop.hide()
-        self.progressBar.hide()
 
         def reset_after_render(func):
             """(Decorator)Reset after render choice before run @func  ."""

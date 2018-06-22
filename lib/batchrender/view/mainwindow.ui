@@ -427,23 +427,33 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>570</width>
+     <width>600</width>
      <height>23</height>
     </rect>
    </property>
   </widget>
+  <action name="actionSlaveStarted">
+   <property name="text">
+    <string>slaveStarted</string>
+   </property>
+  </action>
+  <action name="actionSlaveStopped">
+   <property name="text">
+    <string>slaveStopped</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections>
   <connection>
-   <sender>pushButtonStart</sender>
-   <signal>clicked()</signal>
+   <sender>actionSlaveStarted</sender>
+   <signal>triggered()</signal>
    <receiver>pushButtonStart</receiver>
    <slot>hide()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>396</x>
-     <y>500</y>
+     <x>-1</x>
+     <y>-1</y>
     </hint>
     <hint type="destinationlabel">
      <x>371</x>
@@ -452,8 +462,8 @@
    </hints>
   </connection>
   <connection>
-   <sender>pushButtonStart</sender>
-   <signal>clicked()</signal>
+   <sender>actionSlaveStarted</sender>
+   <signal>triggered()</signal>
    <receiver>pushButtonStop</receiver>
    <slot>show()</slot>
    <hints>
@@ -468,8 +478,8 @@
    </hints>
   </connection>
   <connection>
-   <sender>pushButtonStart</sender>
-   <signal>clicked()</signal>
+   <sender>actionSlaveStarted</sender>
+   <signal>triggered()</signal>
    <receiver>progressBar</receiver>
    <slot>show()</slot>
    <hints>
@@ -484,8 +494,8 @@
    </hints>
   </connection>
   <connection>
-   <sender>pushButtonStop</sender>
-   <signal>clicked()</signal>
+   <sender>actionSlaveStopped</sender>
+   <signal>triggered()</signal>
    <receiver>pushButtonStop</receiver>
    <slot>hide()</slot>
    <hints>
@@ -500,8 +510,8 @@
    </hints>
   </connection>
   <connection>
-   <sender>pushButtonStop</sender>
-   <signal>clicked()</signal>
+   <sender>actionSlaveStopped</sender>
+   <signal>triggered()</signal>
    <receiver>pushButtonStart</receiver>
    <slot>show()</slot>
    <hints>
@@ -516,8 +526,8 @@
    </hints>
   </connection>
   <connection>
-   <sender>pushButtonStop</sender>
-   <signal>clicked()</signal>
+   <sender>actionSlaveStopped</sender>
+   <signal>triggered()</signal>
    <receiver>progressBar</receiver>
    <slot>hide()</slot>
    <hints>

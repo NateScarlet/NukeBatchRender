@@ -36,7 +36,7 @@ class Slave(core.RenderObject):
             ('finished', self._start_next),
             ('stdout', self.stdout),
             ('stderr', self.stderr),
-            ('stopped', self.stopped.emit),
+            ('aborted', self.aborted),
             ('remains_changed', self.queue.update_remains),
         ]
 
@@ -95,12 +95,15 @@ class Slave(core.RenderObject):
         LOGGER.debug('Render start')
         self._start_timeout_timer()
 
+    def on_aborted(self):
+        LOGGER.debug('Render aborted.')
+        self.task = None
+
     def on_stopped(self):
         LOGGER.debug('Render stopped.')
-        self._stop_timeout_timer()
         self.is_rendering = False
         self.is_stopping = False
-        self.task = None
+        self._stop_timeout_timer()
 
     def on_finished(self):
         LOGGER.debug('Render finished.')

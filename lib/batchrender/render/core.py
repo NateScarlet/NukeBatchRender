@@ -11,6 +11,7 @@ import six
 from Qt.QtCore import QObject, Signal
 
 from ..texttools import stylize
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -24,6 +25,7 @@ class RenderObject(QObject):
     changed = Signal()
     started = Signal()
     stopped = Signal()
+    aborted = Signal()
     finished = Signal()
     time_out = Signal()
     progressed = Signal(int)
@@ -35,12 +37,14 @@ class RenderObject(QObject):
         super(RenderObject, self).__init__(parent)
 
         # Singals.
+        self.aborted.connect(self.stopped)
         self.finished.connect(self.stopped)
         self.changed.connect(self.on_changed)
         self.progressed.connect(self.on_progressed)
         self.time_out.connect(self.on_time_out)
         self.started.connect(lambda: self.progressed.emit(0))
         self.started.connect(self.on_started)
+        self.aborted.connect(self.on_aborted)
         self.stopped.connect(self.on_stopped)
         self.finished.connect(self.on_finished)
         self.stdout.connect(self.on_stdout)
@@ -81,11 +85,15 @@ class RenderObject(QObject):
         pass
 
     @abstractmethod
-    def on_stopped(self):
+    def on_aborted(self):
         pass
 
     @abstractmethod
     def on_finished(self):
+        pass
+
+    @abstractmethod
+    def on_stopped(self):
         pass
 
     @abstractmethod

@@ -31,9 +31,10 @@ def _skip_process_if_is_none(process):
 
 class Path(TypeDecorator):
     """Path type."""
-    # pylint: disable=abstract-method
+# pylint: disable=abstract-method
 
     impl = Unicode
+    python_type = PurePath
 
     @_skip_process_if_is_none
     def process_bind_param(self, value, dialect):
@@ -53,6 +54,7 @@ class TimeStamp(TypeDecorator):
     # pylint: disable=abstract-method
 
     impl = Float
+    python_type = pendulum.DateTime
 
     @_skip_process_if_is_none
     def process_bind_param(self, value, dialect):

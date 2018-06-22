@@ -328,13 +328,14 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         self.control.stop()
 
     def on_slave_stopped(self):
-        self.pushButtonStop.hide()
-        self.progressBar.hide()
-        self.pushButtonStart.show()
-        self.tabWidget.setCurrentIndex(0)
         QApplication.alert(self)
 
     def on_slave_finished(self):
+
+        self.pushButtonStart.show()
+        self.tabWidget.setCurrentIndex(0)
+        self.pushButtonStop.hide()
+        self.progressBar.hide()
 
         def reset_after_render(func):
             """(Decorator)Reset after render choice before run @func  ."""

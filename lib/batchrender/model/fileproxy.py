@@ -7,6 +7,7 @@ from __future__ import (absolute_import, division, print_function,
 import logging
 import os
 
+from Qt import QtCore
 from Qt.QtCore import QSortFilterProxyModel, Qt
 from six.moves import range
 
@@ -93,7 +94,7 @@ class FilesProxyModel(UnicodeTrMixin, QSortFilterProxyModel):
 
         root_index = self.root_index()
         count = self.rowCount(root_index)
-        return (self.index(i, 0, root_index) for i in range(count))
+        return (QtCore.QPersistentModelIndex(self.index(i, 0, root_index)) for i in range(count))
 
     def iter_checked(self):
         """Get indexes that row has been user checked.

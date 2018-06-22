@@ -10,6 +10,7 @@ import sys
 import time
 from subprocess import PIPE, Popen
 
+import pendulum
 from Qt import QtCore
 from Qt.QtCore import Signal
 
@@ -27,6 +28,7 @@ LOGGER = logging.getLogger(__name__)
 class NukeTask(model.Task, core.RenderObject):
     """Nuke render task.  """
 
+    min_progress_interval = 1
     frame_finished = Signal(dict)
     process_finished = Signal(int)
 
@@ -39,6 +41,7 @@ class NukeTask(model.Task, core.RenderObject):
         self._filehash = None
         self.proc = None
         self.start_time = None
+        self.last_progress_time = 0
 
         self.frame_finished.connect(self.on_frame_finished)
         self.process_finished.connect(self.on_process_finished)
@@ -145,9 +148,14 @@ class NukeTask(model.Task, core.RenderObject):
         self.progressed.emit(current * 100 / total)
 
     def on_progressed(self, value):
+        if time.clock() - self.last_progress_time < self.min_progress_interval:
+            return
+
         self._info_timestamp()
         self._update_estimate()
         self.remains = (1.0 - value / 100.0) * self.estimate
+
+        self.last_progress_time = time.clock()
 
     def on_finished(self):
         if self.is_stopping:
@@ -166,8 +174,8 @@ class NukeTask(model.Task, core.RenderObject):
         record = (database.SESSION.query(database.Output).get(path)
                   or database.Output(path=path))
         assert isinstance(record, database.Output)
-        record.timestamp = time.time()
-        record.files += [self.file]
+        record.timestamp = pendulum.now()
+        record.files.append(self.file)
         record.frame = frame
         database.SESSION.add(record)
         database.util.throttle_commit(database.SESSION)

@@ -6,7 +6,7 @@ from __future__ import (absolute_import, division, print_function,
 
 import logging
 
-from Qt.QtCore import QTimer, QObject
+from Qt.QtCore import QObject, QTimer
 
 from ..__about__ import __version__
 from ..control import Controller
@@ -39,7 +39,7 @@ class Title(UnicodeTrMixin, QObject):
         self.control.slave.stopped.connect(self.on_stopped)
 
     def on_started(self):
-        self._timer.start()
+        # self._timer.start()
         self.update_prefix()
 
     def on_stopped(self):

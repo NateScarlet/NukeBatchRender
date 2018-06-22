@@ -80,7 +80,7 @@ class NukeTask(model.Task, core.RenderObject):
         handler.start()
 
     def start(self):
-        """(Override)"""
+        """Start rendering.  """
 
         self.start_time = time.time()
         self.is_aborting = False

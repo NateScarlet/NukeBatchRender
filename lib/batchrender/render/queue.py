@@ -27,6 +27,10 @@ class Queue(core.RenderObject):
         self.model.layoutChanged.connect(self.changed)
         self.model.rowsRemoved.connect(self.changed)
 
+    def __bool__(self):
+        return any(self.enabled_tasks())
+    __nonzero__ = __bool__
+
     def get(self):
         """Get first task from queue.  """
 

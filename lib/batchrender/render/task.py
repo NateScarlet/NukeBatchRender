@@ -10,7 +10,8 @@ import sys
 import time
 from subprocess import PIPE, Popen
 
-from Qt.QtCore import Signal, Slot
+from Qt import QtCore
+from Qt.QtCore import Signal
 
 from . import core
 from .. import database, model, texttools
@@ -121,8 +122,8 @@ class NukeTask(model.Task, core.RenderObject):
             self.finished.emit()
         return retcode
 
-    @Slot(dict)
     def on_frame_finished(self, data):
+        QtCore.QCoreApplication.processEvents()
         assert isinstance(data, dict), type(dict)
         frame, cost, current, total = (data['frame'],
                                        data['cost'],
@@ -169,7 +170,7 @@ class NukeTask(model.Task, core.RenderObject):
         record.files += [self.file]
         record.frame = frame
         database.SESSION.add(record)
-        database.SESSION.commit()
+        database.util.throttle_commit(database.SESSION)
 
     def _handle_render_error(self):
         self.error_count += 1

@@ -16,9 +16,9 @@
 在命令行中运行以下命令
 
 ```shell
-cd {你的Nuke安装文件夹}
-python -m pip install pipenv
-python -m pipenv install --system --deploy
+cd {源代码目录}
+{你的Nuke安装文件夹}/python.exe -m pip install pipenv
+{你的Nuke安装文件夹}/python.exe -m pipenv install --system --deploy
 ```
 
 ## 如果需要序列转 mov

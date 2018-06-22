@@ -94,7 +94,7 @@ class Slave(core.RenderObject):
 
     def on_task_stopped(self):
         if self.is_aborting:
-            self.stopped.emit()
+            self.aborted.emit()
 
     def on_started(self):
         LOGGER.debug('Render start')

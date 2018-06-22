@@ -101,8 +101,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         self.title = Title(self.control, self)
 
         self.title.update()
-        self.on_data_changed()
-        self.on_model_layout_changed()
+        self.on_model_changed()
 
     def _setup_signals(self):
         self.lineEditDir.textChanged.connect(self.control.change_root)
@@ -142,7 +141,8 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
             self.on_queue_remains_changed)
         self.control.root_changed.connect(self.on_root_changed)
         self.control.model.dataChanged.connect(self.on_data_changed)
-        self.control.model.layoutChanged.connect(self.on_model_layout_changed)
+        self.control.model.rowsRemoved.connect(self.on_model_changed)
+        self.control.model.layoutChanged.connect(self.on_model_changed)
 
     def __init__(self, parent=None):
 
@@ -183,8 +183,8 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         self.tableView.setRootIndex(index)
 
     def on_data_changed(self):
-        self.pushButtonStart.setEnabled(
-            any(self.control.model.iter_checked()))
+        has_checked_task = any(self.control.model.iter_checked())
+        self.pushButtonStart.setEnabled(has_checked_task)
 
     def on_table_selection_changed(self):
         self.toolButtonRemove.setEnabled(
@@ -198,7 +198,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         self.pushButtonStart.setText(self.tr('Start') + text)
         self.pushButtonStop.setText(self.tr('Stop') + text)
 
-    def on_model_layout_changed(self):
+    def on_model_changed(self):
         self.on_data_changed()
         self._update_button_remove_old_files()
         self._autostart()

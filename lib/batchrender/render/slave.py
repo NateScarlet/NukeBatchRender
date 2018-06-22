@@ -93,8 +93,7 @@ class Slave(core.RenderObject):
             task.abort()
 
     def on_task_stopped(self):
-        if self.is_aborting:
-            self.aborted.emit()
+        self._stop_timeout_timer()
 
     def on_started(self):
         LOGGER.debug('Render start')
@@ -103,13 +102,11 @@ class Slave(core.RenderObject):
 
     def on_aborted(self):
         LOGGER.debug('Render aborted.')
-        self.task = None
 
     def on_stopped(self):
         LOGGER.debug('Render stopped.')
         self.is_rendering = False
         self.is_aborting = False
-        self._stop_timeout_timer()
 
     def on_finished(self):
         LOGGER.debug('Render finished.')
@@ -118,7 +115,7 @@ class Slave(core.RenderObject):
         task = self.task
         if isinstance(task, NukeTask):
             task.priority -= 1
-            task.stop()
+            task.abort()
 
     def on_frame_finished(self, payload):
         # Restart timeout timer.

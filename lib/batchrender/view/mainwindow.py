@@ -330,6 +330,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
 
     def on_slave_stopped(self):
         QApplication.alert(self)
+        self._autostart()
 
     def on_slave_finished(self):
 

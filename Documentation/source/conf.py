@@ -113,7 +113,11 @@ html_sidebars = {
         'donate.html',
     ]
 }
-
+html_search_language = 'zh'
+html_search_options = {
+    'type': 'jieba',
+    'dic_enc': 'utf-8',
+}
 
 # -- Options for HTMLHelp output ------------------------------------------
 

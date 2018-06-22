@@ -7,9 +7,10 @@ Welcome to Nuke批渲染's documentation!
 ======================================
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+  :maxdepth: 2
+  :caption: Contents:
 
+  changelog
 
 
 Indices and tables

@@ -168,7 +168,9 @@ class NukeTask(model.Task, core.RenderObject):
         cost = now - self.start_time
         self.file.last_finish_time = now
         self.file.last_cost = cost
-        self.info('{}: 结束渲染 耗时 {}'.format(self.path, cost))
+        self.info('{}: 结束渲染 耗时 {}'.format(
+            self.path,
+            pendulum.duration(seconds=cost).in_words()))
         database.SESSION.commit()
 
     def on_output_updated(self, payload):

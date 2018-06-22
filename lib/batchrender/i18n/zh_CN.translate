@@ -120,17 +120,17 @@
 <context>
     <name>FilesProxyModel</name>
     <message>
-        <location filename="../model/fileproxy.py" line="67"/>
+        <location filename="../model/fileproxy.py" line="68"/>
         <source>File</source>
         <translation>文件</translation>
     </message>
     <message>
-        <location filename="../model/fileproxy.py" line="68"/>
+        <location filename="../model/fileproxy.py" line="69"/>
         <source>Range</source>
         <translation>范围</translation>
     </message>
     <message>
-        <location filename="../model/fileproxy.py" line="69"/>
+        <location filename="../model/fileproxy.py" line="70"/>
         <source>Priority</source>
         <translation>优先级</translation>
     </message>
@@ -138,12 +138,12 @@
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../view/mainwindow.py" line="195"/>
+        <location filename="../view/mainwindow.py" line="198"/>
         <source>Start</source>
         <translation>启动</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="196"/>
+        <location filename="../view/mainwindow.py" line="199"/>
         <source>Stop</source>
         <translation>停止</translation>
     </message>
@@ -158,22 +158,17 @@
         <translation>移除</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="195"/>
+        <location filename="../view/mainwindow.ui" line="215"/>
         <source> GB</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="214"/>
-        <source>Timeout</source>
-        <translation>超时</translation>
-    </message>
-    <message>
-        <location filename="../view/mainwindow.py" line="299"/>
+        <location filename="../view/mainwindow.py" line="302"/>
         <source>Deadline</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="414"/>
+        <location filename="../view/mainwindow.ui" line="396"/>
         <source>version</source>
         <translation></translation>
     </message>
@@ -218,161 +213,176 @@
         <translation>文件</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="182"/>
+        <location filename="../view/mainwindow.ui" line="202"/>
         <source>Memory limit</source>
         <translation>内存限制</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="224"/>
+        <location filename="../view/mainwindow.ui" line="268"/>
         <source> seconds</source>
         <translation>秒</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="237"/>
+        <location filename="../view/mainwindow.ui" line="234"/>
         <source>Threads</source>
         <translation>线程数</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="265"/>
+        <location filename="../view/mainwindow.ui" line="169"/>
         <source>Proxy size</source>
         <translation>代理大小</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="278"/>
+        <location filename="../view/mainwindow.ui" line="182"/>
         <source>Countinue on error</source>
         <translation>出错继续</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="291"/>
+        <location filename="../view/mainwindow.ui" line="195"/>
         <source>Low priority</source>
         <translation>低优先级</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="306"/>
+        <location filename="../view/mainwindow.ui" line="287"/>
         <source>After finished</source>
         <translation>完成后</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="351"/>
+        <location filename="../view/mainwindow.py" line="350"/>
         <source>Wait for new task</source>
         <translation>等待新任务</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="353"/>
+        <location filename="../view/mainwindow.py" line="352"/>
         <source>Shutdown</source>
         <translation>关机</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="352"/>
+        <location filename="../view/mainwindow.py" line="351"/>
         <source>Hibernate</source>
         <translation>休眠</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="356"/>
+        <location filename="../view/mainwindow.py" line="355"/>
         <source>Execute command...</source>
         <translation>执行命令...</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="358"/>
+        <location filename="../view/mainwindow.py" line="357"/>
         <source>Run program...</source>
         <translation>运行程序...</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="359"/>
+        <location filename="../view/mainwindow.py" line="358"/>
         <source>Idle</source>
         <translation>什么都不做</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="407"/>
+        <location filename="../view/mainwindow.ui" line="389"/>
         <source>Open log</source>
         <translation>打开日志</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="207"/>
+        <location filename="../view/mainwindow.py" line="210"/>
         <source>Archive old version files
 {}</source>
         <translation>归档旧文件
 {}</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="208"/>
+        <location filename="../view/mainwindow.py" line="211"/>
         <source>&lt;None&gt;</source>
         <translation>&lt;无&gt;</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="218"/>
+        <location filename="../view/mainwindow.py" line="221"/>
         <source>Found new task, auto start rendering.</source>
         <translation>发现新任务, 自动开始渲染。</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="235"/>
+        <location filename="../view/mainwindow.py" line="238"/>
         <source>Not support this file type.</source>
         <translation>不支持此文件类型。</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="235"/>
+        <location filename="../view/mainwindow.py" line="238"/>
         <source>Only support `.nk` file.</source>
         <translation>只支持 `.nk` 文件。</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="248"/>
+        <location filename="../view/mainwindow.py" line="251"/>
         <source>Run deadline after render finished: %s</source>
         <translation>渲染完成后运行Deadline: %s</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="252"/>
+        <location filename="../view/mainwindow.py" line="255"/>
         <source>Choose Deadline Slave executable</source>
         <translation>选择Deadline Slave 执行程序</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="258"/>
+        <location filename="../view/mainwindow.py" line="261"/>
         <source>Set Deadline path: %s</source>
         <translation>设置Deadline路径为: %s</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="277"/>
+        <location filename="../view/mainwindow.py" line="280"/>
         <source>Execute command after render finished...</source>
         <translation>渲染后执行命令...</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="266"/>
+        <location filename="../view/mainwindow.py" line="269"/>
         <source>Command</source>
         <translation>命令</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="270"/>
+        <location filename="../view/mainwindow.py" line="273"/>
         <source>Execute command after render finished: %s</source>
         <translation>渲染后执行命令: %s</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="282"/>
+        <location filename="../view/mainwindow.py" line="285"/>
         <source>Run program after render finished: %s</source>
         <translation>渲染后运行程序: %s</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="398"/>
+        <location filename="../view/mainwindow.py" line="397"/>
         <source>Rendering</source>
         <translation>正在渲染</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="399"/>
+        <location filename="../view/mainwindow.py" line="398"/>
         <source>Stop render and exit?</source>
         <translation>停止渲染并退出?</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="359"/>
+        <location filename="../view/mainwindow.py" line="358"/>
         <source>Idle after render finished.</source>
         <translation>渲染完成后什么都不做。</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="221"/>
+        <location filename="../view/mainwindow.ui" line="265"/>
         <source>Auto remove all resource limit when timeout. 0 seconds to disable the timeout.</source>
         <translation>超时时自动移除所有资源限制。 0秒代表不会超时。</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="310"/>
+        <location filename="../view/mainwindow.py" line="313"/>
         <source>Render timeout, remove resource limit.</source>
         <translation>渲染超时, 移除资源限制。</translation>
+    </message>
+    <message>
+        <location filename="../view/mainwindow.ui" line="419"/>
+        <source>slaveStarted</source>
+        <translation>渲染子机开始</translation>
+    </message>
+    <message>
+        <location filename="../view/mainwindow.ui" line="424"/>
+        <source>slaveStopped</source>
+        <translation>渲染子机停止</translation>
+    </message>
+    <message>
+        <location filename="../view/mainwindow.ui" line="255"/>
+        <source>Frame timeout</source>
+        <translation>单帧超时</translation>
     </message>
 </context>
 <context>

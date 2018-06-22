@@ -252,7 +252,7 @@
       <item alignment="Qt::AlignRight">
        <widget class="QLabel" name="label_4">
         <property name="text">
-         <string>Timeout</string>
+         <string>Frame timeout</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -409,7 +409,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>593</width>
+     <width>600</width>
      <height>23</height>
     </rect>
    </property>

@@ -107,6 +107,7 @@ class Slave(core.RenderObject):
         LOGGER.debug('Render stopped.')
         self.is_rendering = False
         self.is_aborting = False
+        self.task = None
 
     def on_finished(self):
         LOGGER.debug('Render finished.')

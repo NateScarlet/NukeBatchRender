@@ -52,8 +52,8 @@ class NukeTask(model.Task, core.RenderObject):
             other = other.path
         return self.path == other
 
-    def stop(self):
-        """Stop rendering.  """
+    def abort(self):
+        """Abort rendering.  """
 
         self.is_aborting = True
         self.state &= ~model.DOING

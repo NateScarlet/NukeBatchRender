@@ -90,7 +90,7 @@ class Slave(core.RenderObject):
         self.is_aborting = True
         task = self.task
         if isinstance(task, NukeTask):
-            task.stop()
+            task.abort()
 
     def on_task_stopped(self):
         if self.is_aborting:

@@ -82,6 +82,14 @@ def copy(src, dst):
         os.makedirs(dst_dir_e)
     try:
         shutil.copy2(src_e, dst_e)
+    except shutil.Error as ex:
+        try:
+            if u(ex.args[0]).endswith('are the same file'):
+                LOGGER.debug('Same file, skip copy.')
+            else:
+                raise
+        except:
+            raise ex
     except OSError:
         if sys.platform == 'win32':
             subprocess.call(e('XCOPY /V /Y "{}" "{}"'.format(src, dst)))

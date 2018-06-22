@@ -39,7 +39,7 @@ class Title(UnicodeTrMixin, QObject):
         self.control.slave.stopped.connect(self.on_stopped)
 
     def on_started(self):
-        # self._timer.start()
+        self._timer.start()
         self.update_prefix()
 
     def on_stopped(self):

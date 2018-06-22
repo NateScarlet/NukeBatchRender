@@ -29,6 +29,7 @@ class NukeTask(model.Task, core.RenderObject):
     """Nuke render task.  """
 
     min_progress_interval = 1
+    min_timestamp_interval = 5
     frame_finished = Signal(dict)
     process_finished = Signal(int)
 
@@ -41,7 +42,8 @@ class NukeTask(model.Task, core.RenderObject):
         self._filehash = None
         self.proc = None
         self.start_time = None
-        self.last_progress_time = 0
+        self.last_progress_time = None
+        self._last_timestamp_time = None
 
         self.frame_finished.connect(self.on_frame_finished)
         self.process_finished.connect(self.on_process_finished)
@@ -146,16 +148,20 @@ class NukeTask(model.Task, core.RenderObject):
         database.util.throttle_commit(database.SESSION)
 
         self.progressed.emit(current * 100 / total)
+        self._info_timestamp()
+
+    def on_started(self):
+        self._info_timestamp()
 
     def on_progressed(self, value):
-        if time.clock() - self.last_progress_time < self.min_progress_interval:
+        now = time.clock()
+        if (self.last_progress_time
+                and now - self.last_progress_time < self.min_progress_interval):
             return
 
-        self._info_timestamp()
+        self.last_progress_time = now
         self._update_estimate()
         self.remains = (1.0 - value / 100.0) * self.estimate
-
-        self.last_progress_time = time.clock()
 
     def on_finished(self):
         if self.is_stopping:
@@ -205,6 +211,12 @@ class NukeTask(model.Task, core.RenderObject):
             LOGGER.warning('Remove temprory file failed.', exc_info=True)
 
     def _info_timestamp(self):
+        now = time.clock()
+        if (self._last_timestamp_time
+                and now - self._last_timestamp_time < self.min_timestamp_interval):
+            return
+
+        self._last_timestamp_time = now
         self.stdout.emit(texttools.stylize(time.strftime('[%x %X]'), 'info'))
 
 

@@ -65,7 +65,6 @@ def _link_edits_to_config(edits_key):
 class MainWindow(UnicodeTrMixin, QMainWindow):
     """Main GUI window.  """
 
-    _auto_start = False
     file_dropped = Signal(list)
 
     def _setup_icon(self):
@@ -146,6 +145,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
 
         super(MainWindow, self).__init__(parent)
         self.control = Controller(self)
+        self._is_auto_start = False
         self._setup_ui()
         _link_edits_to_config({
             self.lineEditDir: 'DIR',
@@ -210,11 +210,11 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
     def _autostart(self):
         """Auto start rendering depend on setting.  """
 
-        if (self._auto_start
+        if (self._is_auto_start
                 and not self.control.slave.is_rendering
                 and self.control.queue):
-            self._auto_start = False
-            self.pushButtonStart.clicked.emit()
+            self._is_auto_start = False
+            self.control.start()
             LOGGER.info(self.tr('Found new task, auto start rendering.'))
 
     def ask_dir(self):
@@ -285,7 +285,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
                 _reset()
 
         if text != self.tr('Wait for new task'):
-            self._auto_start = False
+            self._is_auto_start = False
 
         if text == self.tr('Deadline'):
             _deadline()
@@ -313,6 +313,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         self.spinBoxThreads.setValue(self.spinBoxThreads.maximum())
         self.doubleSpinBoxMemory.setValue(self.doubleSpinBoxMemory.maximum())
         self.spinBoxTimeOut.setValue(0)
+        self._is_auto_start = True
 
     @Slot()
     def on_start_button_clicked(self):
@@ -349,7 +350,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         after_finish = self.comboBoxAfterFinish.currentText()
 
         actions = {
-            self.tr('Wait for new task'): lambda: setattr(self, '_auto_start', True),
+            self.tr('Wait for new task'): lambda: setattr(self, '_is_auto_start', True),
             self.tr('Hibernate'): reset_after_render(hiber),
             self.tr('Shutdown'): reset_after_render(shutdown),
             'Deadline': reset_after_render(lambda: webbrowser.open(CONFIG['DEADLINE'])),

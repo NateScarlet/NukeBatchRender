@@ -11,7 +11,6 @@ import time
 from subprocess import PIPE, Popen
 
 import pendulum
-from Qt import QtCore
 from Qt.QtCore import Signal
 
 from . import core
@@ -128,7 +127,6 @@ class NukeTask(model.Task, core.RenderObject):
         return retcode
 
     def on_frame_finished(self, data):
-        QtCore.QCoreApplication.processEvents()
         assert isinstance(data, dict), type(dict)
         frame, cost, current, total = (data['frame'],
                                        data['cost'],

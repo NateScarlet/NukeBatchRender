@@ -55,7 +55,7 @@ class NukeTask(model.Task, core.RenderObject):
     def stop(self):
         """Stop rendering.  """
 
-        self.is_stopping = True
+        self.is_aborting = True
         self.state &= ~model.DOING
         proc = self.proc
         if proc is not None:
@@ -79,23 +79,23 @@ class NukeTask(model.Task, core.RenderObject):
         handler.output_updated.connect(self.on_output_updated)
         handler.start()
 
-    def run(self):
+    def start(self):
         """(Override)"""
 
         self.start_time = time.time()
-        self.is_stopping = False
+        self.is_aborting = False
         self.state |= model.DOING
 
         self._update_file()
         self._tempfile = self.file.create_tempfile()
         self._filehash = self.file.hash
-        self.run_process()
+        self.start_process()
 
         self.started.emit()
 
     @run_async
-    def run_process(self):
-        """Run render process.  """
+    def start_process(self):
+        """Start render process.  """
 
         proc = nuke_process(self._tempfile, self.range)
         self.proc = proc
@@ -109,7 +109,7 @@ class NukeTask(model.Task, core.RenderObject):
                   if retcode else '正常退出')
 
         self._update_file()
-        if self.is_stopping:
+        if self.is_aborting:
             self.info('中途终止进程 pid: {}'.format(self.proc.pid))
         elif self.file.hash != self._filehash:
             self.info('文件有更改, 重新加入队列.')
@@ -120,8 +120,8 @@ class NukeTask(model.Task, core.RenderObject):
 
         self._try_remove_tempfile()
         self.state &= ~model.DOING
-        if self.is_stopping:
-            self.stopped.emit()
+        if self.is_aborting:
+            self.aborted.emit()
         else:
             self.finished.emit()
         return retcode
@@ -162,7 +162,7 @@ class NukeTask(model.Task, core.RenderObject):
         self.remains = (1.0 - value / 100.0) * self.estimate
 
     def on_finished(self):
-        if self.is_stopping:
+        if self.is_aborting:
             return
         now = time.time()
         cost = now - self.start_time

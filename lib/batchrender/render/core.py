@@ -18,7 +18,7 @@ LOGGER = logging.getLogger(__name__)
 class RenderObject(QObject):
     """Base render object.  """
 
-    is_stopping = False
+    is_aborting = False
     _remains = None
 
     # Signals.

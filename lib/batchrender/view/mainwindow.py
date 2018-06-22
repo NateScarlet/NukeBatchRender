@@ -325,7 +325,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
     def on_stop_button_clicked(self):
         self.comboBoxAfterFinish.setCurrentIndex(0)
 
-        self.control.stop()
+        self.control.abort()
 
     def on_slave_stopped(self):
         QApplication.alert(self)
@@ -404,7 +404,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
             )
             if confirm == QMessageBox.Yes:
                 self.control.slave.stopped.connect(self.close)
-                self.control.slave.stop()
+                self.control.slave.abort()
             event.ignore()
             return
 

@@ -70,7 +70,7 @@ class Slave(core.RenderObject):
             task = self.queue.get()
             assert isinstance(task, NukeTask)
             self.task = task
-            task.run()
+            task.start()
         except StopIteration:
             self.task = None
             self.finished.emit()
@@ -84,16 +84,16 @@ class Slave(core.RenderObject):
         self._start_next()
         self.started.emit()
 
-    def stop(self):
-        """Stop rendering.  """
+    def abort(self):
+        """Abort rendering.  """
 
-        self.is_stopping = True
+        self.is_aborting = True
         task = self.task
         if isinstance(task, NukeTask):
             task.stop()
 
     def on_task_stopped(self):
-        if self.is_stopping:
+        if self.is_aborting:
             self.stopped.emit()
 
     def on_started(self):
@@ -108,7 +108,7 @@ class Slave(core.RenderObject):
     def on_stopped(self):
         LOGGER.debug('Render stopped.')
         self.is_rendering = False
-        self.is_stopping = False
+        self.is_aborting = False
         self._stop_timeout_timer()
 
     def on_finished(self):

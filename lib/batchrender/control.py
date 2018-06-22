@@ -51,9 +51,9 @@ class Controller(UnicodeTrMixin, QObject):
         """Start rendering.  """
         self.slave.start()
 
-    def stop(self):
-        """Stop rendering.  """
-        self.slave.stop()
+    def abort(self):
+        """Abort rendering.  """
+        self.slave.abort()
 
     def change_root(self, path):
         """Change root directory.  """

@@ -277,7 +277,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
 
         def _run_exe():
             path = QFileDialog.getOpenFileName(
-                self, self.tr('Execute command after render finished...'),
+                self, self.tr('Run program after render finished...'),
                 dir=CONFIG['AFTER_FINISH_PROGRAM'])[0]
             if path:
                 CONFIG['AFTER_FINISH_PROGRAM'] = path

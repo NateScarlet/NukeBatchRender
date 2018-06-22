@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE TS><TS version="1.1" language="zh_CN">
+<!DOCTYPE TS>
+<TS version="2.0" language="zh_CN">
 <context>
     <name>ConsoleTranslator</name>
     <message>
@@ -325,7 +326,7 @@
         <translation>设置Deadline路径为: %s</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.py" line="280"/>
+        <location filename="../view/mainwindow.py" line="268"/>
         <source>Execute command after render finished...</source>
         <translation>渲染后执行命令...</translation>
     </message>
@@ -383,6 +384,11 @@
         <location filename="../view/mainwindow.ui" line="255"/>
         <source>Frame timeout</source>
         <translation>单帧超时</translation>
+    </message>
+    <message>
+        <location filename="../view/mainwindow.py" line="280"/>
+        <source>Run program after render finished...</source>
+        <translation>渲染后运行程序...</translation>
     </message>
 </context>
 <context>

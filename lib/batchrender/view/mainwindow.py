@@ -133,6 +133,8 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         self.control.slave.stderr.connect(self.textBrowser.append)
         self.control.slave.progressed.connect(self.on_slave_progressed)
         self.control.slave.started.connect(self.actionSlaveStarted.triggered)
+        self.control.slave.started.connect(
+            lambda: self.tabWidget.setCurrentIndex)
         self.control.slave.stopped.connect(self.actionSlaveStopped.triggered)
         self.control.slave.finished.connect(self.on_slave_finished)
         self.control.slave.time_out.connect(self.on_slave_time_out)
@@ -326,13 +328,12 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
     @Slot()
     def on_stop_button_clicked(self):
         self.comboBoxAfterFinish.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(0)
 
         self.control.abort()
 
     def on_slave_finished(self):
-
         QApplication.alert(self)
-        self.tabWidget.setCurrentIndex(0)
 
         def reset_after_render(func):
             """(Decorator)Reset after render choice before run @func  ."""

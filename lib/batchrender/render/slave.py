@@ -37,6 +37,7 @@ class Slave(core.RenderObject):
             ('stdout', self.stdout),
             ('stderr', self.stderr),
             ('aborted', self.aborted),
+            ('stopped', self.on_task_stopped),
             ('remains_changed', self.queue.update_remains),
         ]
 
@@ -71,7 +72,6 @@ class Slave(core.RenderObject):
         except StopIteration:
             self.task = None
             self.finished.emit()
-            self.is_rendering = False
 
     def start(self):
         """Overridde.  """
@@ -79,7 +79,6 @@ class Slave(core.RenderObject):
         if self.is_rendering:
             return
 
-        self.is_rendering = True
         self._start_next()
         self.started.emit()
 
@@ -91,8 +90,13 @@ class Slave(core.RenderObject):
         if isinstance(task, NukeTask):
             task.stop()
 
+    def on_task_stopped(self):
+        if self.is_stopping:
+            self.stopped.emit()
+
     def on_started(self):
         LOGGER.debug('Render start')
+        self.is_rendering = True
         self._start_timeout_timer()
 
     def on_aborted(self):

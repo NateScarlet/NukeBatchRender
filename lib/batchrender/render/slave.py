@@ -58,6 +58,8 @@ class Slave(core.RenderObject):
                 signal, slot = i
                 getattr(getattr(task, signal), method)(slot)
 
+        if value == self._task:
+            return
         old = self._task
         _apply_on_signals(value, 'connect')
         self._task = value

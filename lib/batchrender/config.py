@@ -33,7 +33,7 @@ class Config(dict):
         'LOW_PRIORITY': 2,
         'CONTINUE': 2,
         'HIBER': 0,
-        'MEMORY_LIMIT': psutil.virtual_memory().total / 2.0 ** 30,
+        'MEMORY_LIMIT': max(psutil.virtual_memory().total / 2.0 ** 30 - 8.0, 0.0),
         'THREADS': psutil.cpu_count(logical=True),
         'TIME_OUT': 600,
     }

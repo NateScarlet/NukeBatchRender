@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE TS>
-<TS version="2.0" language="zh_CN">
+<!DOCTYPE TS><TS version="1.1" language="zh_CN">
 <context>
     <name>ConsoleTranslator</name>
     <message>
@@ -159,7 +158,7 @@
         <translation>移除</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="215"/>
+        <location filename="../view/mainwindow.ui" line="218"/>
         <source> GB</source>
         <translation></translation>
     </message>
@@ -169,7 +168,7 @@
         <translation></translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="396"/>
+        <location filename="../view/mainwindow.ui" line="399"/>
         <source>version</source>
         <translation></translation>
     </message>
@@ -214,17 +213,12 @@
         <translation>文件</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="202"/>
-        <source>Memory limit</source>
-        <translation>内存限制</translation>
-    </message>
-    <message>
-        <location filename="../view/mainwindow.ui" line="268"/>
+        <location filename="../view/mainwindow.ui" line="271"/>
         <source> seconds</source>
         <translation>秒</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="234"/>
+        <location filename="../view/mainwindow.ui" line="237"/>
         <source>Threads</source>
         <translation>线程数</translation>
     </message>
@@ -244,7 +238,7 @@
         <translation>低优先级</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="287"/>
+        <location filename="../view/mainwindow.ui" line="290"/>
         <source>After finished</source>
         <translation>完成后</translation>
     </message>
@@ -279,7 +273,7 @@
         <translation>什么都不做</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="389"/>
+        <location filename="../view/mainwindow.ui" line="392"/>
         <source>Open log</source>
         <translation>打开日志</translation>
     </message>
@@ -361,7 +355,7 @@
         <translation>渲染完成后什么都不做。</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="265"/>
+        <location filename="../view/mainwindow.ui" line="268"/>
         <source>Auto remove all resource limit when timeout. 0 seconds to disable the timeout.</source>
         <translation>超时时自动移除所有资源限制。 0秒代表不会超时。</translation>
     </message>
@@ -371,17 +365,17 @@
         <translation>渲染超时, 移除资源限制。</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="419"/>
+        <location filename="../view/mainwindow.ui" line="422"/>
         <source>slaveStarted</source>
         <translation>渲染子机开始</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="424"/>
+        <location filename="../view/mainwindow.ui" line="427"/>
         <source>slaveStopped</source>
         <translation>渲染子机停止</translation>
     </message>
     <message>
-        <location filename="../view/mainwindow.ui" line="255"/>
+        <location filename="../view/mainwindow.ui" line="258"/>
         <source>Frame timeout</source>
         <translation>单帧超时</translation>
     </message>
@@ -389,6 +383,16 @@
         <location filename="../view/mainwindow.py" line="280"/>
         <source>Run program after render finished...</source>
         <translation>渲染后运行程序...</translation>
+    </message>
+    <message>
+        <location filename="../view/mainwindow.ui" line="205"/>
+        <source>Memory cache limit</source>
+        <translation>内存缓存限制</translation>
+    </message>
+    <message>
+        <location filename="../view/mainwindow.ui" line="202"/>
+        <source>Limit nuke memory cache usage, value large than actual free memory may cause memory overflow. 0 means no limit.</source>
+        <translation>限制nuke内存缓存大小, 大于实际空闲内存的值可能导致内存溢出。 0代表无内存限制。</translation>
     </message>
 </context>
 <context>

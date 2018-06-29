@@ -314,7 +314,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         self.textBrowser.append(stylize(msg, 'error'))
         self.checkBoxPriority.setCheckState(Qt.Unchecked)
         self.spinBoxThreads.setValue(self.spinBoxThreads.maximum())
-        self.doubleSpinBoxMemory.setValue(self.doubleSpinBoxMemory.maximum())
+        self.doubleSpinBoxMemory.setValue(0)
         self.spinBoxTimeOut.setValue(0)
         self._is_auto_start = True
 

@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>600</width>
+    <width>629</width>
     <height>800</height>
    </rect>
   </property>
@@ -198,8 +198,11 @@
       </item>
       <item alignment="Qt::AlignRight">
        <widget class="QLabel" name="label_3">
+        <property name="toolTip">
+         <string>Limit nuke memory cache usage, value large than actual free memory may cause memory overflow. 0 means no limit.</string>
+        </property>
         <property name="text">
-         <string>Memory limit</string>
+         <string>Memory cache limit</string>
         </property>
        </widget>
       </item>
@@ -409,7 +412,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>600</width>
+     <width>629</width>
      <height>23</height>
     </rect>
    </property>

@@ -135,6 +135,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         self.control.slave.started.connect(
             lambda: self.tabWidget.setCurrentIndex)
         self.control.slave.stopped.connect(self.actionSlaveStopped.triggered)
+        self.control.slave.aborted.connect(self._autostart)
         self.control.slave.finished.connect(self.on_slave_finished)
         self.control.slave.time_out.connect(self.on_slave_time_out)
         self.control.queue.remains_changed.connect(
@@ -315,7 +316,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         self.checkBoxPriority.setCheckState(Qt.Unchecked)
         self.spinBoxThreads.setValue(self.spinBoxThreads.maximum())
         self.doubleSpinBoxMemory.setValue(0)
-        self.spinBoxTimeOut.setValue(0)
+        self.spinBoxTimeOut.setValue(self.spinBoxTimeOut.value() + 1)
         self._is_auto_start = True
 
     @Slot()

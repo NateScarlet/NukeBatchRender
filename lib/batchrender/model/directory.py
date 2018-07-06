@@ -179,6 +179,9 @@ class DirectoryModel(UnicodeTrMixin, QFileSystemModel):
             return False
         elif value == Qt.Checked:
             status &= ~core.DISABLED
+            file_ = self.data(index, core.ROLE_FILE)
+            if file_.is_rendering():
+                file_.remove_tempfile()
         else:
             status |= core.DISABLED
 

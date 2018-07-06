@@ -91,16 +91,23 @@ class File(Base, SerializableMixin):
     def create_tempfile(self, dirname='render'):
         """Create a copy in tempdir for render, caller is responsible for deleting.  """
 
-        dirname = u(dirname)
-        dirpath = os.path.normpath(os.path.join(CONFIG['DIR'], dirname))
+        dst = self._tempfile_path(dirname)
         try:
-            os.makedirs(e(dirpath))
+            os.makedirs(e(os.path.dirname(dst)))
         except OSError:
             pass
-        dst = os.path.join(dirpath, self.filename_with_hash())
         assert isinstance(dst, six.text_type), type(dst)
         filetools.copy(self.path.as_posix(), dst)
         return dst
+
+    def _tempfile_path(self, dirname):
+        return os.path.join(_dir_path(dirname), self.filename_with_hash())
+
+    def is_rendering(self, dirname='render'):
+        return os.path.exists(e(self._tempfile_path(dirname)))
+
+    def remove_tempfile(self, dirname='render'):
+        os.unlink(e(self._tempfile_path(dirname)))
 
     def filename_with_hash(self):
         """Get filename with hash in middle.  """
@@ -142,3 +149,8 @@ class File(Base, SerializableMixin):
         session.add(ret)
         session.commit()
         return ret
+
+
+def _dir_path(dirname):
+    dirname = u(dirname)
+    return os.path.normpath(os.path.join(CONFIG['DIR'], dirname))

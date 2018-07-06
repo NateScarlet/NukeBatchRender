@@ -9,6 +9,7 @@ import logging
 from Qt.QtCore import QTimer
 
 from . import core
+from .. import model
 from ..config import CONFIG
 from .task import NukeTask
 
@@ -69,6 +70,10 @@ class Slave(core.RenderObject):
         try:
             task = self.queue.get()
             assert isinstance(task, NukeTask)
+            if task.file.is_rendering():
+                task.state |= model.core.DISABLED
+                self._start_next()
+                return
             self.task = task
             task.start()
         except StopIteration:

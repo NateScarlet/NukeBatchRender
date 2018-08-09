@@ -1,14 +1,17 @@
 environment:
+  PYTHONPATH: lib
   matrix:
     - PYTHON: "C:\\Python27"
 install:
   - "%PYTHON%\\python.exe -m pip install pipenv"
-  - "%PYTHON%\\python.exe -m pipenv install --system --deploy -d"
+  - "%PYTHON%\\python.exe -m pipenv install -d --system --deploy"
+  - "%PYTHON%\\python.exe -m pip install -r Documentation/requirements.txt"
+  - ps: $env:SPHINXBUILD="$env:PYTHON\\Scripts\\sphinx-build.exe"
 build_script:
   - "%PYTHON%\\python.exe build.py"
   - "Documentation/make.bat html"
 after_build:
-  - "7z a -tzip build\\NukeBatchRender-%APPVEYOR_REPO_TAG_NAME%-win.zip dist\\*.exe"
+  - "7z a -tzip -xr!.* -xr0!build build\\NukeBatchRender-%APPVEYOR_REPO_TAG_NAME%-win.zip"
 artifacts:
   - path: build\NukeBatchRender-*.zip
     name: Prebuild package

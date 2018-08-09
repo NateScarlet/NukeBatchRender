@@ -1,0 +1,31 @@
+environment:
+  matrix:
+    - PYTHON: "C:\\Python27"
+install:
+  - "%PYTHON%\\python.exe -m pip install pipenv"
+  - "%PYTHON%\\python.exe -m pipenv install --system --deploy -d"
+build_script:
+  - "%PYTHON%\\python.exe build.py"
+  - "Documentation/make.bat html"
+after_build:
+  - "7z a -tzip build\\NukeBatchRender-%APPVEYOR_REPO_TAG_NAME%-win.zip dist\\*.exe"
+artifacts:
+  - path: build\NukeBatchRender-*.zip
+    name: Prebuild package
+before_deploy:
+  - ps: >-
+      & $env:PYTHON\\python.exe Documentation/get_changelog.py $env:APPVEYOR_REPO_TAG_NAME build/release_note.md;
+      ${env:APPVEYOR_RELEASE_DESCRIPTION} = (Get-Content -Encoding utf8 build/release_note.md) -join "`n";
+deploy:
+  tag: $(APPVEYOR_REPO_TAG_NAME)
+  release: $(APPVEYOR_REPO_TAG_NAME)
+  description: $(APPVEYOR_RELEASE_DESCRIPTION)
+  provider: GitHub
+  auth_token:
+    secure: nsLSikshpVvfyMmNivRtOSZT3xmqO5iD6nOkoXipGnT33lU19R89mfpDXZjAuyjr
+  artifact: /.*\.zip/
+  draft: false
+  prerelease: false
+  on:
+    branch: master
+    appveyor_repo_tag: true

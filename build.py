@@ -3,18 +3,18 @@
 
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-from subprocess import Popen
+
 import os
 import webbrowser
-
+from subprocess import Popen
 
 from batchrender.__about__ import __version__
 
+__dirname__ = os.path.abspath(os.path.dirname(__file__))
+
 
 def main():
-    ouptut = 'dist/batchrender-{}.exe'.format(__version__)
-
-    os.chdir(os.path.dirname(__file__))
+    ouptut = '{}/dist/batchrender-{}.exe'.format(__dirname__, __version__)
 
     print('Building {}\n'.format(ouptut))
 
@@ -23,10 +23,10 @@ def main():
     try:
         if os.path.exists(ouptut):
             os.remove(ouptut)
-        os.rename('dist/batchrender.exe', ouptut)
+        os.rename('{}/dist/batchrender.exe'.format(__dirname__), ouptut)
     except OSError:
         print('Can not rename to %s' % ouptut)
-    webbrowser.open(os.path.abspath(ouptut))
+    webbrowser.open(ouptut)
 
 
 if __name__ == '__main__':

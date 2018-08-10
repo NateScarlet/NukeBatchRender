@@ -6,6 +6,7 @@ from __future__ import (absolute_import, division, print_function,
 
 from collections import namedtuple
 
+import sqlalchemy
 from pathlib2 import PurePath
 from Qt.QtCore import QAbstractListModel, Qt
 from sqlalchemy import desc
@@ -27,9 +28,13 @@ class FileOutputModel(UnicodeTrMixin, QAbstractListModel):
 
     def update(self):
         """Update item from database.  """
+        with db.util.session_scope(db.core.Session(expire_on_commit=False)) as sess:
+            outputs = sess.query(
+                db.Output
+            ).order_by(
+                desc(db.Output.timestamp)
+            ).limit(500).all()
 
-        outputs = db.SESSION.query(db.Output).order_by(
-            desc(db.Output.timestamp)).all()
         outputs_groups = db.output.group_by_pattern(outputs)
         data = []
         for k, v in outputs_groups.items():

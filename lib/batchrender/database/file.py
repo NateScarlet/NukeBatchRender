@@ -10,7 +10,7 @@ import shutil
 
 import six
 from sqlalchemy import Column, Float, Integer, String, func
-from sqlalchemy.orm import object_session, relationship
+from sqlalchemy.orm import relationship
 
 from . import core
 from .. import filetools
@@ -60,18 +60,16 @@ class File(Base, SerializableMixin):
             return None
         return FrameRange(range(first, last+1))
 
-    def average_frame_cost(self):
+    def average_frame_cost(self, session):
         """Average frame cost for this file.  """
 
-        sess = object_session(self)
-        return sess.query(func.avg(Frame.cost)).filter(Frame.file == self).scalar()
+        return session.query(func.avg(Frame.cost)).filter(Frame.file == self).scalar()
 
-    def estimate_cost(self, frame_count=None, default_frame_count=100, default_frame_cost=30):
+    def estimate_cost(self, session, frame_count=None, default_frame_count=100, default_frame_cost=30):
         """Estimate file render time cost.  """
 
-        sess = object_session(self)
-        frame_cost = (self.average_frame_cost() or
-                      sess.query(func.avg(Frame.cost)).scalar() or
+        frame_cost = (self.average_frame_cost(session) or
+                      session.query(func.avg(Frame.cost)).scalar() or
                       default_frame_cost)
 
         frame_count = frame_count or self.frame_count or default_frame_count
@@ -115,23 +113,21 @@ class File(Base, SerializableMixin):
         path = self.path
         return '{}.{}{}'.format(u(path.stem), self.hash[:8], u(path.suffix))
 
-    def has_sequence(self):
+    def has_sequence(self, session):
         """If this file has sequence output.  """
 
-        sess = object_session(self)
-        count = sess.query(Output.frame).filter(
+        count = session.query(Output.frame).filter(
             Output.files.contains(self)).distinct().count()
         return count > 1
 
-    def rendered_frames(self):
+    def rendered_frames(self, session):
         """Current rendered frames.
 
         Returns:
             FrameRange
         """
 
-        sess = object_session(self)
-        frames = [i for i, in sess.query(Output.frame).filter(
+        frames = [i for i, in session.query(Output.frame).filter(
             Output.files.contains(self)).distinct().order_by(Output.frame).all()]
         return FrameRange(frames)
 
@@ -148,6 +144,7 @@ class File(Base, SerializableMixin):
         ret.path = path
         session.add(ret)
         session.commit()
+        session.refresh(ret)
         return ret
 
 

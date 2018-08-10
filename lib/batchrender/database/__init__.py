@@ -10,5 +10,3 @@ from .frame import Frame
 from .output import Output
 
 core.setup()
-
-SESSION = core.Session()

@@ -79,7 +79,8 @@ class Task(QObject):
 
         ret = self._estimate
         if not ret:
-            ret = self._update_estimate()
+            with database.util.session_scope() as sess:
+                ret = self._update_estimate(sess)
         return ret
 
     def is_file_exists(self):
@@ -94,20 +95,21 @@ class Task(QObject):
     def _update_file(self):
         """Update the related file record.  """
 
-        ret = database.File.from_path(self.path, database.SESSION)
-        self._file = ret
-        self._update_range()
-        return ret
+        with database.util.session_scope(database.core.Session(expire_on_commit=False)) as sess:
+            ret = database.File.from_path(self.path, sess)
+            self._file = ret
+            self._update_range(sess)
+            return ret
 
-    def _update_range(self):
+    def _update_range(self, session):
         if not self.range:
             self.range = self.file.range()
-        if self.file.has_sequence():
-            remains = self.range - self.file.rendered_frames()
+        if self.file.has_sequence(session):
+            remains = self.range - self.file.rendered_frames(session)
             self.range = remains or self.range
 
-    def _update_estimate(self):
-        ret = self.file.estimate_cost(self.frames)
+    def _update_estimate(self, session):
+        ret = self.file.estimate_cost(session, self.frames)
         old = self._estimate
         self._estimate = ret
         if old != ret:
@@ -129,4 +131,5 @@ class Task(QObject):
 
         self.file.first_frame = first_frame
         self.file.last_frame = last_frame
-        self._update_range()
+        with database.util.session_scope() as sess:
+            self._update_range(sess)

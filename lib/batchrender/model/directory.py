@@ -10,6 +10,7 @@ from Qt.QtGui import QBrush, QColor
 from Qt.QtWidgets import QFileSystemModel
 
 from . import core
+from .. import database
 from ..codectools import get_unicode as u
 from ..framerange import FrameRange
 from ..mixin import UnicodeTrMixin
@@ -105,15 +106,16 @@ class DirectoryModel(UnicodeTrMixin, QFileSystemModel):
         rows = ['<tr><th colspan=2>{}</th></tr>'.format(label),
                 _row(self.tr('Estimate cost'), _timef(estimate)), ]
         if file_record:
-            rows.extend(
-                [
-                    _row(self.tr('File hash'), file_record.hash),
-                    _row(self.tr('Frame count'), file_record.frame_count),
-                    _row(self.tr('File range'), file_record.range()),
-                    _row(self.tr('Average frame cost'), _timef(
-                        file_record.average_frame_cost())),
-                ]
-            )
+            with database.util.session_scope() as sess:
+                rows.extend(
+                    [
+                        _row(self.tr('File hash'), file_record.hash),
+                        _row(self.tr('Frame count'), file_record.frame_count),
+                        _row(self.tr('File range'), file_record.range()),
+                        _row(self.tr('Average frame cost'), _timef(
+                            file_record.average_frame_cost(sess))),
+                    ]
+                )
         if state & core.DOING and remains:
             rows.append(_row(self.tr('Remains'), _timef(remains)))
 

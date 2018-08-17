@@ -5,6 +5,7 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import os
+import sys
 import webbrowser
 from subprocess import Popen
 
@@ -26,6 +27,7 @@ def main():
         os.rename('{}/dist/batchrender.exe'.format(__dirname__), ouptut)
     except OSError:
         print('Can not rename to %s' % ouptut)
+        sys.exit(1)
     webbrowser.open(ouptut)
 
 

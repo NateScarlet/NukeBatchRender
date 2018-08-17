@@ -8,7 +8,6 @@ pylint = "~=1.9"
 "autopep8" = "*"
 pyinstaller = "*"
 pytest = "*"
-pypiwin32 = {version = "*", sys_platform = "== 'win32'"}
 
 [packages]
 pyside = "*"
@@ -18,6 +17,9 @@ sqlalchemy = "*"
 psutil = "*"
 win-unicode-console = {version = "*", sys_platform = "== 'win32'"}
 pendulum = {file = "https://github.com/NateScarlet/pendulum/releases/download/2.0.3-fix238/pendulum-2.0.3.tar.gz"}
+python-dateutil = "*"
+pytzdata = "*"
+typing = "*"
 
 [requires]
 python_version = "2.7"

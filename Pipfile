@@ -8,6 +8,7 @@ pylint = "~=1.9"
 "autopep8" = "*"
 pyinstaller = "*"
 pytest = "*"
+pypiwin32 = {version = "*", sys_platform = "== 'win32'"} 
 
 [packages]
 pyside = "*"

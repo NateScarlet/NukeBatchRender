@@ -4,6 +4,7 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+import logging
 from collections import namedtuple
 
 import sqlalchemy
@@ -17,6 +18,8 @@ from ..framerange import FrameRange
 from ..mixin import UnicodeTrMixin
 
 Sequence = namedtuple('sequence', ('path', 'timestamp', 'range'))
+
+LOGGER = logging.getLogger(__name__)
 
 
 class FileOutputModel(UnicodeTrMixin, QAbstractListModel):
@@ -51,6 +54,7 @@ class FileOutputModel(UnicodeTrMixin, QAbstractListModel):
             self.beginResetModel()
             self._data = data
             self.endResetModel()
+        LOGGER.debug('File output model updated')
 
     def rowCount(self, _):
         """(Override).  """

@@ -105,6 +105,7 @@ class Slave(core.RenderObject):
             task.abort()
 
     def on_task_stopped(self):
+        LOGGER.debug('Task stopped')
         self._stop_timeout_timer()
 
     def on_started(self):

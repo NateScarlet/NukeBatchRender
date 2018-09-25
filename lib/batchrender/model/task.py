@@ -87,6 +87,7 @@ class Task(QObject):
         record = (database.File.from_path(self.path)
                   if is_recreate or not self.file else self.file)
         record = session.merge(record)
+        session.flush()
         session.refresh(record)
         self.file = record
         self._update_range()

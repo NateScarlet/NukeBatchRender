@@ -127,6 +127,7 @@ class NukeTask(model.Task, core.RenderObject):
 
         self._try_remove_tempfile()
         self.state &= ~model.DOING
+        self._commit_records()
         if self.is_aborting:
             self.aborted.emit()
         else:
@@ -202,7 +203,6 @@ class NukeTask(model.Task, core.RenderObject):
         self.info('{}: 结束渲染 耗时 {}'.format(
             self.path,
             pendulum.duration(seconds=cost).in_words()))
-        self._commit_records()
 
     def on_output_updated(self, payload):
         path = payload['path']

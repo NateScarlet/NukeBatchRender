@@ -18,6 +18,7 @@ from .. import database, model, texttools
 from ..codectools import get_encoded as e
 from ..codectools import get_unicode as u
 from ..config import CONFIG
+from ..exceptions import AlreadyRendering
 from ..threadtools import run_async
 from .proc_handler import NukeHandler
 
@@ -44,6 +45,7 @@ class NukeTask(model.Task, core.RenderObject):
         self.last_progress_time = None
         self._last_timestamp_time = None
         self._frames_records = []
+        self._output_records = []
         self._last_commit_time = None
 
         self.frame_finished.connect(self.on_frame_finished)
@@ -86,13 +88,15 @@ class NukeTask(model.Task, core.RenderObject):
 
         self.start_time = time.time()
         self.is_aborting = False
-        self.state |= model.DOING
 
-        self._update_file()
-        self._tempfile = self.file.create_tempfile()
-        self._filehash = self.file.hash
+        with database.util.session_scope() as sess:
+            self._update_file(sess)
+            if self.file.is_rendering():
+                raise AlreadyRendering
+            self._tempfile = self.file.create_tempfile()
+            self._filehash = self.file.hash
+
         self.start_process()
-
         self.started.emit()
 
     @run_async
@@ -110,15 +114,16 @@ class NukeTask(model.Task, core.RenderObject):
         self.info('渲染进程结束: ' + '退出码: {}'.format(retcode)
                   if retcode else '正常退出')
 
-        self._update_file()
-        if self.is_aborting:
-            self.info('中途终止进程 pid: {}'.format(self.proc.pid))
-        elif self.file.hash != self._filehash:
-            self.info('文件有更改, 重新加入队列.')
-        elif retcode:
-            self._handle_render_error()
-        else:
-            self._handle_normal_ext()
+        with database.util.session_scope() as sess:
+            self._update_file(sess, is_recreate=False)
+            if self.is_aborting:
+                self.info('中途终止进程 pid: {}'.format(self.proc.pid))
+            elif self.file.hash != self._filehash:
+                self.info('文件有更改, 重新加入队列.')
+            elif retcode:
+                self._handle_render_error()
+            else:
+                self._handle_normal_ext()
 
         self._try_remove_tempfile()
         self.state &= ~model.DOING
@@ -138,26 +143,38 @@ class NukeTask(model.Task, core.RenderObject):
             first_frame = frame
             last_frame = first_frame + total - 1
             self.frames = total
-            self._update_file_range(first_frame, last_frame)
-            self._set_state(model.PARTIAL,
-                            self.range != self.file.range())
+
+            with database.util.session_scope() as sess:
+                self._update_file(sess, is_recreate=False)
+                self._update_file_range(first_frame, last_frame)
+                self._set_state(model.PARTIAL,
+                                self.range != self.file.range())
 
         self.progressed.emit(current * 100 / total)
         self._info_timestamp()
 
-        frame_record = database.Frame(
-            file=self.file, frame=frame, cost=cost, timestamp=time.time())
+        frame_record = dict(
+            file_hash=self._filehash,
+            frame=frame,
+            cost=cost,
+            timestamp=time.time())
         self._frames_records.append(frame_record)
-        if not self._last_commit_time or self._last_commit_time - time.time() > 5:
-            self._commit_frame_records()
+        if not self._last_commit_time or time.time() - self._last_commit_time > 5:
+            self._commit_records()
 
-    def _commit_frame_records(self):
+    def _commit_records(self):
         records, self._frames_records = self._frames_records, []
         with database.util.session_scope() as sess:
-            sess.add_all(records)
+            self._update_file(sess, is_recreate=False)
+            sess.bulk_insert_mappings(database.Frame, records)
+            while self._output_records:
+                output_record = sess.merge(
+                    database.Output(**self._output_records.pop(0)))
+                output_record.files.append(self.file)
         self._last_commit_time = time.time()
 
     def on_started(self):
+        self.state |= model.DOING
         self._info_timestamp()
 
     def on_progressed(self, value):
@@ -178,27 +195,25 @@ class NukeTask(model.Task, core.RenderObject):
         cost = now - self.start_time
 
         with database.util.session_scope() as sess:
-            sess.add(self.file)
+            self._update_file(sess, is_recreate=False)
             self.file.last_finish_time = now
             self.file.last_cost = cost
 
         self.info('{}: 结束渲染 耗时 {}'.format(
             self.path,
             pendulum.duration(seconds=cost).in_words()))
-        self._commit_frame_records()
+        self._commit_records()
 
     def on_output_updated(self, payload):
         path = payload['path']
         frame = payload['frame']
 
-        with database.util.session_scope() as sess:
-            record = sess.merge(
-                database.Output(path=path,
-                                timestamp=pendulum.now(),
-                                frame=frame,))
-            file_ = sess.merge(self.file)
-            assert isinstance(record, database.Output)
-            record.files.append(file_)
+        record = dict(
+            path=path,
+            timestamp=pendulum.now(),
+            frame=frame,
+        )
+        self._output_records.append(record)
 
     def _handle_render_error(self):
         self.error_count += 1

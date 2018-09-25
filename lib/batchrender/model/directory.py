@@ -107,13 +107,14 @@ class DirectoryModel(UnicodeTrMixin, QFileSystemModel):
                 _row(self.tr('Estimate cost'), _timef(estimate)), ]
         if file_record:
             with database.util.session_scope() as sess:
+                file_record = sess.merge(file_record)
                 rows.extend(
                     [
                         _row(self.tr('File hash'), file_record.hash),
                         _row(self.tr('Frame count'), file_record.frame_count),
                         _row(self.tr('File range'), file_record.range()),
                         _row(self.tr('Average frame cost'), _timef(
-                            file_record.average_frame_cost(sess))),
+                            file_record.average_frame_cost())),
                     ]
                 )
         if state & core.DOING and remains:
@@ -181,9 +182,10 @@ class DirectoryModel(UnicodeTrMixin, QFileSystemModel):
             return False
         elif value == Qt.Checked:
             status &= ~core.DISABLED
-            file_ = self.data(index, core.ROLE_FILE)
-            if file_.is_rendering():
-                file_.remove_tempfile()
+            with database.util.session_scope() as sess:
+                file_ = sess.merge(self.data(index, core.ROLE_FILE))
+                if file_.is_rendering():
+                    file_.remove_tempfile()
         else:
             status |= core.DISABLED
 

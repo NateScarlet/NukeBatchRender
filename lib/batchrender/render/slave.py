@@ -9,8 +9,9 @@ import logging
 from Qt.QtCore import QTimer
 
 from . import core
-from .. import model
+from .. import database, model
 from ..config import CONFIG
+from ..exceptions import AlreadyRendering
 from .task import NukeTask
 
 LOGGER = logging.getLogger(__name__)
@@ -70,12 +71,15 @@ class Slave(core.RenderObject):
         try:
             task = self.queue.get()
             assert isinstance(task, NukeTask)
-            if task.file.is_rendering():
-                task.state |= model.core.DISABLED
-                self._start_next()
-                return
             self.task = task
-            task.start()
+            try:
+                task.start()
+            except AlreadyRendering:
+                task.state |= model.core.DISABLED
+                self.on_task_stopped()
+                self.info('任务可能正由其他进程渲染, 自动跳过')
+                self.info('如果想强制渲染请手动再次勾选此任务')
+                self._start_next()
         except StopIteration:
             self.task = None
             self.finished.emit()
@@ -86,8 +90,8 @@ class Slave(core.RenderObject):
         if self.is_rendering:
             return
 
-        self._start_next()
         self.started.emit()
+        self._start_next()
 
     def abort(self):
         """Abort rendering.  """

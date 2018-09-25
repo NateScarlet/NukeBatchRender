@@ -10,7 +10,7 @@ import shutil
 
 import six
 from sqlalchemy import Column, Float, Integer, String, func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import object_session, relationship
 
 from . import core
 from .. import filetools
@@ -60,16 +60,17 @@ class File(Base, SerializableMixin):
             return None
         return FrameRange(range(first, last+1))
 
-    def average_frame_cost(self, session):
+    def average_frame_cost(self):
         """Average frame cost for this file.  """
 
-        file_ = session.merge(self)
-        return session.query(func.avg(Frame.cost)).filter(Frame.file == file_).scalar()
+        session = object_session(self)
+        return session.query(func.avg(Frame.cost)).filter(Frame.file == self).scalar()
 
-    def estimate_cost(self, session, frame_count=None, default_frame_count=100, default_frame_cost=30):
+    def estimate_cost(self, frame_count=None, default_frame_count=100, default_frame_cost=30):
         """Estimate file render time cost.  """
 
-        frame_cost = (self.average_frame_cost(session) or
+        session = object_session(self)
+        frame_cost = (self.average_frame_cost() or
                       session.query(func.avg(Frame.cost)).scalar() or
                       default_frame_cost)
 
@@ -114,39 +115,36 @@ class File(Base, SerializableMixin):
         path = self.path
         return '{}.{}{}'.format(u(path.stem), self.hash[:8], u(path.suffix))
 
-    def has_sequence(self, session):
+    def has_sequence(self):
         """If this file has sequence output.  """
 
+        session = object_session(self)
         count = session.query(Output.frame).filter(
             Output.files.contains(self)).distinct().count()
         return count > 1
 
-    def rendered_frames(self, session):
+    def rendered_frames(self):
         """Current rendered frames.
 
         Returns:
             FrameRange
         """
 
+        session = object_session(self)
         frames = [i for i, in session.query(Output.frame).filter(
             Output.files.contains(self)).distinct().order_by(Output.frame).all()]
         return FrameRange(frames)
 
     @classmethod
-    def from_path(cls, path, session):
+    def from_path(cls, path):
         """Create `File` object from path.  """
 
         path = u(path)
         hexdigest = filetools.filehash_hex(path)
         label = os.path.basename(path)
-        ret = session.query(cls).get(hexdigest) or cls(hash=hexdigest)
-        assert isinstance(ret, cls), type(ret)
-        ret.label = label
-        ret.path = path
-        session.add(ret)
-        session.commit()
-        session.refresh(ret)
-        return ret
+        return cls(hash=hexdigest,
+                   label=label,
+                   path=path)
 
 
 def _dir_path(dirname):

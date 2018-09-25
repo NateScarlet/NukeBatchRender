@@ -5,12 +5,14 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import logging
+import os
 
 import six
 from Qt.QtCore import QObject, Qt
 
 from . import core
 from .. import database
+from ..codectools import get_encoded as e
 from .directory import DirectoryModel
 
 LOGGER = logging.getLogger(__name__)
@@ -42,7 +44,7 @@ class Task(QObject):
 
     _estimate = _map_model_data(
         core.ROLE_ESTIMATE, 'Estimate time to render.')
-    _file = _map_model_data(core.ROLE_FILE, 'Database file object.')
+    file = _map_model_data(core.ROLE_FILE, 'Database file object.')
 
     def __init__(self, index, dir_model):
         assert isinstance(dir_model, DirectoryModel), type(dir_model)
@@ -65,15 +67,6 @@ class Task(QObject):
         return '<Task: priority={0.priority}, label={0.label}, state={0.state:b}>'.format(self)
 
     @property
-    def file(self):
-        """Database file object.  """
-
-        ret = self._file
-        if not ret:
-            ret = self._update_file()
-        return ret
-
-    @property
     def estimate(self):
         """Estimate time to render.  """
 
@@ -86,30 +79,28 @@ class Task(QObject):
     def is_file_exists(self):
         """Check if the task file exists.  """
 
-        try:
-            self._update_file()
-            return True
-        except IOError:
-            return False
+        return os.path.exists(e(self.path))
 
-    def _update_file(self):
+    def _update_file(self, session, is_recreate=True):
         """Update the related file record.  """
 
-        with database.util.session_scope(database.core.Session(expire_on_commit=False)) as sess:
-            ret = database.File.from_path(self.path, sess)
-            self._file = ret
-            self._update_range(sess)
-            return ret
+        record = (database.File.from_path(self.path)
+                  if is_recreate or not self.file else self.file)
+        record = session.merge(record)
+        session.refresh(record)
+        self.file = record
+        self._update_range()
 
-    def _update_range(self, session):
+    def _update_range(self):
         if not self.range:
             self.range = self.file.range()
-        if self.file.has_sequence(session):
-            remains = self.range - self.file.rendered_frames(session)
+        if self.file.has_sequence():
+            remains = self.range - self.file.rendered_frames()
             self.range = remains or self.range
 
     def _update_estimate(self, session):
-        ret = self.file.estimate_cost(session, self.frames)
+        self._update_file(session, is_recreate=False)
+        ret = self.file.estimate_cost(self.frames)
         old = self._estimate
         self._estimate = ret
         if old != ret:
@@ -131,5 +122,4 @@ class Task(QObject):
 
         self.file.first_frame = first_frame
         self.file.last_frame = last_frame
-        with database.util.session_scope() as sess:
-            self._update_range(sess)
+        self._update_range()

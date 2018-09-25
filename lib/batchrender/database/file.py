@@ -63,7 +63,8 @@ class File(Base, SerializableMixin):
     def average_frame_cost(self, session):
         """Average frame cost for this file.  """
 
-        return session.query(func.avg(Frame.cost)).filter(Frame.file == self).scalar()
+        file_ = session.merge(self)
+        return session.query(func.avg(Frame.cost)).filter(Frame.file == file_).scalar()
 
     def estimate_cost(self, session, frame_count=None, default_frame_count=100, default_frame_cost=30):
         """Estimate file render time cost.  """

@@ -43,6 +43,8 @@ class NukeTask(model.Task, core.RenderObject):
         self.start_time = None
         self.last_progress_time = None
         self._last_timestamp_time = None
+        self._frames_records = []
+        self._last_commit_time = None
 
         self.frame_finished.connect(self.on_frame_finished)
         self.process_finished.connect(self.on_process_finished)
@@ -140,13 +142,20 @@ class NukeTask(model.Task, core.RenderObject):
             self._set_state(model.PARTIAL,
                             self.range != self.file.range())
 
-        frame_record = database.Frame(
-            file=self.file, frame=frame, cost=cost, timestamp=time.time())
-        database.SESSION.add(frame_record)
-        database.util.throttle_commit(database.SESSION)
-
         self.progressed.emit(current * 100 / total)
         self._info_timestamp()
+
+        frame_record = database.Frame(
+            file=self.file, frame=frame, cost=cost, timestamp=time.time())
+        self._frames_records.append(frame_record)
+        if not self._last_commit_time or self._last_commit_time - time.time() > 5:
+            self._commit_frame_records()
+
+    def _commit_frame_records(self):
+        records, self._frames_records = self._frames_records, []
+        with database.util.session_scope() as sess:
+            sess.add_all(records)
+        self._last_commit_time = time.time()
 
     def on_started(self):
         self._info_timestamp()
@@ -158,7 +167,8 @@ class NukeTask(model.Task, core.RenderObject):
             return
 
         self.last_progress_time = now
-        self._update_estimate()
+        with database.util.session_scope() as sess:
+            self._update_estimate(sess)
         self.remains = (1.0 - value / 100.0) * self.estimate
 
     def on_finished(self):
@@ -166,25 +176,29 @@ class NukeTask(model.Task, core.RenderObject):
             return
         now = time.time()
         cost = now - self.start_time
-        self.file.last_finish_time = now
-        self.file.last_cost = cost
+
+        with database.util.session_scope() as sess:
+            sess.add(self.file)
+            self.file.last_finish_time = now
+            self.file.last_cost = cost
+
         self.info('{}: 结束渲染 耗时 {}'.format(
             self.path,
             pendulum.duration(seconds=cost).in_words()))
-        database.SESSION.commit()
+        self._commit_frame_records()
 
     def on_output_updated(self, payload):
         path = payload['path']
         frame = payload['frame']
 
-        record = (database.SESSION.query(database.Output).get(path)
-                  or database.Output(path=path))
-        assert isinstance(record, database.Output)
-        record.timestamp = pendulum.now()
-        record.files.append(self.file)
-        record.frame = frame
-        database.SESSION.add(record)
-        database.util.throttle_commit(database.SESSION)
+        with database.util.session_scope() as sess:
+            record = sess.merge(
+                database.Output(path=path,
+                                timestamp=pendulum.now(),
+                                frame=frame,))
+            file_ = sess.merge(self.file)
+            assert isinstance(record, database.Output)
+            record.files.append(file_)
 
     def _handle_render_error(self):
         self.error_count += 1

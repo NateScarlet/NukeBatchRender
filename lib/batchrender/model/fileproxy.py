@@ -52,9 +52,7 @@ class FilesProxyModel(UnicodeTrMixin, QSortFilterProxyModel):
         """Override.  """
 
         model = self.sourceModel()
-        left_data = _get_sort_data(model, left)
-        right_data = _get_sort_data(model, right)
-        return left_data < right_data
+        return _get_sort_key(model, left) < _get_sort_key(model, right)
 
     def headerData(self, section, orientation, role):
         """Override.  """
@@ -137,7 +135,7 @@ class FilesProxyModel(UnicodeTrMixin, QSortFilterProxyModel):
         return (i for i in files if i not in filetools.version_filter(files))
 
 
-def _get_sort_data(model, index):
+def _get_sort_key(model, index):
     state = model.data(index, core.ROLE_STATE)
     return (state & core.DISABLED,
             -model.data(index, core.ROLE_PRIORITY),

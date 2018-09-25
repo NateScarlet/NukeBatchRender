@@ -81,7 +81,7 @@ class Task(QObject):
 
         return os.path.exists(e(self.path))
 
-    def _update_file(self, session, is_recreate=True):
+    def update_file(self, session, is_recreate=True):
         """Update the related file record.  """
 
         record = (database.File.from_path(self.path)
@@ -100,7 +100,7 @@ class Task(QObject):
             self.range = remains or self.range
 
     def _update_estimate(self, session):
-        self._update_file(session, is_recreate=False)
+        self.update_file(session, is_recreate=False)
         ret = self.file.estimate_cost(self.frames)
         old = self._estimate
         self._estimate = ret

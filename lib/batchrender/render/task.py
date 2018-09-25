@@ -90,7 +90,7 @@ class NukeTask(model.Task, core.RenderObject):
         self.is_aborting = False
 
         with database.util.session_scope() as sess:
-            self._update_file(sess)
+            self.update_file(sess)
             if self.file.is_rendering():
                 raise AlreadyRendering
             self._tempfile = self.file.create_tempfile()
@@ -115,7 +115,7 @@ class NukeTask(model.Task, core.RenderObject):
                   if retcode else '正常退出')
 
         with database.util.session_scope() as sess:
-            self._update_file(sess, is_recreate=False)
+            self.update_file(sess, is_recreate=False)
             if self.is_aborting:
                 self.info('中途终止进程 pid: {}'.format(self.proc.pid))
             elif self.file.hash != self._filehash:
@@ -146,7 +146,7 @@ class NukeTask(model.Task, core.RenderObject):
             self.frames = total
 
             with database.util.session_scope() as sess:
-                self._update_file(sess, is_recreate=False)
+                self.update_file(sess, is_recreate=False)
                 self._update_file_range(first_frame, last_frame)
                 self._set_state(model.PARTIAL,
                                 self.range != self.file.range())
@@ -166,7 +166,7 @@ class NukeTask(model.Task, core.RenderObject):
     def _commit_records(self):
         records, self._frames_records = self._frames_records, []
         with database.util.session_scope() as sess:
-            self._update_file(sess, is_recreate=False)
+            self.update_file(sess, is_recreate=False)
             sess.bulk_insert_mappings(database.Frame, records)
             while self._output_records:
                 output_record = sess.merge(
@@ -196,7 +196,7 @@ class NukeTask(model.Task, core.RenderObject):
         cost = now - self.start_time
 
         with database.util.session_scope() as sess:
-            self._update_file(sess, is_recreate=False)
+            self.update_file(sess, is_recreate=False)
             self.file.last_finish_time = now
             self.file.last_cost = cost
 

@@ -9,7 +9,7 @@ import os
 from Qt.QtCore import QObject, Signal
 from Qt.QtWidgets import QMessageBox
 
-from . import actions, filetools
+from . import actions, database, filetools
 from . import model as qmodel
 from . import render
 from .codectools import get_unicode as u
@@ -83,7 +83,9 @@ class Controller(UnicodeTrMixin, QObject):
 
         for i in self.queue.task_iterator(indexes):
             if i.is_file_exists():
-                i.file.archive()
+                with database.util.session_scope() as sess:
+                    i.update_file(sess)
+                    i.file.archive()
 
     def sequence_to_mov(self, sequence, dst):
         """Execute sequece convert.  """

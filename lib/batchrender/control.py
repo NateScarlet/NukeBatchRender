@@ -45,7 +45,7 @@ class Controller(UnicodeTrMixin, QObject):
         self.slave = render.Slave(self.queue)
 
         self.slave.progressed.connect(self.queue.update_remains)
-        self.slave.stopped.connect(self.output_model.update)
+        self.slave.task_stopped.connect(self.output_model.update)
 
     def start(self):
         """Start rendering.  """

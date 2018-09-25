@@ -6,10 +6,10 @@ from __future__ import (absolute_import, division, print_function,
 
 import logging
 
-from Qt.QtCore import QTimer
+from Qt.QtCore import QTimer, Signal
 
 from . import core
-from .. import database, model
+from .. import model
 from ..config import CONFIG
 from ..exceptions import AlreadyRendering
 from .task import NukeTask
@@ -21,6 +21,7 @@ class Slave(core.RenderObject):
     """Render slave.  """
 
     _task = None
+    task_stopped = Signal()
 
     def __init__(self, queue):
         super(Slave, self).__init__()
@@ -39,9 +40,11 @@ class Slave(core.RenderObject):
             ('stdout', self.stdout),
             ('stderr', self.stderr),
             ('aborted', self.aborted),
-            ('stopped', self.on_task_stopped),
+            ('stopped', self.task_stopped),
             ('remains_changed', self.queue.update_remains),
         ]
+
+        self.task_stopped.connect(self.on_task_stopped)
 
     @property
     def task(self):

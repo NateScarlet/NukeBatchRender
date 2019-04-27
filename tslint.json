@@ -1,0 +1,6 @@
+{
+  "extends": "tslint-microsoft-contrib/recommended",
+  "rules": {
+    "import-name": false
+  }
+}

@@ -4,9 +4,9 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-from Qt import QtGui
-from Qt.QtCore import Qt
-from Qt.QtWidgets import QAction, QFileDialog, QListView, QMenu
+from PySide2 import QtGui
+from PySide2.QtCore import Qt
+from PySide2.QtWidgets import QAction, QFileDialog, QListView, QMenu
 
 from ..codectools import get_unicode as u
 from ..mixin import UnicodeTrMixin

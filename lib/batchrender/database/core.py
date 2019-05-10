@@ -2,9 +2,9 @@
 
 import logging
 from functools import wraps
+from pathlib import PurePath
 
 import pendulum
-from pathlib2 import PurePath
 from sqlalchemy import (Column, Float, ForeignKey, String, Table,
                         TypeDecorator, Unicode, create_engine)
 from sqlalchemy.ext.declarative import declarative_base
@@ -72,7 +72,7 @@ FILE_OUTPUT = Table('File-Output', Base.metadata,
                     Column('output_path', Path, ForeignKey('Output.path')))
 
 
-class SerializableMixin(object):
+class SerializableMixin:
     """Mixin for serialization.   """
 
     # pylint: disable=too-few-public-methods

@@ -9,7 +9,7 @@ import logging.handlers
 import os
 import sys
 import traceback
-from multiprocessing.dummy import Queue, Process
+from multiprocessing.dummy import Process, Queue
 
 import six
 
@@ -64,6 +64,24 @@ def _set_logger():
             LOGGER.debug('Rollover log file failed.')
 
 
+def _encode(i):
+    if isinstance(i, six.text_type):
+        try:
+            return i.encode(sys.stdout.encoding, 'replace')
+        except:  # pylint: disable=bare-except
+            pass
+    return i
+
+
+def _decode(i):
+    if isinstance(i, six.binary_type):
+        try:
+            return u(i)
+        except:  # pylint: disable=bare-except
+            pass
+    return i
+
+
 class MultiProcessingHandler(Process):
     """Multiprocessing rotate file log handler.  """
     _handler = None
@@ -73,28 +91,13 @@ class MultiProcessingHandler(Process):
 
         self._handler = handler(*args, **kwargs)
         # Patch for use non default encoding.
-        if issubclass(handler, logging.StreamHandler):
-            def _format(record):
-                def _encode(i):
-                    if isinstance(i, six.text_type):
-                        try:
-                            return i.encode(sys.stdout.encoding, 'replace')
-                        except:  # pylint: disable=bare-except
-                            pass
-                    return i
-
-                def _decode(i):
-                    if isinstance(i, six.binary_type):
-                        try:
-                            return u(i)
-                        except:  # pylint: disable=bare-except
-                            pass
-                    return i
-                record.msg = _decode(record.msg)
-                record.args = tuple(_decode(i) for i in record.args)
-                ret = handler.format(self._handler, record)
-                return _encode(ret)
-            self._handler.format = _format
+        # if issubclass(handler, logging.StreamHandler):
+        # def _format(record):
+        #     record.msg = _decode(record.msg)
+        #     record.args = tuple(_decode(i) for i in record.args)
+        #     ret = handler.format(self._handler, record)
+        #     return _encode(ret)
+        # self._handler.format = _format
         self.queue = Queue(-1)
 
         super(MultiProcessingHandler, self).__init__(name=str(self._handler))

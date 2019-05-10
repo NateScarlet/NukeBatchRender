@@ -12,8 +12,8 @@ import sys
 from subprocess import call
 
 import pendulum
-from Qt import QtCore
-from Qt.QtWidgets import QApplication
+from PySide2 import QtCore
+from PySide2.QtWidgets import QApplication
 
 from . import filetools, mimetool, singleton
 from .__about__ import __version__
@@ -24,10 +24,10 @@ from .view import MainWindow
 LOGGER = logging.getLogger()
 
 
-def _set_default_encoding(encoding='utf-8'):
-    if sys.getdefaultencoding() != encoding:
-        reload(sys)
-        sys.setdefaultencoding(encoding)
+# def _set_default_encoding(encoding='utf-8'):
+#     if sys.getdefaultencoding() != encoding:
+#         reload(sys)
+#         sys.setdefaultencoding(encoding)
 
 
 def set_locale():
@@ -47,7 +47,10 @@ def install_translator(app):
 
 def main():
     setattr(sys.modules[__name__], '__SINGLETON', singleton.SingleInstance())
-    _set_default_encoding()
+    print(sys.version)
+    if sys.platform == 'win32':
+        import win_unicode_console
+        win_unicode_console.enable()
     _set_logger()
     set_locale()
     mimetool.setup()
@@ -59,7 +62,7 @@ def main():
     install_translator(app)
 
     if sys.platform == 'win32':
-        call(get_encoded('TITLE 批渲染.console v{}'.format(__version__)), shell=True)
+        call('TITLE 批渲染.console v{}'.format(__version__), shell=True)
 
     frame = MainWindow()
     frame.show()

@@ -17,7 +17,8 @@ import unittest
 import six
 
 from . import filetools
-from .codectools import get_unicode as u, get_encoded as e
+from .codectools import get_encoded as e
+from .codectools import get_unicode as u
 
 try:
     if sys.platform != 'win32':
@@ -83,7 +84,7 @@ class SingleInstance(object):
             self.exit()
         pid = os.getpid()
         with open(e(self.lockfile), 'w') as f:
-            f.write(e(pid))
+            f.write(str(pid))
             LOGGER.debug('Write pid %s to lockfile', pid)
 
     def exit(self):

@@ -75,21 +75,21 @@ class Config(dict):
         _try_remove(engine_path)
 
     def __setitem__(self, key, value):
-        LOGGER.debug('%s = %s', key, value)
+        LOGGER.debug('%s = %s', str(key), str(value))
         dict.__setitem__(self, key, value)
         self.write()
 
     def write(self):
         """Write config to disk."""
 
-        with open(self.path, 'w') as f:
+        with open(self.path, 'w', encoding='utf-8') as f:
             json.dump(self, f, indent=4, sort_keys=True)
 
     def read(self):
         """Read config from disk."""
 
         if os.path.isfile(self.path):
-            with open(self.path) as f:
+            with open(self.path, encoding='utf-8') as f:
                 self.update(dict(json.load(f)))
 
     @property
@@ -108,8 +108,8 @@ class Config(dict):
         """Type checked update.  """
         assert isinstance(other, dict)
         other = dict(other)
-        for k in self.keys():
-            if other.has_key(k):
+        for k in list(self.keys()):
+            if k in other:
                 other_type = type(other[k])
                 self_type = type(self[k])
                 if other_type != self_type:

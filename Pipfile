@@ -4,24 +4,21 @@ verify_ssl = true
 name = "pypi"
 
 [dev-packages]
-pylint = "~=1.9"
+pylint = "*"
 "autopep8" = "*"
 pyinstaller = "*"
 pytest = "*"
-pypiwin32 = {version = "*", sys_platform = "== 'win32'"} 
+pypiwin32 = {version = "*", sys_platform = "== 'win32'"} # Pyinstaller require this
 rope = "*"
 
 [packages]
-pyside = "*"
-"qt.py" = "*"
+pyside2 = "*"
 sqlalchemy = "*"
-"pathlib2" = "*"
 psutil = "*"
 win-unicode-console = {version = "*", sys_platform = "== 'win32'"}
-pendulum = {file = "https://github.com/NateScarlet/pendulum/releases/download/2.0.3-fix238/pendulum-2.0.3.tar.gz"}
+pendulum = "*"
 python-dateutil = "*"
 pytzdata = "*"
-typing = "*"
 
 [requires]
-python_version = "2.7"
+python_version = "3.7"

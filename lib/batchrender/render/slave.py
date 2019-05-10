@@ -6,7 +6,7 @@ from __future__ import (absolute_import, division, print_function,
 
 import logging
 
-from Qt.QtCore import QTimer, Signal
+from PySide2.QtCore import QTimer, Signal
 
 from . import core
 from .. import model

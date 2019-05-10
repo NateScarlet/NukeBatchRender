@@ -14,6 +14,9 @@ import six
 def get_unicode(input_bytes, codecs=('UTF-8', 'GBK')):
     """Return unicode string by try decode @input_bytes with @codecs.  """
 
+    if isinstance(input_bytes, int):
+        return six.text_type(input_bytes)
+
     if isinstance(input_bytes, six.text_type):
         return input_bytes
 

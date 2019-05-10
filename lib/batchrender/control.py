@@ -6,8 +6,8 @@ from __future__ import (absolute_import, division, print_function,
 import logging
 import os
 
-from Qt.QtCore import QObject, Signal
-from Qt.QtWidgets import QMessageBox
+from PySide2.QtCore import QObject, Signal
+from PySide2.QtWidgets import QMessageBox
 
 from . import actions, database, filetools
 from . import model as qmodel

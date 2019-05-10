@@ -115,7 +115,7 @@ class FrameRange(set):
             if last is None:
                 ret.append(first)
             else:
-                ret.extend(range(first, last + 1, increment or 1))
+                ret.extend(list(range(first, last + 1, increment or 1)))
         return cls(ret)
 
 

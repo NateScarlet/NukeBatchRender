@@ -12,12 +12,12 @@ import six
 from sqlalchemy import Column, Float, Integer, String, func
 from sqlalchemy.orm import object_session, relationship
 
-from . import core
 from .. import filetools
 from ..codectools import get_encoded as e
 from ..codectools import get_unicode as u
 from ..config import CONFIG
 from ..framerange import FrameRange
+from . import core
 from .core import Base, Path, SerializableMixin
 from .frame import Frame
 from .output import Output
@@ -40,9 +40,6 @@ class File(Base, SerializableMixin):
     frames = relationship('Frame',
                           back_populates='file')
 
-    def __new__(cls, *args, **kwargs):
-        return super(File, cls).__new__(cls, *args, **kwargs)
-
     @property
     def frame_count(self):
         """Frame count in the file.  """
@@ -58,7 +55,7 @@ class File(Base, SerializableMixin):
         first, last = self.first_frame, self.last_frame
         if first is None or last is None:
             return None
-        return FrameRange(range(first, last+1))
+        return FrameRange(list(range(first, last+1)))
 
     def average_frame_cost(self):
         """Average frame cost for this file.  """

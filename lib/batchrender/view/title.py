@@ -6,7 +6,7 @@ from __future__ import (absolute_import, division, print_function,
 
 import logging
 
-from Qt.QtCore import QObject, QTimer
+from PySide2.QtCore import QObject, QTimer
 
 from ..__about__ import __version__
 from ..control import Controller

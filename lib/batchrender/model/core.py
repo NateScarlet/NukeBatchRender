@@ -4,7 +4,7 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-from Qt.QtCore import Qt
+from PySide2.QtCore import Qt
 
 ROLE_PRIORITY = Qt.UserRole + 4
 ROLE_RANGE = Qt.UserRole + 5

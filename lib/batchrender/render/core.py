@@ -8,7 +8,7 @@ import logging
 from abc import abstractmethod
 
 import six
-from Qt.QtCore import QObject, Signal
+from PySide2.QtCore import QObject, Signal
 
 from ..texttools import stylize
 

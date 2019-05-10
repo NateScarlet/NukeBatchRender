@@ -6,10 +6,10 @@ from __future__ import (absolute_import, division, print_function,
 
 import logging
 from collections import namedtuple
+from pathlib import PurePath
 
 import sqlalchemy
-from pathlib2 import PurePath
-from Qt.QtCore import QAbstractListModel, Qt
+from PySide2.QtCore import QAbstractListModel, Qt
 from sqlalchemy import desc
 
 from .. import database as db
@@ -40,7 +40,7 @@ class FileOutputModel(UnicodeTrMixin, QAbstractListModel):
 
         outputs_groups = db.output.group_by_pattern(outputs)
         data = []
-        for k, v in outputs_groups.items():
+        for k, v in list(outputs_groups.items()):
             if len(v) == 1:
                 data.append(v[0])
             else:

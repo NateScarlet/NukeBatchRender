@@ -8,11 +8,11 @@ import logging
 import os
 
 import six
-from Qt.QtCore import QObject, Qt
+from PySide2.QtCore import QObject, Qt
 
-from . import core
 from .. import database
 from ..codectools import get_encoded as e
+from . import core
 from .directory import DirectoryModel
 
 LOGGER = logging.getLogger(__name__)

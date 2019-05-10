@@ -46,9 +46,9 @@ def filehash(filepath):
         Hash object
     """
 
-    filepath = six.text_type(filepath)
+    filepath = bytes(filepath, 'utf-8')
     ret = hashlib.md5()
-    with open(e(filepath)) as f:
+    with open(filepath, 'rb') as f:
         for chunk in iter(lambda: f.read(CHUNK_SIZE), b''):
             ret.update(chunk)
     return ret

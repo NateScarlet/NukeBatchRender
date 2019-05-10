@@ -8,7 +8,7 @@ import logging
 import sys
 from subprocess import CREATE_NEW_CONSOLE, PIPE, Popen, call
 
-from Qt.QtWidgets import QMessageBox
+from PySide2.QtWidgets import QMessageBox
 
 from . import filetools
 from .codectools import get_unicode, get_encoded as e

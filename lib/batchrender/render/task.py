@@ -11,15 +11,16 @@ import time
 from subprocess import PIPE, Popen
 
 import pendulum
-from Qt.QtCore import Signal
+import six
+from PySide2.QtCore import Signal
 
-from . import core
 from .. import database, model, texttools
 from ..codectools import get_encoded as e
 from ..codectools import get_unicode as u
 from ..config import CONFIG
 from ..exceptions import AlreadyRendering
 from ..threadtools import run_async
+from . import core
 from .proc_handler import NukeHandler
 
 LOGGER = logging.getLogger(__name__)
@@ -34,6 +35,18 @@ class NukeTask(model.Task, core.RenderObject):
     process_finished = Signal(int)
 
     max_retry = 3
+    # Signals.
+
+    changed = Signal()
+    started = Signal()
+    stopped = Signal()
+    aborted = Signal()
+    finished = Signal()
+    time_out = Signal()
+    progressed = Signal(int)
+    stdout = Signal(six.text_type)
+    stderr = Signal(six.text_type)
+    remains_changed = Signal(float)
 
     def __init__(self, index, dir_model):
         super(NukeTask, self).__init__(index, dir_model)
@@ -265,8 +278,6 @@ def nuke_process(filepath, range_):
         'stderr': PIPE,
         'cwd': CONFIG['DIR']
     }
-    if sys.platform == 'win32':
-        kwargs['cwd'] = e(kwargs['cwd'])
     proc = Popen(args, **kwargs)
     return proc
 
@@ -280,7 +291,7 @@ def _options_from_config():
         'MEMORY_LIMIT': ('-c', '{}M'.format(int(CONFIG['MEMORY_LIMIT'] * 1024)))
     }
 
-    for k, v in conditional_options.items():
+    for k, v in list(conditional_options.items()):
         if CONFIG[k]:
             ret.extend(v)
     return ret

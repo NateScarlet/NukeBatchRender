@@ -3,7 +3,7 @@ environment:
   AHK_DOWNLOAD_URL: https://autohotkey.com/download/ahk.zip
   FFMPEG_DOWNLOAD_URL: https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.0.2-win64-static.zip
   matrix:
-    - PYTHON: "C:\\Python27"
+    - PYTHON: "C:\\Python37-x64"
 install:
   # Install python dependency.
   - "%PYTHON%\\python.exe -m pip install pipenv"
@@ -22,7 +22,7 @@ install:
 build_script:
   - ps: Get-ChildItem -Include *.ahk lib/batchrender/bin/* | % {ahk2exe /in $_}
   - "%PYTHON%\\python.exe build.py"
-  - "Documentation/make.bat html"
+  - 'Documentation/make.bat html'
 after_build:
   - "7z a -tzip -xr!.* -xr0!build build\\NukeBatchRender-%APPVEYOR_REPO_TAG_NAME%-win.zip"
 artifacts:

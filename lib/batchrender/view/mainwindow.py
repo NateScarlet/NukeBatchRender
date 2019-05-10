@@ -13,11 +13,12 @@ import webbrowser
 from functools import wraps
 
 import pendulum
-from Qt import QtCompat
-from Qt.QtCore import Qt, QUrl, Signal, Slot
-from Qt.QtWidgets import (QApplication, QCheckBox, QComboBox, QDoubleSpinBox,
-                          QFileDialog, QInputDialog, QLineEdit, QMainWindow,
-                          QMessageBox, QSpinBox, QStyle)
+from PySide2 import QtUiTools
+from PySide2.QtCore import Qt, QUrl, Signal, Slot
+from PySide2.QtWidgets import (QApplication, QCheckBox, QComboBox,
+                               QDoubleSpinBox, QFileDialog, QInputDialog,
+                               QLineEdit, QMainWindow, QMessageBox, QSpinBox,
+                               QStyle)
 
 from ..__about__ import __version__
 from ..actions import hiber, shutdown
@@ -36,7 +37,7 @@ if getattr(sys, 'frozen', False):
 
 
 def _link_edits_to_config(edits_key):
-    for edit, key in edits_key.iteritems():
+    for edit, key in edits_key.items():
         if isinstance(edit, QLineEdit):
             edit.setText(CONFIG.get(key, ''))
             edit.editingFinished.connect(
@@ -80,7 +81,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         self.toolButtonAskDir.setIcon(_icon)
 
     def _setup_ui(self):
-        self._ui = QtCompat.loadUi(os.path.abspath(
+        self._ui = QtUiTools.QUiLoader().load(os.path.abspath(
             os.path.join(__file__, '../mainwindow.ui')))
         self.setCentralWidget(self._ui)
         self.pushButtonStop.hide()

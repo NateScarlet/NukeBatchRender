@@ -7,8 +7,8 @@ from __future__ import (absolute_import, division, print_function,
 import logging
 import os
 
-from Qt import QtCore
-from Qt.QtCore import QSortFilterProxyModel, Qt
+from PySide2 import QtCore
+from PySide2.QtCore import QSortFilterProxyModel, Qt
 from six.moves import range
 
 from . import core

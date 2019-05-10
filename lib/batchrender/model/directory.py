@@ -5,9 +5,9 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import pendulum
-from Qt.QtCore import QDir, Qt
-from Qt.QtGui import QBrush, QColor
-from Qt.QtWidgets import QFileSystemModel
+from PySide2.QtCore import QDir, Qt
+from PySide2.QtGui import QBrush, QColor
+from PySide2.QtWidgets import QFileSystemModel
 
 from . import core
 from .. import database

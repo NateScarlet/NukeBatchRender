@@ -47,7 +47,7 @@ def group_by_pattern(outputs):
         output_groups.setdefault(key, [])
         output_groups[key].append(i)
     # Combine edge pattern with common pattern.
-    for k, v in dict(output_groups).items():
+    for k, v in list(dict(output_groups).items()):
         for i in dict(output_groups):
             if i == k:
                 continue

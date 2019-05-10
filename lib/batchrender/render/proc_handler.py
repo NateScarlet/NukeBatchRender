@@ -12,13 +12,14 @@ import threading
 import time
 
 import six
-from Qt.QtCore import QObject, Signal
+from PySide2.QtCore import QObject, Signal
 
+from ..codectools import get_unicode as u
 from ..config import CONFIG
 from ..texttools import stylize
 from ..threadtools import run_async
-from ..codectools import get_unicode as u
 from ..translator import ConsoleTranslator
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -133,7 +134,7 @@ def _close_werfault(pid):
     proc = subprocess.Popen(
         args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, _ = proc.communicate()
-    match = re.match(r'\s*ProcessId=(\d+)', stdout)
+    match = re.match(r'\s*ProcessId=(\d+)', str(stdout))
     if match:
         pid = match.group(1)
         subprocess.call(

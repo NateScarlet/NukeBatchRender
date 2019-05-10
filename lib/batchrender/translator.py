@@ -28,7 +28,7 @@ class ConsoleTranslator(UnicodeTrMixin):
 
     def _patterns(self):
         return {k: v for k, v in
-                {"(.+?: )Error reading LUT file\\. (.+?: )unable to open file\\.": self.tr(
+                list({"(.+?: )Error reading LUT file\\. (.+?: )unable to open file\\.": self.tr(
                     "\\1Error reading LUT file\\. \\2unable to open file\\."),
                  ("(.+?: )Error reading pixel data from image file (\".*\")\\. "
                   "Early end of file: read (.+?) out of (.+?) requested bytes."): self.tr(
@@ -55,18 +55,18 @@ class ConsoleTranslator(UnicodeTrMixin):
                  "Frame": self.tr(
                      "Frame"),
                  "All Rights Reserved": self.tr(
-                     "All Rights Reserved"), }.items()}
+                     "All Rights Reserved"), }.items())}
 
     @staticmethod
     def translate(text):
         """Translate the text.  """
 
-        if not isinstance(text, (str, unicode)):
+        if not isinstance(text, str):
             LOGGER.warning('Try localization non-str: %s', text)
             return text
         ret = u(text).strip('\r\n')
 
-        for k, v in ConsoleTranslator().patterns.items():
+        for k, v in list(ConsoleTranslator().patterns.items()):
             try:
                 ret = re.sub(k, v, ret)
             except TypeError as ex:

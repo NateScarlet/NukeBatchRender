@@ -11,9 +11,9 @@ from PySide2 import QtCore
 from PySide2.QtCore import QSortFilterProxyModel, Qt
 from six.moves import range
 
-from . import core
 from .. import filetools
 from ..mixin import UnicodeTrMixin
+from . import core
 from .directory import DirectoryModel
 
 LOGGER = logging.getLogger(__name__)

@@ -119,6 +119,8 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
             lambda: self.control.remove(self.tableView.selectedIndexes()))
         self.toolButtonReverseCheck.clicked.connect(
             self.control.invert_disable_state)
+        self.pushButtonRemoveOldVersion.clicked.connect(
+            self.control.remove_old_version_files)
 
         self.selection_model.selectionChanged.connect(
             self.on_table_selection_changed)

@@ -7,6 +7,7 @@ from __future__ import (absolute_import, division, print_function,
 import logging
 import os
 import shutil
+from pathlib import PurePath
 
 import six
 from sqlalchemy import Column, Float, Integer, String, func
@@ -141,7 +142,7 @@ class File(Base, SerializableMixin):
         label = os.path.basename(path)
         return cls(hash=hexdigest,
                    label=label,
-                   path=path)
+                   path=PurePath(path))
 
 
 def _dir_path(dirname):

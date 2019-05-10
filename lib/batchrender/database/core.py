@@ -31,7 +31,7 @@ def _skip_process_if_is_none(process):
 
 class Path(TypeDecorator):
     """Path type."""
-# pylint: disable=abstract-method
+    # pylint: disable=abstract-method
 
     impl = Unicode
     python_type = PurePath

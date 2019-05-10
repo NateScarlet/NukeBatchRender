@@ -39,7 +39,7 @@ def test_has_sequence(session):
 
 
 def test_rendered_frams(session):
-    frames = set(random.randint(0, 100) for _ in xrange(100))
+    frames = set(random.randint(0, 100) for _ in range(100))
     file_obj = database.File(hash='abc')
     session.add(file_obj)
 

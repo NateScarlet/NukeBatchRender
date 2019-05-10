@@ -1,4 +1,4 @@
-hiddenimports = ['PySide2.QtXml']
+hiddenimports = ['PySide2.QtXml', 'sqlalchemy.ext.baked']
 datas = [('lib/batchrender/bin/', 'batchrender/bin'),
          ('lib/batchrender/i18n', 'batchrender/i18n'),
          ('lib/batchrender/console.css', 'batchrender'),

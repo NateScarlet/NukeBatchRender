@@ -14,6 +14,7 @@ from . import model as qmodel
 from . import render
 from .codectools import get_unicode as u
 from .config import CONFIG
+from .database import File
 from .mixin import UnicodeTrMixin
 from .model.fileoutput import Sequence
 
@@ -86,6 +87,12 @@ class Controller(UnicodeTrMixin, QObject):
                 with database.util.session_scope() as sess:
                     i.update_file(sess)
                     i.file.archive()
+
+    def remove_old_version_files(self):
+        """Remove files that version is not latest.   """
+
+        for i in self.model.old_version_files():
+            File.from_path(i).archive()
 
     def sequence_to_mov(self, sequence, dst):
         """Execute sequece convert.  """

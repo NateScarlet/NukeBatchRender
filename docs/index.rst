@@ -10,6 +10,8 @@ NukeBatchRender 文档
     :maxdepth: 2
 
     features
+    db
+    glossary
 
 * :ref:`genindex`
 * :ref:`modindex`

@@ -22,7 +22,7 @@ def get_unicode(input_bytes, codecs=('UTF-8', 'GBK')):
 
     try:
         input_bytes = six.binary_type(input_bytes)
-    except TypeError:
+    except (TypeError, ValueError):
         return six.text_type(input_bytes)
 
     try:

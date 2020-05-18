@@ -33,8 +33,11 @@ LOGGER = logging.getLogger()
 def set_locale():
     """Set locale.  """
 
-    pendulum.set_locale(locale.getdefaultlocale()[0])
-
+    locale_ = locale.getdefaultlocale()[0]
+    try:
+        pendulum.set_locale({"zh_cn": "zh"}.get(locale_.lower(), locale_))
+    except ValueError:
+        pass
 
 def install_translator(app):
     """Install translator on app.  """

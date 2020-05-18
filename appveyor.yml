@@ -10,7 +10,6 @@ install:
   - "%PYTHON%\\python.exe -m poetry install"
   - "%PYTHON%\\python.exe -m pip install -r Documentation/requirements.txt"
   - ps: $env:SPHINXBUILD="$env:PYTHON\Scripts\sphinx-build.exe"
-
   - mkdir build
   # Download autohotkey
   - ps: Invoke-WebRequest $env:AHK_DOWNLOAD_URL -OutFile build/ahk.zip
@@ -21,7 +20,7 @@ install:
   - 7z e build/ffmpeg.zip -ir!*.exe -olib/batchrender/bin
 build_script:
   - ps: Get-ChildItem -Include *.ahk lib/batchrender/bin/* | % {ahk2exe /in $_}
-  - "%PYTHON%\\python.exec -m poetry run pyinstaller -F main.spec
+  - "%PYTHON%\\python.exec -m poetry run pyinstaller -F main.spec"
   - "Documentation/make.bat html"
 after_build:
   - "7z a -tzip -xr!.* -xr0!build build\\NukeBatchRender-%APPVEYOR_REPO_TAG_NAME%-win.zip"

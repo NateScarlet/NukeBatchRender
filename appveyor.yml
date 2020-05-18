@@ -29,7 +29,7 @@ artifacts:
     name: Prebuild package
 before_deploy:
   - ps: >-
-      & %PYTHON%\\python.exe -m poetry run Documentation/get_changelog.py $env:APPVEYOR_REPO_TAG_NAME build/release_note.md;
+      %PYTHON%\\python.exe -m poetry run python Documentation/get_changelog.py $env:APPVEYOR_REPO_TAG_NAME build/release_note.md;
       ${env:APPVEYOR_RELEASE_DESCRIPTION} = (Get-Content -Encoding utf8 build/release_note.md) -join "`n";
 deploy:
   tag: $(APPVEYOR_REPO_TAG_NAME)
@@ -37,7 +37,7 @@ deploy:
   description: $(APPVEYOR_RELEASE_DESCRIPTION)
   provider: GitHub
   auth_token:
-    secure: nsLSikshpVvfyMmNivRtOSZT3xmqO5iD6nOkoXipGnT33lU19R89mfpDXZjAuyjr
+    secure: hi0ghUYGauwot0N5cB4BfgX8zN/ONbURJG/ULR2aneg18jDNCbQqUeXCJ6m4olDM
   artifact: /.*\.zip/
   draft: false
   prerelease: false

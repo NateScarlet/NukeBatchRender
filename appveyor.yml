@@ -21,8 +21,8 @@ install:
   - 7z e build/ffmpeg.zip -ir!*.exe -olib/batchrender/bin
 build_script:
   - ps: Get-ChildItem -Include *.ahk lib/batchrender/bin/* | % {ahk2exe /in $_}
-  - poetry run pyinstaller -F main.spec
-  - "poetry run Documentation/make.bat html"
+  - "%PYTHON%\\python.exec -m poetry run pyinstaller -F main.spec
+  - "Documentation/make.bat html"
 after_build:
   - "7z a -tzip -xr!.* -xr0!build build\\NukeBatchRender-%APPVEYOR_REPO_TAG_NAME%-win.zip"
 artifacts:

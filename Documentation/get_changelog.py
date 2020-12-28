@@ -43,7 +43,7 @@ def get_changelog(filename, version):
             line = f.readline()
             if not line:
                 break
-            elif re.match('^#+', line):
+            elif re.match('^## ', line):
                 is_start = True
                 group = []
                 groups.append(group)
@@ -51,7 +51,7 @@ def get_changelog(filename, version):
                 group.append(line)
     return [group for group in groups
             if re.match(
-                r'^#+ {0.major}\.{0.minor}(?:\.{0.patch})?$'.format(version),
+                r'^#+ {0.major}\.{0.minor}(?:\.{0.patch})? '.format(version),
                 group[0].replace('\r\n', '\n'))][-1]
 
 

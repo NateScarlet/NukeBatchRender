@@ -1,7 +1,6 @@
 environment:
   PYTHONPATH: lib
   AHK_DOWNLOAD_URL: https://autohotkey.com/download/ahk.zip
-  FFMPEG_DOWNLOAD_URL: https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.0.2-win64-static.zip
   matrix:
     - PYTHON: "C:\\Python37-x64"
 install:
@@ -15,9 +14,6 @@ install:
   - ps: Invoke-WebRequest $env:AHK_DOWNLOAD_URL -OutFile build/ahk.zip
   - 7z x build/ahk.zip -obuild/ahk
   - ps: $env:PATH="$env:PATH;$pwd\build\ahk\Compiler"
-  # Download ffmpeg
-  - ps: Invoke-WebRequest $env:FFMPEG_DOWNLOAD_URL -OutFile build/ffmpeg.zip
-  - 7z e build/ffmpeg.zip -ir!*.exe -olib/batchrender/bin
 build_script:
   - ps: Get-ChildItem -Include *.ahk lib/batchrender/bin/* | % {ahk2exe /in $_}
   - "%PYTHON%\\python.exe -m poetry run pyinstaller -F main.spec"

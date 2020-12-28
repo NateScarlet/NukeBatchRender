@@ -278,7 +278,12 @@ def nuke_process(filepath, range_):
         'stderr': PIPE,
         'cwd': CONFIG['DIR']
     }
-    proc = Popen(args, **kwargs)
+    try:
+        proc = Popen(args, **kwargs)
+    except FileNotFoundError as ex:
+        LOGGER.error("nuke executable not found: %s", CONFIG["NUKE"])
+        raise ex
+
     return proc
 
 

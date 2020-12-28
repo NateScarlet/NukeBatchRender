@@ -79,6 +79,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
 
         _icon = _stdicon(QStyle.SP_DialogOpenButton)
         self.toolButtonAskDir.setIcon(_icon)
+        self.toolButtonAskNuke.setIcon(_icon)
 
     def _setup_ui(self):
         self._ui = QtUiTools.QUiLoader().load(os.path.abspath(
@@ -110,6 +111,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
             self.on_after_render_changed)
 
         self.toolButtonAskDir.clicked.connect(self.ask_dir)
+        self.toolButtonAskNuke.clicked.connect(self.ask_nuke)
         self.toolButtonOpenDir.clicked.connect(
             lambda: webbrowser.open(CONFIG['DIR']))
         self.toolButtonOpenLog.clicked.connect(
@@ -156,6 +158,7 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
         self._setup_ui()
         _link_edits_to_config({
             self.lineEditDir: 'DIR',
+            self.lineEditNuke: 'NUKE',
             self.checkBoxProxy: 'PROXY',
             self.checkBoxPriority: 'LOW_PRIORITY',
             self.checkBoxContinue: 'CONTINUE',
@@ -231,6 +234,19 @@ class MainWindow(UnicodeTrMixin, QMainWindow):
             dir=os.path.dirname(CONFIG['DIR']))
         if path:
             self.lineEditDir.setText(path)
+
+    def ask_nuke(self):
+        """Show a dialog ask config['NUKE'].  """
+
+        filter_ = "Nuke*"
+        if sys.platform == "win32":
+            filter_ += ".exe"
+        path, _ = QFileDialog.getOpenFileName(
+            dir=os.path.dirname(CONFIG['NUKE']),
+            filter=filter_,
+        )
+        if path:
+            self.lineEditNuke.setText(path)
 
     def on_file_dropped(self, files):
         files = [i for i in files if i.endswith('.nk')]

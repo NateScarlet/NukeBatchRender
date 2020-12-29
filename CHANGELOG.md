@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.16.1](https://github.com/NateScarlet/NukeBatchRender/compare/0.16.0...0.16.1) (2020-12-29)
+
+
+### Bug Fixes
+
+* type error when activate existed instance ([1b7c902](https://github.com/NateScarlet/NukeBatchRender/commit/1b7c9027d6a441529ea42d1157624b4383bb70b1))
+
 ## 0.16.0 (2020-12-28)
 
 

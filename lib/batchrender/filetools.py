@@ -175,7 +175,7 @@ def popen(*args, **kwargs):
 
     def _inject_bin_folder(env):
         env_path = u(env.get('path', ''))
-        env['path'] = e(path('bin') + os.pathsep + env_path)
+        env['path'] = u(path('bin') + os.pathsep + env_path)
 
     kwargs.setdefault('env', os.environ)
     _inject_bin_folder(kwargs['env'])

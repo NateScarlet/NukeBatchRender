@@ -82,14 +82,14 @@ class Config(dict):
     def write(self):
         """Write config to disk."""
 
-        with open(self.path, 'w', encoding='utf-8') as f:
+        with open(self.path, 'w') as f:
             json.dump(self, f, indent=4, sort_keys=True)
 
     def read(self):
         """Read config from disk."""
 
         if os.path.isfile(self.path):
-            with open(self.path, encoding='utf-8') as f:
+            with open(self.path) as f:
                 self.update(dict(json.load(f)))
 
     @property

@@ -1,10 +1,13 @@
 build/
+_build/
 dist/
 *.pyc
 .venv/
 
 # vscode
 .vscode/
-
 *.exe
 .pytest_cache
+node_modules
+dist/
+dist_*/

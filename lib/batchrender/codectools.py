@@ -33,7 +33,7 @@ def get_unicode(input_bytes, codecs=('UTF-8', 'GBK')):
                 return six.text_type(input_bytes, i)
             except UnicodeDecodeError:
                 continue
-    raise UnicodeDecodeError(input_bytes)
+        raise
 
 
 def get_encoded(input_str, encoding=None):

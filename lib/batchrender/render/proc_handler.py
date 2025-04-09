@@ -127,16 +127,22 @@ class NukeHandler(BaseHandler):
         timer.start()
 
 
+
 def _close_werfault(pid):
-    args = ['WMIC', 'process', 'where',
-            "name='werfault.exe' and commandline like '%-p {}%'".format(pid),
-            'get', 'processid', '/format:list']
+    # 使用 PowerShell 查询符合条件的 werfault.exe 进程
+    ps_command = (
+        f"Get-WmiObject Win32_Process -Filter \"Name='werfault.exe' AND CommandLine LIKE '% -p {pid}%'\" "
+        "| ForEach-Object { $_.ProcessId }"
+    )
+    args = ['powershell.exe', '-Command', ps_command]
+    
     proc = subprocess.Popen(
-        args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, _ = proc.communicate()
-    match = re.match(r'\s*ProcessId=(\d+)', str(stdout))
-    if match:
-        pid = match.group(1)
-        subprocess.call(
-            ['TASKKILL', '/pid', pid]
-        )
+        args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    stdout, stderr = proc.communicate()
+    
+    # 提取所有符合条件的进程 ID
+    pids = [line.strip() for line in stdout.splitlines() if line.strip().isdigit()]
+    
+    # 终止每个找到的进程
+    for wer_pid in pids:
+        subprocess.call(['TASKKILL', '/PID', wer_pid, '/F'])

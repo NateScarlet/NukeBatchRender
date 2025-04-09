@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding=UTF-8 -*-
 #
 # Nuke批渲染 documentation build configuration file, created by
 # sphinx-quickstart on Wed Dec 27 13:44:35 2017.

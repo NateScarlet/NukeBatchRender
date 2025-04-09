@@ -3,4 +3,4 @@
 export PYTHONPATH=lib
 
 build: 
-	poetry run pyinstaller -F main.spec
+	uv run python -m PyInstaller -F main.spec

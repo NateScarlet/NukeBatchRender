@@ -1,35 +1,79 @@
-[tool.poetry]
+[tool.pdm.dev-dependencies]
+dev = [
+    "pylint<3,>=2",
+    "autopep8<2,>=1",
+    "pyinstaller~=3.5",
+    "pytest<5,>=4",
+    "pywin32-ctypes; sys_platform == \"win32\"",
+    "rope==0.14.0",
+    "pefile<2020.0.0,>=2019.4.18",
+]
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[project]
+authors = [{ name = "NateScarlet", email = "NateScarlet@Gmail.com" }]
+requires-python = "~=3.7"
+dependencies = [
+    "pyside2==5.12.3",
+    "sqlalchemy<2,>=1",
+    "psutil<6,>=5",
+    "win-unicode-console==0.5 ; sys_platform == 'win32'",
+    "pendulum==2.0.4",
+    "python-dateutil<3,>=2",
+    "pytzdata",
+    "altgraph==0.17 ; python_full_version >= '3.4' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "astroid==2.4.1 ; python_full_version >= '3.5'",
+    "atomicwrites==1.4.0 ; python_full_version >= '3.4' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "attrs==19.3.0 ; python_full_version >= '3.4' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "autopep8==1.5.2",
+    "colorama==0.4.3 ; python_full_version >= '3.5' and sys_platform == 'win32'",
+    "future==0.18.2 ; python_full_version >= '3.3' or (python_full_version >= '2.6' and python_full_version < '3.0.0')",
+    "importlib-metadata==1.6.0 ; (python_full_version >= '2.7' and python_full_version < '3.0.0') or (python_full_version >= '3.5' and python_full_version < '3.8')",
+    "isort==4.3.21 ; python_full_version >= '3.5'",
+    "lazy-object-proxy==1.4.3 ; python_full_version >= '3.5'",
+    "mccabe==0.6.1 ; python_full_version >= '3.5'",
+    "more-itertools==8.3.0 ; python_full_version >= '3.5'",
+    "packaging==20.3 ; python_full_version >= '3.4' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "pefile==2019.4.18",
+    "pendulum==2.0.4 ; python_full_version >= '3.4' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "pluggy==0.13.1 ; python_full_version >= '3.4' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "psutil==5.7.0 ; python_full_version >= '3.4' or (python_full_version >= '2.6' and python_full_version < '3.0.0')",
+    "py==1.8.1 ; python_full_version >= '3.4' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "pycodestyle==2.6.0 ; python_full_version >= '3.4' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "pyinstaller==3.5 ; python_full_version >= '3.4' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "pylint==2.5.2 ; python_full_version >= '3.5'",
+    "pyparsing==2.4.7 ; python_full_version >= '3.4' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "pytest==4.6.10 ; python_full_version >= '3.4' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "python-dateutil==2.8.1 ; python_full_version >= '3.3' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "pytzdata==2019.3 ; python_full_version >= '3.4' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "pywin32-ctypes==0.2.0 ; sys_platform == 'win32'",
+    "rope==0.14.0",
+    "shiboken2==5.12.3",
+    "six==1.14.0 ; python_full_version >= '3.5'",
+    "sqlalchemy==1.3.17 ; python_full_version >= '3.4' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "toml==0.10.1 ; python_full_version >= '3.5'",
+    "typed-ast==1.4.1 ; python_full_version >= '3.5' and python_full_version < '3.8' and implementation_name == 'cpython'",
+    "wcwidth==0.1.9 ; python_full_version >= '3.4' or (python_full_version >= '2.7' and python_full_version < '3.0.0')",
+    "wrapt==1.12.1 ; python_full_version >= '3.5'",
+    "zipp==3.1.0 ; python_full_version >= '3.6' and python_full_version < '3.8'",
+]
 name = "nukebatchrender"
 version = "0.15.5"
 description = "Nuke 批渲染"
-authors = ["NateScarlet <NateScarlet@Gmail.com>"]
 
-[tool.poetry.dependencies]
-python = "~3.7"
-pyside2 = "5.12.3"
-sqlalchemy = "^1"
-psutil = "^5"
-win-unicode-console = {version = "0.5", markers = "sys_platform == 'win32'"}
-pendulum = "2.0.4"
-python-dateutil = "^2"
-pytzdata = "*"
-
-[tool.poetry.dev-dependencies]
-pylint = "^2"
-"autopep8" = "^1"
-pyinstaller = "~3.5"
-pytest = "^4"
-pywin32-ctypes = {version = "*", markers = "sys_platform == 'win32'"} # Pyinstaller require this
-rope = "0.14.0"
-pefile = "^2019.4.18"
-
-[[tool.poetry.source]]
-# Required for use mirror, see https://github.com/python-poetry/poetry/issues/1632
-name = "aliyun"
-url = "https://mirrors.aliyun.com/pypi/simple"
-default = true
-
-[build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
-
+[dependency-groups]
+dev = [
+    "pylint<3,>=2",
+    "autopep8<2,>=1",
+    "pyinstaller~=3.5",
+    "pytest<5,>=4",
+    "pywin32-ctypes; sys_platform == \"win32\"",
+    "rope==0.14.0",
+    "pefile<2020.0.0,>=2019.4.18",
+    "sphinx~=1.7",
+    "recommonmark~=0.4",
+    "markupsafe==0.23",
+]

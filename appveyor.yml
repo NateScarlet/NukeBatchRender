@@ -1,23 +1,25 @@
 environment:
   PYTHONPATH: lib
+  PATH: 'C:\Users\appveyor\.local\bin;%PATH%'
   AHK_DOWNLOAD_URL: https://autohotkey.com/download/ahk.zip
   matrix:
     - PYTHON: "C:\\Python37-x64"
 install:
   # Install python dependency.
-  - "%PYTHON%\\python.exe -m pip install poetry"
-  - "%PYTHON%\\python.exe -m poetry install"
-  - "%PYTHON%\\python.exe -m pip install -r Documentation/requirements.txt"
-  - ps: $env:SPHINXBUILD="$env:PYTHON\Scripts\sphinx-build.exe"
+  - ps: |
+      irm https://astral.sh/uv/install.ps1 | iex
+      $env:Path = "$env:UserProfile\.local\bin;$env:Path"
   - mkdir build
   # Download autohotkey
   - ps: Invoke-WebRequest $env:AHK_DOWNLOAD_URL -OutFile build/ahk.zip
   - 7z x build/ahk.zip -obuild/ahk
   - ps: $env:PATH="$env:PATH;$pwd\build\ahk\Compiler"
 build_script:
+  # 替换 uv.lock 中的 pypi.lan 为 pypi.org
+  - ps: (Get-Content -Path uv.lock -Raw) -replace 'http://pypi.lan', 'https://pypi.org' | Set-Content -Path uv.lock
   - ps: Get-ChildItem -Include *.ahk lib/batchrender/bin/* | % {ahk2exe /in $_}
-  - "%PYTHON%\\python.exe -m poetry run pyinstaller -F main.spec"
-  - "Documentation/make.bat html"
+  - "uv run python -m PyInstaller -F main.spec"
+  - "uv run Documentation/make.bat html"
 after_build:
   - "7z a -tzip -xr!.* -xr0!build build\\NukeBatchRender-%APPVEYOR_REPO_TAG_NAME%-win.zip"
 artifacts:
@@ -25,7 +27,7 @@ artifacts:
     name: Prebuild package
 before_deploy:
   - ps: >-
-      & ${env:PYTHON}/python.exe -m poetry run python Documentation/get_changelog.py $env:APPVEYOR_REPO_TAG_NAME build/release_note.md;
+      & uv run Documentation/get_changelog.py $env:APPVEYOR_REPO_TAG_NAME build/release_note.md;
       ${env:APPVEYOR_RELEASE_DESCRIPTION} = (Get-Content -Encoding utf8 build/release_note.md) -join "`n";
 deploy:
   tag: $(APPVEYOR_REPO_TAG_NAME)

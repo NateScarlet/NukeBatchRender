@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.16.3](https://github.com/NateScarlet/NukeBatchRender/compare/v0.16.2...v0.16.3) (2025-04-09)
+
+
+### Features
+
+* supports win11 ([cadd287](https://github.com/NateScarlet/NukeBatchRender/commit/cadd2870e837c0af0c748dda57af0d1823f0985b))
+
+
+### Bug Fixes
+
+* wrong decode error handling ([fa14810](https://github.com/NateScarlet/NukeBatchRender/commit/fa14810ea9109cedf0ca2b67e5e727976f5b2208))
+
 ### [0.16.2](https://github.com/NateScarlet/NukeBatchRender/compare/v0.16.1...v0.16.2) (2021-02-23)
 
 

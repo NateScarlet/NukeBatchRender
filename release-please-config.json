@@ -1,0 +1,9 @@
+{
+  "$schema": "https://github.com/googleapis/release-please/raw/refs/heads/main/schemas/config.json",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
+  "changelog-type": "github",
+  "packages": {
+    ".": {}
+  }
+}

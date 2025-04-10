@@ -1,5 +1,6 @@
 on:
   push:
+  release:
   workflow_dispatch:
 permissions:
   contents: write

@@ -80,4 +80,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create ${env:RELEASE} --prerelease || true # may already created by release please
+          if ($env:RELEASE -eq "edge") {
+            git push -f origin HEAD:refs/tags/edge
+          }
           gh release upload ${env:RELEASE} --clobber build/NukeBatchRender-${env:RELEASE}-win.zip

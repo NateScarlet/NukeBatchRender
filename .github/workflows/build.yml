@@ -9,9 +9,12 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{steps.release.outputs.tag_name}}
     if: startsWith(github.ref, 'refs/heads/master')
     steps:
       - uses: googleapis/release-please-action@v4
+        id: release
         with:
           release-type: python
   build:
@@ -21,6 +24,7 @@ jobs:
       - release-please
     env:
       PYTHONPATH: lib
+      RELEASE: ${{ needs.release-please.outputs.tag_name || github.ref_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -68,12 +72,12 @@ jobs:
 
       - name: Package artifacts
         run: |
-          7z a -tzip '-xr!.*' '-xr0!build' build\NukeBatchRender-${{ github.ref_name }}-win.zip
+          7z a -tzip '-xr!.*' '-xr0!build' build\NukeBatchRender-${env:RELEASE}-win.zip
 
       - name: Release
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ env.RELEASE }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create ${{github.ref_name}} --draft || true # may already created by release please
-          gh release upload ${{ github.ref_name }} build/NukeBatchRender-${{ github.ref_name }}-win.zip
+          gh release create ${env:RELEASE} --prerelease || true # may already created by release please
+          gh release upload ${env:RELEASE} --clobber build/NukeBatchRender-${env:RELEASE}-win.zip

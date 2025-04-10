@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag_name: ${{steps.release.outputs.tag_name}}
-    if: startsWith(github.ref, 'refs/heads/master')
+    if: github.ref == 'refs/heads/master'
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -24,7 +24,7 @@ jobs:
       - release-please
     env:
       PYTHONPATH: lib
-      RELEASE: ${{ needs.release-please.outputs.tag_name || github.ref_name }}
+      RELEASE: ${{ needs.release-please.outputs.tag_name || (github.ref == 'refs/heads/master' && 'edge' || '') }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -75,7 +75,7 @@ jobs:
           7z a -tzip '-xr!.*' '-xr0!build' build\NukeBatchRender-${env:RELEASE}-win.zip
 
       - name: Release
-        if: ${{ env.RELEASE }}
+        if: env.RELEASE
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

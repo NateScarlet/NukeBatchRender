@@ -61,7 +61,7 @@ dependencies = [
     "zipp==3.1.0 ; python_full_version >= '3.6' and python_full_version < '3.8'",
 ]
 name = "nukebatchrender"
-version = "0.15.5"
+version = "0.16.4"
 description = "Nuke 批渲染"
 
 [dependency-groups]

@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.17.0](https://github.com/NateScarlet/NukeBatchRender/compare/0.16.0...v0.17.0) (2025-04-10)
+
+
+### Features
+
+* supports win11 ([cadd287](https://github.com/NateScarlet/NukeBatchRender/commit/cadd2870e837c0af0c748dda57af0d1823f0985b))
+
+
+### Bug Fixes
+
+* can not launch from nuke ([d3edd94](https://github.com/NateScarlet/NukeBatchRender/commit/d3edd941f6fd025e6aef9ce3e39962922de9da56))
+* type error when activate existed instance ([1b7c902](https://github.com/NateScarlet/NukeBatchRender/commit/1b7c9027d6a441529ea42d1157624b4383bb70b1))
+* wrong decode error handling ([fa14810](https://github.com/NateScarlet/NukeBatchRender/commit/fa14810ea9109cedf0ca2b67e5e727976f5b2208))
+
 ### [0.16.4](https://github.com/NateScarlet/NukeBatchRender/compare/v0.16.3...v0.16.4) (2025-04-09)
 
 ### [0.16.3](https://github.com/NateScarlet/NukeBatchRender/compare/v0.16.2...v0.16.3) (2025-04-09)
